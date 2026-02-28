@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { DataPreparation } from './components/DataPreparation'
-import { MemoryTetris } from './components/MemoryTetris'
 import { MemoryTetrisMini } from './components/MemoryTetrisMini'
 import { ChatInterface } from './components/ChatInterface'
 import { EngineInterface } from './components/EngineInterface'
@@ -167,16 +166,7 @@ function App() {
           <div className="w-full h-full max-w-7xl mx-auto p-4 md:p-8 overflow-x-hidden">
             {displayedTab === 'studio' && <DataPreparation />}
             {displayedTab === 'models' && <ModelsInterface />}
-            {displayedTab === 'engine' && (
-              <div className="space-y-8">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Fine-Tuning Engine</h2>
-                  <span className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded border border-green-500/20">MLX Accelerated</span>
-                </div>
-                <MemoryTetris />
-                <EngineInterface />
-              </div>
-            )}
+            {displayedTab === 'engine' && <EngineInterface />}
             {displayedTab === 'evaluations' && <Evaluations />}
             {displayedTab === 'rag' && <RagKnowledge />}
             {displayedTab === 'agents' && <AgentWorkflows />}

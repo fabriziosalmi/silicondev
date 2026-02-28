@@ -3,109 +3,66 @@ import { apiClient, type SystemStats } from '../api/client'
 
 export function MemoryTetris() {
     const [stats, setStats] = useState<SystemStats | null>(null)
-    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
                 const data = await apiClient.monitor.getStats()
                 setStats(data)
-                setError(null)
-            } catch (err: any) {
-                setError("Failed to connect to monitoring service")
+            } catch {
+                // silent
             }
         }
 
         fetchStats()
-        const interval = setInterval(fetchStats, 1000)
+        const interval = setInterval(fetchStats, 2000)
         return () => clearInterval(interval)
     }, [])
 
-    if (error) {
-        return (
-            <div className="h-full flex items-center justify-center text-red-400">
-                {error}
-            </div>
-        )
-    }
+    if (!stats) return null
 
-    if (!stats) {
-        return (
-            <div className="h-full flex items-center justify-center text-gray-500 animate-pulse">
-                Connecting to System Monitor...
-            </div>
-        )
-    }
-
-    const formatBytes = (bytes: number) => {
-        const gb = bytes / (1024 * 1024 * 1024)
-        return `${gb.toFixed(1)} GB`
-    }
+    const formatGB = (bytes: number) => `${(bytes / (1024 * 1024 * 1024)).toFixed(1)}`
 
     return (
-        <div className="flex flex-col space-y-6">
-
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* RAM Block */}
-                <div className="bg-black/20 p-5 rounded-xl border border-white/10 shadow-inner">
-                    <div className="flex justify-between items-end mb-3">
-                        <span className="text-[11px] font-bold text-gray-500 tracking-widest uppercase">Unified Memory</span>
-                        <span className="text-xl font-mono text-gray-300">{stats.memory.percent}%</span>
-                    </div>
-                    <div className="h-24 bg-black/40 rounded-lg overflow-hidden flex flex-col-reverse relative border border-white/5">
-                        {/* Visualizing "Tetris" blocks */}
-                        <div
-                            className="w-full bg-gradient-to-t from-blue-600 to-cyan-400 transition-all duration-500 ease-in-out"
-                            style={{ height: `${stats.memory.percent}%` }}
-                        />
-                        {/* Grid overlay */}
-                        <div className="absolute inset-0 grid grid-cols-8 grid-rows-4 gap-0.5 opacity-20 pointer-events-none">
-                            {Array.from({ length: 32 }).map((_, i) => (
-                                <div key={i} className="border border-black"></div>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-500 mt-2 font-mono">
-                        <span>Used: {formatBytes(stats.memory.used)}</span>
-                        <span>Total: {formatBytes(stats.memory.total)}</span>
-                    </div>
-                </div>
-
-                {/* CPU Block */}
-                <div className="bg-black/20 p-5 rounded-xl border border-white/10 shadow-inner">
-                    <div className="flex justify-between items-end mb-3">
-                        <span className="text-[11px] font-bold text-gray-500 tracking-widest uppercase">CPU Load</span>
-                        <span className="text-xl font-mono text-gray-300">{stats.cpu.percent}%</span>
-                    </div>
-                    <div className="h-24 flex items-end space-x-1">
-                        {/* Making a fake history chart or just current bar per core could be cool, keeping it simple for now */}
-                        <div className="w-full h-full bg-black/40 rounded-lg overflow-hidden relative border border-white/5">
-                            <div
-                                className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-purple-600 to-pink-400 transition-all duration-300"
-                                style={{ height: `${stats.cpu.percent}%` }}
-                            />
-                        </div>
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-500 mt-2 font-mono">
-                        <span>Cores: {stats.cpu.cores}</span>
-                        <span>System: macOS (Apple Silicon)</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Disk Info (Quick Bar) */}
-            <div className="bg-black/20 p-4 rounded-xl border border-white/10 shadow-inner">
-                <div className="flex justify-between items-center mb-2">
-                    <span className="text-[11px] font-bold text-gray-500 tracking-widest uppercase">Local Storage</span>
-                    <span className="text-[11px] font-mono text-gray-400">{stats.disk.percent.toFixed(1)}% Used</span>
-                </div>
-                <div className="h-1.5 bg-black/60 rounded-full overflow-hidden border border-white/5">
+        <div className="flex items-center gap-6 px-4 py-2.5 bg-black/20 rounded-lg border border-white/5">
+            {/* RAM */}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider shrink-0">Memory</span>
+                <div className="flex-1 h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
                     <div
-                        className="h-full bg-yellow-500/80 transition-all duration-1000 shadow-[0_0_10px_rgba(234,179,8,0.5)]"
-                        style={{ width: `${stats.disk.percent}%` }}
+                        className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 transition-all duration-500"
+                        style={{ width: `${stats.memory.percent}%` }}
                     />
                 </div>
+                <span className="text-[11px] font-mono text-gray-400 shrink-0">
+                    {formatGB(stats.memory.used)}<span className="text-gray-600">/</span>{formatGB(stats.memory.total)} GB
+                </span>
+            </div>
+
+            <div className="w-px h-4 bg-white/10" />
+
+            {/* CPU */}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider shrink-0">CPU</span>
+                <div className="flex-1 h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                    <div
+                        className="h-full bg-gradient-to-r from-purple-600 to-pink-400 transition-all duration-300"
+                        style={{ width: `${stats.cpu.percent}%` }}
+                    />
+                </div>
+                <span className="text-[11px] font-mono text-gray-400 shrink-0">
+                    {stats.cpu.percent.toFixed(0)}% <span className="text-gray-600">·</span> {stats.cpu.cores} cores
+                </span>
+            </div>
+
+            <div className="w-px h-4 bg-white/10" />
+
+            {/* Disk */}
+            <div className="flex items-center gap-3 min-w-0">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider shrink-0">Disk</span>
+                <span className="text-[11px] font-mono text-gray-400 shrink-0">
+                    {stats.disk.percent.toFixed(0)}%
+                </span>
             </div>
         </div>
     )

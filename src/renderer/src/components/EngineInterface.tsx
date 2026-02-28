@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { apiClient } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
+import { MemoryTetris } from './MemoryTetris'
 import { Card } from './ui/Card'
 import { Cpu, Activity, Play, Settings2, ShieldAlert, FileText, Download } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -138,6 +139,8 @@ export function EngineInterface() {
                 description="Train LoRA adapters directly on your local Apple Silicon. Private, accelerated, and efficient."
                 badge="MLX"
             />
+
+            <MemoryTetris />
 
             {models.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-xl bg-white/[0.02] p-8 mt-4">
