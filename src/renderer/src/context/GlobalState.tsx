@@ -1,11 +1,28 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { apiClient } from '../api/client';
 
 interface SystemStats {
-    ramUsageGB: number;
-    ramTotalGB: number;
-    vramUsageGB: number;
-    vramTotalGB: number;
+    memory: {
+        total: number;
+        available: number;
+        used: number;
+        percent: number;
+    };
+    disk: {
+        total: number;
+        free: number;
+        used: number;
+        percent: number;
+    };
+    cpu: {
+        percent: number;
+        cores: number;
+    };
+    platform: {
+        system: string;
+        processor: string;
+        release: string;
+    };
 }
 
 interface LoadedModel {
@@ -35,39 +52,29 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
     const [activeModel, setActiveModel] = useState<LoadedModel | null>(null);
     const [isTraining, setIsTraining] = useState(false);
 
-    const { isConnected, lastMessage } = useWebSocket('ws://127.0.0.1:8000/ws');
-
+    // Poll backend health + stats via HTTP instead of non-existent WebSocket
     useEffect(() => {
-        setBackendReady(isConnected);
-    }, [isConnected]);
+        let mounted = true;
 
-    useEffect(() => {
-        if (lastMessage) {
-            if (lastMessage.type === 'system_stats') {
-                setSystemStats(lastMessage.payload);
-            } else if (lastMessage.type === 'training_status') {
-                setIsTraining(lastMessage.payload.is_training);
+        const poll = async () => {
+            try {
+                const healthy = await apiClient.checkHealth();
+                if (!mounted) return;
+                setBackendReady(healthy);
+
+                if (healthy) {
+                    const stats = await apiClient.monitor.getStats();
+                    if (mounted) setSystemStats(stats as unknown as SystemStats);
+                }
+            } catch {
+                if (mounted) setBackendReady(false);
             }
-        }
-    }, [lastMessage]);
+        };
 
-    // Fallback Mock for Demo explicitly added since backend WS is not implemented yet
-    useEffect(() => {
-        if (isConnected) return; // Don't mock if we actually connect
-
-        // Mocking Apple Silicon Unified Memory stats
-        const interval = setInterval(() => {
-            setSystemStats({
-                ramUsageGB: 4.2 + Math.random() * 0.5,
-                ramTotalGB: 16,
-                vramUsageGB: activeModel ? 2.5 + Math.random() * 0.2 : 0.5 + Math.random() * 0.1,
-                vramTotalGB: 16,
-            });
-            setBackendReady(true); // Mock backend ready for demo purposes
-        }, 2000);
-
-        return () => clearInterval(interval);
-    }, [isConnected, activeModel]);
+        poll();
+        const interval = setInterval(poll, 3000);
+        return () => { mounted = false; clearInterval(interval); };
+    }, []);
 
     return (
         <GlobalStateContext.Provider value={{

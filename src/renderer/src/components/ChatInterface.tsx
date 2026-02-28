@@ -121,7 +121,14 @@ export function ChatInterface() {
         if (!input.trim() || !currentModelId || isGenerating) return
 
         const userMsg: Message = { role: 'user', content: input }
-        const conversation = [...messages, userMsg]
+        const systemMsg: Message | null = settings.systemPrompt?.trim()
+            ? { role: 'system', content: settings.systemPrompt.trim() }
+            : null
+        const conversation = [
+            ...(systemMsg ? [systemMsg] : []),
+            ...messages,
+            userMsg
+        ]
         setMessages(prev => [...prev, userMsg])
         setInput('')
         setIsGenerating(true)
@@ -153,24 +160,37 @@ export function ChatInterface() {
                 })
             })
 
+            if (!response.ok) {
+                const errBody = await response.text()
+                throw new Error(errBody || `HTTP ${response.status}`)
+            }
+
             const reader = response.body?.getReader()
             const decoder = new TextDecoder()
             let accumulated = ""
+            let lineBuffer = ""
 
             if (reader) {
                 while (true) {
                     const { done, value } = await reader.read()
                     if (done) break
 
-                    const chunk = decoder.decode(value)
-                    const lines = chunk.split('\n')
+                    lineBuffer += decoder.decode(value, { stream: true })
+                    const lines = lineBuffer.split('\n')
+                    lineBuffer = lines.pop() ?? ''
 
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
-                            const dataString = line.slice(6).trim();
-                            if (!dataString) continue;
+                            const dataString = line.slice(6).trim()
+                            if (!dataString) continue
 
-                            const data = JSON.parse(dataString)
+                            let data: any
+                            try {
+                                data = JSON.parse(dataString)
+                            } catch {
+                                continue
+                            }
+
                             if (data.error) throw new Error(data.error)
 
                             if (data.text) {

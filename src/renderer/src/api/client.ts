@@ -1,11 +1,27 @@
 export const API_BASE = 'http://127.0.0.1:8000'
 
 export interface SystemStats {
-    cpu: number
-    memory: number
-    gpu: number
-    vram: number
-    active_load: number
+    memory: {
+        total: number
+        available: number
+        used: number
+        percent: number
+    }
+    disk: {
+        total: number
+        free: number
+        used: number
+        percent: number
+    }
+    cpu: {
+        percent: number
+        cores: number
+    }
+    platform: {
+        system: string
+        processor: string
+        release: string
+    }
 }
 
 export interface PreviewRow {
@@ -31,11 +47,11 @@ export const apiClient = {
             if (!res.ok) throw new Error('Failed to preview CSV');
             return res.json();
         },
-        convertCsv: async (filePath: string, outputPath: string, instructionCol: string, inputCol?: string, outputCol?: string, stripPii: boolean = false, modelFamily: string = "Llama"): Promise<any> => {
+        convertCsv: async (filePath: string, outputPath: string, instructionCol: string, inputCol?: string, outputCol?: string): Promise<any> => {
             const res = await fetch(`${API_BASE}/api/preparation/convert`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ file_path: filePath, output_path: outputPath, instruction_col: instructionCol, input_col: inputCol, output_col: outputCol, strip_pii: stripPii, model_family: modelFamily })
+                body: JSON.stringify({ file_path: filePath, output_path: outputPath, instruction_col: instructionCol, input_col: inputCol, output_col: outputCol })
             });
             if (!res.ok) throw new Error('Failed to convert CSV');
             return res.json();
@@ -106,14 +122,14 @@ export const apiClient = {
             if (!res.ok) throw new Error('Failed to start fine-tuning');
             return res.json();
         },
-        chat: async (modelId: string, messages: any[], params: any = {}): Promise<any> => {
+        chatStream: async (modelId: string, messages: any[], params: any = {}): Promise<Response> => {
             const res = await fetch(`${API_BASE}/api/engine/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId, messages, ...params })
             });
             if (!res.ok) throw new Error('Failed to generate chat response');
-            return res.json();
+            return res;
         },
         stopChat: async (): Promise<any> => {
             const res = await fetch(`${API_BASE}/api/engine/chat/stop`, {

@@ -22,6 +22,9 @@ adapters/
 *.jsonl
 *.csv
 
+# Runtime-generated config
+backend/models.json
+
 # Logs
 *.log
 synthetic_data.csv

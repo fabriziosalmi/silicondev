@@ -3,7 +3,7 @@ import { apiClient, type PreviewRow } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
 import { Card } from './ui/Card'
 import { useGlobalState } from '../context/GlobalState'
-import { Database, FileText, Server, Sparkles, MessageSquare } from 'lucide-react'
+import { Database, FileText, Server, Sparkles, MessageSquare, FolderOpen, Save } from 'lucide-react'
 
 export function DataPreparation() {
     const [dataMode, setDataMode] = useState<'file' | 'mcp'>('file')
@@ -67,9 +67,7 @@ export function DataPreparation() {
                 outputPath,
                 instructionCol,
                 inputCol || undefined,
-                outputCol,
-                stripPii,
-                modelFamily
+                outputCol
             )
             alert(`Success! Training data saved to: ${outputPath}`)
             setPreview([])
@@ -166,7 +164,7 @@ export function DataPreparation() {
                                     }`}
                             >
                                 <span className="truncate">{fileName || "Select File..."}</span>
-                                <span className="opacity-50">📂</span>
+                                <FolderOpen className="w-4 h-4 opacity-50" />
                             </button>
                         </div>
                         <div className="flex flex-col space-y-1.5">
@@ -183,7 +181,7 @@ export function DataPreparation() {
                                 title={outputPath}
                             >
                                 <span className="truncate">{outputPath ? "..." + outputPath.slice(-25) : "Select Folder..."}</span>
-                                <span className="opacity-50">💾</span>
+                                <Save className="w-4 h-4 opacity-50" />
                             </button>
                         </div>
                         <div className="flex flex-col space-y-1.5">
@@ -262,7 +260,7 @@ export function DataPreparation() {
                                     title={outputPath}
                                 >
                                     <span className="truncate">{outputPath ? "..." + outputPath.slice(-25) : "Select Folder..."}</span>
-                                    <span className="opacity-50">💾</span>
+                                    <Save className="w-4 h-4 opacity-50" />
                                 </button>
                             </div>
                         </div>
@@ -337,7 +335,7 @@ export function DataPreparation() {
                                 className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-4 rounded-lg shadow-lg shadow-blue-500/20 transition-all text-sm disabled:opacity-50 flex items-center gap-2"
                             >
                                 {loading ? 'Processing...' : 'Save JSONL'}
-                                {!loading && <span>✨</span>}
+                                {!loading && <Sparkles className="w-3.5 h-3.5" />}
                             </button>
                         )}
                     </div>

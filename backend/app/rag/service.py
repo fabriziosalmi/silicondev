@@ -10,7 +10,7 @@ class RagService:
         self.workspace_dir = Path.home() / ".silicon-studio"
         self.rag_dir = self.workspace_dir / "rag"
         self.collections_file = self.rag_dir / "collections.json"
-        
+
         self.rag_dir.mkdir(parents=True, exist_ok=True)
         if not self.collections_file.exists():
             with open(self.collections_file, "w") as f:
@@ -48,75 +48,97 @@ class RagService:
 
     def ingest_files(self, collection_id: str, files: List[str], chunk_size: int, overlap: int) -> Dict[str, Any]:
         """
-        Ingests files by splitting them into chunks using recursive character splitting.
+        Ingests files (or directories) by splitting them into chunks
+        using recursive character splitting with true overlap support.
         """
         collections = self.get_collections()
         col = next((c for c in collections if c["id"] == collection_id), None)
         if not col:
             raise ValueError("Collection not found")
 
-        all_chunks = []
+        all_chunks: List[str] = []
         for file_path in files:
             path = Path(file_path)
-            if not path.exists(): continue
-            
-            try:
-                with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                    text = f.read()
-                
-                # Recursive Splitting Logic
-                chunks = self._recursive_split(text, chunk_size, overlap)
-                all_chunks.extend(chunks)
-            except Exception as e:
-                print(f"Error processing {file_path}: {e}")
+            if not path.exists():
+                continue
+
+            # Expand directories recursively into individual files
+            paths_to_process: List[Path] = []
+            if path.is_dir():
+                for root, _, filenames in os.walk(path):
+                    for name in filenames:
+                        candidate = Path(root) / name
+                        if candidate.is_file():
+                            paths_to_process.append(candidate)
+            else:
+                if path.is_file():
+                    paths_to_process.append(path)
+
+            for file_to_process in paths_to_process:
+                try:
+                    with open(file_to_process, "r", encoding="utf-8", errors="ignore") as f:
+                        text = f.read()
+
+                    base_chunks = self._recursive_split(text, chunk_size)
+
+                    # Apply true overlapping windows between consecutive chunks
+                    if overlap > 0 and len(base_chunks) > 1:
+                        chunks: List[str] = [base_chunks[0][:chunk_size]]
+                        for i in range(1, len(base_chunks)):
+                            prev = chunks[-1]
+                            prefix = prev[-overlap:] if overlap < len(prev) else prev
+                            chunks.append((prefix + base_chunks[i])[:chunk_size])
+                    else:
+                        chunks = base_chunks
+
+                    all_chunks.extend(chunks)
+                except Exception as e:
+                    print(f"Error processing {file_to_process}: {e}")
 
         # In a real app, we would embed these chunks and store in FAISS/Chroma
         # For now, we update the metadata to reflect real chunk counts
         col["chunks"] += len(all_chunks)
         col["size"] = f"{round(col['chunks'] * 0.5)} KB" # Estimated
         col["lastUpdated"] = "Just now"
-        
+
         self._save_collections(collections)
         return col
 
-    def _recursive_split(self, text: str, chunk_size: int, chunk_overlap: int) -> List[str]:
+    def _recursive_split(self, text: str, chunk_size: int) -> List[str]:
         """
-        Splits text by trying different separators in order: \n\n, \n, " ", ""
+        Splits text by trying different separators in order: \\n\\n, \\n, " ", ""
         """
         separators = ["\n\n", "\n", " ", ""]
-        final_chunks = []
-        
-        def split_text(txt, seps):
+
+        def split_text(txt: str, seps: List[str]) -> List[str]:
             if len(txt) <= chunk_size:
                 return [txt]
-            
+
             if not seps:
-                return [txt[i:i+chunk_size] for i in range(0, len(txt), chunk_size - chunk_overlap)]
-            
+                return [txt[i:i+chunk_size] for i in range(0, len(txt), chunk_size)]
+
             sep = seps[0]
             parts = txt.split(sep)
-            
-            chunks = []
+
+            chunks: List[str] = []
             current_chunk = ""
-            
+
             for part in parts:
                 if len(current_chunk) + len(part) + (len(sep) if current_chunk else 0) <= chunk_size:
                     current_chunk += (sep if current_chunk else "") + part
                 else:
                     if current_chunk:
                         chunks.append(current_chunk)
-                    
-                    # If the part itself is larger than chunk_size, recurse on it
+
                     if len(part) > chunk_size:
                         chunks.extend(split_text(part, seps[1:]))
                         current_chunk = ""
                     else:
                         current_chunk = part
-            
+
             if current_chunk:
                 chunks.append(current_chunk)
-            
-            # Add overlap (simplified for this implementation)
+
             return chunks
 
         return split_text(text, separators)

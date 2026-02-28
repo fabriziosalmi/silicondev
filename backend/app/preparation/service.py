@@ -24,14 +24,12 @@ class DataPreparationService:
         except Exception as e:
             raise ValueError(f"Error reading CSV: {str(e)}")
 
-    def convert_csv_to_jsonl(self, 
-                             file_path: str, 
-                             output_path: str, 
-                             instruction_col: str, 
-                             input_col: Optional[str], 
-                             output_col: str,
-                             strip_pii: bool = False,
-                             model_family: str = "Llama") -> Dict[str, Any]:
+    def convert_csv_to_jsonl(self,
+                             file_path: str,
+                             output_path: str,
+                             instruction_col: str,
+                             input_col: Optional[str],
+                             output_col: str) -> Dict[str, Any]:
         """
         Convert CSV to JSONL format with ruthless structural validation.
         Rationale: Garbage In, Garbage Out. SOTA fine-tuning requires clean data.

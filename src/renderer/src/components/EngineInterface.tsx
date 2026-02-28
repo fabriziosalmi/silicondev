@@ -119,7 +119,9 @@ export function EngineInterface() {
         setExporting(true)
         try {
             const modelId = `ft-${jobStatus.job_id}`
-            const fullPath = exportPath.replace('~', (window as any).process?.env?.HOME || '/Users/fab')
+            const fullPath = exportPath.startsWith('~')
+                ? exportPath // Let the backend expand ~ server-side
+                : exportPath
             await apiClient.engine.exportModel(modelId, `${fullPath}/${jobStatus.job_name || 'model'}_q${qBits}`, qBits)
             alert(`Model exported successfully to ${fullPath}`)
         } catch (err: any) {

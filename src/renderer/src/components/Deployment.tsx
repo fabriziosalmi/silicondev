@@ -172,7 +172,7 @@ export function Deployment() {
                                         onChange={(e) => setApiKey(e.target.value)}
                                         className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[13px] text-gray-300 outline-none focus:border-blue-500 disabled:opacity-50 font-mono shadow-inner"
                                     />
-                                    <p className="text-[10px] text-gray-500 leading-relaxed opacity-50">Bearer token for Authorization header.</p>
+                                    <p className="text-[10px] text-yellow-500/70 leading-relaxed">Client-side only. The backend does not enforce this key.</p>
                                 </div>
                             </div>
                         </div>
