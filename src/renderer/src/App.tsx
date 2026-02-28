@@ -84,7 +84,7 @@ function App() {
       <div className="flex-1 flex overflow-hidden rounded-bl-lg rounded-br-lg border-t border-white/10 bg-[rgba(20,20,20,0.7)] backdrop-blur-3xl shadow-[inset_0_2px_20px_rgba(255,255,255,0.02)]">
 
         {/* Sidebar */}
-        <div className="w-64 bg-black/40 backdrop-blur-md flex flex-col p-4 pt-6 border-r border-white/5 relative z-20 shadow-[10px_0_30px_rgba(0,0,0,0.5)]">
+        <div className="w-64 bg-black/40 backdrop-blur-md flex flex-col p-4 pt-6 border-r border-white/5 relative z-20 shadow-[10px_0_30px_rgba(0,0,0,0.5)] rounded-bl-lg">
 
           <nav className="space-y-6">
 
