@@ -5,6 +5,8 @@ import os
 import signal
 import time
 import logging
+import threading
+from collections import deque
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +15,28 @@ router = APIRouter()
 # Global state to keep track of the server
 server_process = None
 server_start_time = None
+server_logs: deque = deque(maxlen=500)
+_log_lock = threading.Lock()
+_log_thread = None
+
+
+def _read_output(pipe, label: str):
+    """Read subprocess output line by line into the ring buffer."""
+    try:
+        for raw_line in iter(pipe.readline, b''):
+            line = raw_line.decode("utf-8", errors="replace").rstrip()
+            if line:
+                entry = {
+                    "timestamp": time.time(),
+                    "source": label,
+                    "message": line,
+                }
+                with _log_lock:
+                    server_logs.append(entry)
+    except Exception:
+        pass
+    finally:
+        pipe.close()
 
 class StartRequest(BaseModel):
     model_path: str
@@ -36,13 +60,20 @@ async def start_server(req: StartRequest):
     ]
 
     try:
+        server_logs.clear()
         server_process = subprocess.Popen(
             cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             preexec_fn=os.setsid if os.name == 'posix' else None
         )
         server_start_time = time.time()
+
+        # Start background threads to read stdout/stderr into the log buffer
+        for pipe, label in [(server_process.stdout, "stdout"), (server_process.stderr, "stderr")]:
+            t = threading.Thread(target=_read_output, args=(pipe, label), daemon=True)
+            t.start()
+
         logger.info(f"Deployment server started on {req.host}:{req.port} (PID {server_process.pid})")
 
         return {"status": "success", "message": f"API Server started on {req.host}:{req.port}", "pid": server_process.pid}
@@ -93,3 +124,11 @@ async def get_status():
         "pid": server_process.pid if is_running else None,
         "uptime_seconds": uptime,
     }
+
+
+@router.get("/logs")
+async def get_logs(since: float = 0):
+    """Return log entries newer than `since` (unix timestamp)."""
+    with _log_lock:
+        entries = [e for e in server_logs if e["timestamp"] > since]
+    return {"logs": entries}

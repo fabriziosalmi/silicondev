@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { PageHeader } from './ui/PageHeader'
 import { Card } from './ui/Card'
 import { TestTube, Play, BarChart2, Loader2 } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
@@ -140,26 +139,22 @@ export function Evaluations() {
 
     return (
         <div className="h-full flex flex-col text-white overflow-hidden pb-4">
-            <PageHeader
-                title="Model Evaluations"
-                description="Run standardized benchmarks on your local and fine-tuned models to objectively measure capabilities."
-            />
 
             <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-6">
 
                 {/* Active Model Banner */}
                 <div className="bg-black/20 border border-white/10 rounded-xl p-4 flex items-center justify-between">
                     <div>
-                        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">Target Model</h3>
+                        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-1">Target Model</h3>
                         {activeModel ? (
                             <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                <div className="w-2 h-2 rounded-full bg-green-500" />
                                 <span className="text-lg font-bold">{activeModel.name}</span>
                                 <span className="text-xs text-gray-500 font-mono ml-2">({activeModel.id.split('/').pop()})</span>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2 text-orange-400">
-                                <div className="w-2 h-2 rounded-full bg-orange-500" />
+                            <div className="flex items-center gap-2 text-gray-400">
+                                <div className="w-2 h-2 rounded-full bg-gray-500" />
                                 <span className="text-lg font-medium">No model loaded in memory</span>
                             </div>
                         )}
@@ -176,7 +171,7 @@ export function Evaluations() {
                         </div>
                         <div className="p-0 flex-1 overflow-hidden">
                             <table className="w-full text-left text-sm">
-                                <thead className="bg-black/40 text-gray-500">
+                                <thead className="bg-[#18181B] text-gray-500">
                                     <tr>
                                         <th className="px-5 py-3 font-semibold">Benchmark</th>
                                         <th className="px-5 py-3 font-semibold">Type</th>
@@ -227,7 +222,7 @@ export function Evaluations() {
                     <Card className="flex flex-col">
                         <div className="p-5 border-b border-white/10 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <BarChart2 className="w-5 h-5 text-purple-400" />
+                                <BarChart2 className="w-5 h-5 text-blue-400" />
                                 <h2 className="text-lg font-bold">Past Results</h2>
                             </div>
                             {history.length > 0 && (
@@ -241,7 +236,7 @@ export function Evaluations() {
                         </div>
                         <div className="p-0 flex-1 overflow-hidden">
                             <table className="w-full text-left text-sm">
-                                <thead className="bg-black/40 text-gray-500">
+                                <thead className="bg-[#18181B] text-gray-500">
                                     <tr>
                                         <th className="px-5 py-3 font-semibold">Model & Date</th>
                                         <th className="px-5 py-3 font-semibold">Benchmark</th>
@@ -256,7 +251,7 @@ export function Evaluations() {
                                                 <div className="text-xs text-gray-500 mt-1">{h.date}</div>
                                             </td>
                                             <td className="px-5 py-4">
-                                                <span className="bg-purple-500/10 text-purple-300 border border-purple-500/20 px-2 py-0.5 rounded text-xs">{h.bench}</span>
+                                                <span className="bg-blue-500/10 text-blue-300 border border-blue-500/20 px-2 py-0.5 rounded text-xs">{h.bench}</span>
                                             </td>
                                             <td className="px-5 py-4 text-right">
                                                 <div className="text-lg font-bold font-mono text-white">{h.score.toFixed(1)}</div>

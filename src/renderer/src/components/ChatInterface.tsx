@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { apiClient } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
-import { MessageSquare, Settings2, SlidersHorizontal, Cpu, Copy, Check, Paperclip, Eraser, Send, Mic, Brain, Zap, Clock, BarChart3 } from 'lucide-react'
+import { Settings2, SlidersHorizontal, Cpu, Copy, Check, Eraser, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -18,20 +18,12 @@ interface Message {
     }
 }
 
-interface Model {
-    id: string
-    name: string
-    is_custom?: boolean
-    is_finetuned?: boolean
-}
-
 const CHAT_STORAGE_KEY = 'silicon-studio-chat-history';
 const SETTINGS_STORAGE_KEY = 'silicon-studio-chat-settings';
 
 export function ChatInterface() {
     const { activeModel } = useGlobalState()
 
-    // Chat State
     const [messages, setMessages] = useState<Message[]>(() => {
         try {
             const saved = localStorage.getItem(CHAT_STORAGE_KEY);
@@ -42,18 +34,15 @@ export function ChatInterface() {
     })
     const [input, setInput] = useState('')
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-    // Models State for dropdown fallback
-    const [models, setModels] = useState<Model[]>([])
-    const [selectedModelId, setSelectedModelId] = useState<string>('')
 
-    // Settings State
-    const [showSettings, setShowSettings] = useState(true)
+    const [showSettings, setShowSettings] = useState(false)
     const [settings, setSettings] = useState(() => {
         try {
             const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
             return saved ? JSON.parse(saved) : {
-                systemPrompt: "You are a helpful, brilliant AI assistant running locally on Apple Silicon.",
+                systemPrompt: "You are a helpful AI assistant running locally on Apple Silicon.",
                 temperature: 0.7,
                 maxTokens: 1024,
                 maxContext: 4096,
@@ -62,7 +51,7 @@ export function ChatInterface() {
             };
         } catch {
             return {
-                systemPrompt: "You are a helpful, brilliant AI assistant running locally on Apple Silicon.",
+                systemPrompt: "You are a helpful AI assistant running locally on Apple Silicon.",
                 temperature: 0.7,
                 maxTokens: 1024,
                 maxContext: 4096,
@@ -73,10 +62,8 @@ export function ChatInterface() {
     })
 
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-    const [isListening, setIsListening] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false)
 
-    // Persist changes
     useEffect(() => {
         localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
     }, [messages]);
@@ -85,24 +72,23 @@ export function ChatInterface() {
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
     }, [settings]);
 
-    useEffect(() => {
-        // Fetch available models as fallback if activeModel is not set
-        apiClient.engine.getModels().then((data: any[]) => {
-            const playable = data.filter(m => m.downloaded || m.is_custom || m.is_finetuned);
-            setModels(playable)
-            if (playable.length > 0 && !activeModel) setSelectedModelId(playable[0].id)
-        }).catch(console.error)
-    }, [activeModel])
-
-    // Use activeModel if available, else fallback to dropdown selection
-    const currentModelId = activeModel ? activeModel.id : selectedModelId;
+    const currentModelId = activeModel?.id ?? '';
+    const currentModelName = activeModel?.name ?? '';
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
 
+    // Auto-resize textarea
+    useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = '0';
+            textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+        }
+    }, [input])
+
     const handleClearChat = () => {
-        if (window.confirm("Are you sure you want to clear the entire chat history?")) {
+        if (window.confirm("Clear chat history?")) {
             setMessages([]);
             localStorage.removeItem(CHAT_STORAGE_KEY);
         }
@@ -117,10 +103,11 @@ export function ChatInterface() {
         }
     }
 
-    const handleSend = async () => {
-        if (!input.trim() || !currentModelId || isGenerating) return
+    const handleSend = async (directPrompt?: string) => {
+        const text = directPrompt ?? input;
+        if (!text.trim() || !currentModelId || isGenerating) return
 
-        const userMsg: Message = { role: 'user', content: input }
+        const userMsg: Message = { role: 'user', content: text }
         const systemMsg: Message | null = settings.systemPrompt?.trim()
             ? { role: 'system', content: settings.systemPrompt.trim() }
             : null
@@ -130,7 +117,7 @@ export function ChatInterface() {
             userMsg
         ]
         setMessages(prev => [...prev, userMsg])
-        setInput('')
+        if (!directPrompt) setInput('')
         setIsGenerating(true)
 
         const assistantMsgId = Date.now().toString()
@@ -242,188 +229,219 @@ export function ChatInterface() {
         setTimeout(() => setCopiedIndex(null), 2000);
     }
 
+    const sendCodeAction = (code: string, action: string) => {
+        if (isGenerating || !currentModelId) return;
+        const prompts: Record<string, string> = {
+            improve: `Improve the following code. Make it cleaner, more readable, and more idiomatic. Return only the improved code with brief comments explaining what changed.\n\n\`\`\`\n${code}\n\`\`\``,
+            secure: `Review the following code for security vulnerabilities. Fix any issues you find (injection, XSS, unsafe operations, etc). Return the secured code with comments on what was fixed.\n\n\`\`\`\n${code}\n\`\`\``,
+            faster: `Optimize the following code for performance. Reduce unnecessary allocations, improve algorithmic complexity, or use more efficient APIs. Return the optimized code with comments on what changed.\n\n\`\`\`\n${code}\n\`\`\``,
+        };
+        const prompt = prompts[action];
+        if (prompt) handleSend(prompt);
+    }
+
     return (
         <div className="h-full flex flex-col text-white overflow-hidden pb-4">
-            <PageHeader
-                title="Chat Workspace"
-                description="Interact with local models with full markdown support and parameter control."
-            >
-                <div className="flex items-center gap-3">
+            <PageHeader>
+                <div className="flex items-center gap-2">
+                    {messages.length > 0 && (
+                        <button
+                            onClick={handleClearChat}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-500 hover:text-red-400 hover:bg-red-500/5 transition-colors"
+                        >
+                            <Eraser className="w-3.5 h-3.5" />
+                            Clear
+                        </button>
+                    )}
                     <button
                         onClick={() => setShowSettings(!showSettings)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${showSettings ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'}`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showSettings ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                     >
-                        <Settings2 className="w-4 h-4" />
+                        <Settings2 className="w-3.5 h-3.5" />
                         Parameters
                     </button>
                 </div>
             </PageHeader>
 
             <div className="flex-1 flex gap-4 overflow-hidden min-h-0 pr-4">
-                <div className="flex-1 flex flex-col bg-black/20 border border-white/10 rounded-xl overflow-hidden relative shadow-2xl">
+                {/* Main Chat Area */}
+                <div className="flex-1 flex flex-col overflow-hidden relative">
 
-                    {/* Model Selector Bar */}
-                    <div className="p-3 border-b border-white/5 bg-white/[0.02] flex items-center justify-between z-20">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                                <Cpu className="w-4 h-4 text-blue-400" />
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Active Model</span>
-                                <select
-                                    className="bg-transparent text-sm font-bold text-gray-200 outline-none cursor-pointer hover:text-blue-400 transition-colors"
-                                    value={currentModelId}
-                                    onChange={(e) => setSelectedModelId(e.target.value)}
-                                    disabled={!!activeModel || isGenerating}
-                                >
-                                    {models.map(m => (
-                                        <option key={m.id} value={m.id} className="bg-[#18181B]">{m.name}</option>
-                                    ))}
-                                    {models.length === 0 && <option value="">No models available</option>}
-                                </select>
-                            </div>
-                        </div>
-                        {activeModel && (
-                            <div className="flex items-center gap-2 bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20">
-                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                <span className="text-[10px] font-bold text-green-400 uppercase tracking-widest">Loaded</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Messages Area */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                        {messages.length === 0 && (
-                            <div className="h-full flex flex-col items-center justify-center opacity-20 pointer-events-none">
-                                <MessageSquare className="w-16 h-16 mb-4" />
-                                <p className="text-xl font-bold">Start a new conversation</p>
-                                <p className="text-sm">Select a model and type your message below.</p>
-                            </div>
-                        )}
-                        {messages.map((msg, idx) => {
-                            // Parse thinking blocks for reasoning models (Qwen3, DeepSeek, etc.)
-                            let thinkingContent = '';
-                            let visibleContent = msg.content;
-
-                            if (msg.role === 'assistant') {
-                                const thinkMatch = msg.content.match(/<think>([\s\S]*?)(<\/think>|$)/);
-                                if (thinkMatch) {
-                                    thinkingContent = thinkMatch[1].trim();
-                                    // Remove the entire <think>...</think> block from visible content
-                                    visibleContent = msg.content.replace(/<think>[\s\S]*?(<\/think>|$)/, '').trim();
-                                }
-                            }
-
-                            return (
-                                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 group`}>
-                                    <div className={`max-w-[85%] relative rounded-2xl px-5 py-4 shadow-xl ${msg.role === 'user'
-                                        ? 'bg-blue-600 text-white rounded-tr-sm'
-                                        : 'bg-[#18181B] border border-white/10 text-gray-200 rounded-tl-sm'
-                                        }`}>
-                                        {msg.role === 'assistant' && (
-                                            <button
-                                                onClick={() => copyToClipboard(msg.content, idx)}
-                                                className="absolute top-2 right-2 p-1.5 text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition-all rounded bg-white/5"
-                                            >
-                                                {copiedIndex === idx ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                                            </button>
-                                        )}
-
-                                        {/* Thinking/Reasoning Block */}
-                                        {msg.role === 'assistant' && thinkingContent && (
-                                            <details className="mb-3 group/think">
-                                                <summary className="flex items-center gap-2 cursor-pointer text-[11px] font-bold text-purple-400 uppercase tracking-widest select-none hover:text-purple-300 transition-colors py-1">
-                                                    <Brain className="w-4 h-4" />
-                                                    <span>Reasoning</span>
-                                                    <span className="text-[9px] text-gray-600 font-normal normal-case tracking-normal ml-1">
-                                                        ({thinkingContent.split(/\s+/).length} words)
-                                                    </span>
-                                                    <span className="ml-auto text-[10px] text-gray-600 group-open/think:hidden">▸ Show</span>
-                                                    <span className="ml-auto text-[10px] text-gray-600 hidden group-open/think:inline">▾ Hide</span>
-                                                </summary>
-                                                <div className="mt-2 p-3 bg-purple-500/5 border border-purple-500/10 rounded-lg text-[12px] text-gray-400 leading-relaxed max-h-[300px] overflow-y-auto custom-scrollbar">
-                                                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                                                        {thinkingContent}
-                                                    </ReactMarkdown>
-                                                </div>
-                                            </details>
-                                        )}
-
-                                        {/* Visible Response */}
-                                        <div className="prose prose-invert prose-sm max-w-none prose-pre:bg-black/40 prose-pre:border prose-pre:border-white/5">
-                                            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                                                {visibleContent}
-                                            </ReactMarkdown>
-                                        </div>
-
-                                        {msg.role === 'assistant' && msg.stats && msg.stats.totalTokens > 0 && (
-                                            <div className="mt-3 pt-3 border-t border-white/5 flex gap-4 text-[10px] font-mono text-gray-500 uppercase tracking-widest">
-                                                <span title="Tokens Per Second" className="flex items-center gap-1"><Zap className="w-3 h-3" /> {msg.stats.tokensPerSecond} t/s</span>
-                                                <span title="Time To First Token" className="flex items-center gap-1"><Clock className="w-3 h-3" /> {msg.stats.timeToFirstToken}s ttft</span>
-                                                <span title="Total Tokens Generated" className="flex items-center gap-1"><BarChart3 className="w-3 h-3" /> {msg.stats.totalTokens} tkns</span>
-                                            </div>
-                                        )}
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto">
+                        {messages.length === 0 ? (
+                            <div className="h-full flex flex-col items-center justify-center">
+                                <div className="text-center max-w-md">
+                                    <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
+                                        <Cpu className="w-5 h-5 text-gray-500" />
                                     </div>
+                                    <p className="text-sm text-gray-400 mb-1">
+                                        {currentModelName
+                                            ? <>Ready with <span className="text-gray-200 font-medium">{currentModelName}</span></>
+                                            : 'No model loaded'
+                                        }
+                                    </p>
+                                    <p className="text-xs text-gray-600">
+                                        {currentModelId
+                                            ? 'Type a message below. Shift+Enter for newlines.'
+                                            : 'Load a model from the Models tab to start chatting.'
+                                        }
+                                    </p>
                                 </div>
-                            );
-                        })}
-                        <div ref={messagesEndRef} />
+                            </div>
+                        ) : (
+                            <div className="max-w-3xl mx-auto py-6 px-4">
+                                {messages.map((msg, idx) => {
+                                    let thinkingContent = '';
+                                    let visibleContent = msg.content;
+
+                                    if (msg.role === 'assistant') {
+                                        const thinkMatch = msg.content.match(/<think>([\s\S]*?)(<\/think>|$)/);
+                                        if (thinkMatch) {
+                                            thinkingContent = thinkMatch[1].trim();
+                                            visibleContent = msg.content.replace(/<think>[\s\S]*?(<\/think>|$)/, '').trim();
+                                        }
+                                    }
+
+                                    if (msg.role === 'user') {
+                                        return (
+                                            <div key={idx} className="mb-6">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center shrink-0 mt-0.5">
+                                                        <span className="text-[10px] font-bold text-gray-400">U</span>
+                                                    </div>
+                                                    <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-black/30 prose-pre:border prose-pre:border-white/5 prose-pre:rounded-lg prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 min-w-0">
+                                                        <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                                                            {msg.content}
+                                                        </ReactMarkdown>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    }
+
+                                    return (
+                                        <div key={idx} className="mb-8 group">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                                                    <span className="text-[10px] font-bold text-blue-400">AI</span>
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    {/* Reasoning trace */}
+                                                    {thinkingContent && (
+                                                        <details className="mb-3">
+                                                            <summary className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500 hover:text-gray-400 transition-colors select-none py-0.5">
+                                                                <ChevronRight className="w-3 h-3 transition-transform details-open:rotate-90" />
+                                                                <span>Reasoning</span>
+                                                                <span className="text-gray-600 ml-1">
+                                                                    {thinkingContent.split(/\s+/).length} words
+                                                                </span>
+                                                            </summary>
+                                                            <div className="mt-2 pl-4 border-l border-white/5 text-xs text-gray-500 leading-relaxed max-h-64 overflow-y-auto">
+                                                                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                                                                    {thinkingContent}
+                                                                </ReactMarkdown>
+                                                            </div>
+                                                        </details>
+                                                    )}
+
+                                                    {/* Response */}
+                                                    <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0 prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100">
+                                                        <ReactMarkdown
+                                                            remarkPlugins={[remarkGfm, remarkBreaks]}
+                                                            components={{
+                                                                code({ className, children }) {
+                                                                    const match = /language-(\w+)/.exec(className || '');
+                                                                    const codeString = String(children).replace(/\n$/, '');
+                                                                    // Inline code (no language class, short, no newlines)
+                                                                    if (!match && !codeString.includes('\n')) {
+                                                                        return <code className="bg-white/5 px-1.5 py-0.5 rounded text-blue-300 text-[13px]">{children}</code>;
+                                                                    }
+                                                                    // Fenced code block
+                                                                    return (
+                                                                        <CodeBlock
+                                                                            code={codeString}
+                                                                            language={match?.[1] || ''}
+                                                                            onAction={sendCodeAction}
+                                                                        />
+                                                                    );
+                                                                },
+                                                                pre({ children }) {
+                                                                    // Let CodeBlock handle its own wrapper
+                                                                    return <>{children}</>;
+                                                                }
+                                                            }}
+                                                        >
+                                                            {visibleContent}
+                                                        </ReactMarkdown>
+                                                    </div>
+
+                                                    {/* Footer: stats + copy, shown on hover */}
+                                                    {msg.stats && msg.stats.totalTokens > 0 && (
+                                                        <div className="flex items-center gap-3 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <span className="text-[10px] text-gray-600 font-mono tabular-nums">
+                                                                {msg.stats.tokensPerSecond} tok/s
+                                                            </span>
+                                                            <span className="text-[10px] text-gray-600 font-mono tabular-nums">
+                                                                {msg.stats.timeToFirstToken}s first token
+                                                            </span>
+                                                            <span className="text-[10px] text-gray-600 font-mono tabular-nums">
+                                                                {msg.stats.totalTokens} tokens
+                                                            </span>
+                                                            <button
+                                                                onClick={() => copyToClipboard(visibleContent, idx)}
+                                                                className="ml-auto p-1 text-gray-600 hover:text-gray-400 transition-colors rounded"
+                                                                title="Copy response"
+                                                            >
+                                                                {copiedIndex === idx
+                                                                    ? <Check className="w-3.5 h-3.5 text-green-500" />
+                                                                    : <Copy className="w-3.5 h-3.5" />
+                                                                }
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                                <div ref={messagesEndRef} />
+                            </div>
+                        )}
                     </div>
 
                     {/* Input Area */}
-                    <div className="p-4 bg-black/40 border-t border-white/5 backdrop-blur-md">
-                        <div className="relative flex items-end gap-2 max-w-5xl mx-auto">
-                            {messages.length > 0 && (
-                                <button
-                                    onClick={handleClearChat}
-                                    className="p-3.5 mb-0.5 rounded-xl bg-white/5 hover:bg-red-500/10 text-gray-500 hover:text-red-400 border border-white/5 hover:border-red-500/20 transition-all shrink-0 group"
-                                    title="Clear chat history"
-                                >
-                                    <Eraser className="w-5 h-5 transition-transform group-hover:scale-110" />
-                                </button>
-                            )}
-                            <div className="relative flex-1 bg-black/40 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[inset_0_2px_10px_rgba(255,255,255,0.02),0_4px_20px_rgba(0,0,0,0.5)] focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/30 transition-all duration-300 flex items-center">
-                                <div className="absolute left-2 bottom-2">
-                                    <button
-                                        className="p-2 rounded-lg text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"
-                                        title="Attach file"
-                                    >
-                                        <Paperclip className="w-5 h-5" />
-                                    </button>
-                                </div>
+                    <div className="px-4 pb-2 pt-3">
+                        <div className="max-w-3xl mx-auto">
+                            {/* Input field */}
+                            <div className="relative bg-white/[0.03] border border-white/10 rounded-xl focus-within:border-white/20 transition-colors">
                                 <textarea
+                                    ref={textareaRef}
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder={isGenerating ? "Generation in progress..." : "Type a message..."}
+                                    placeholder={isGenerating ? "Generating..." : "Send a message..."}
                                     disabled={isGenerating}
-                                    className={`flex-1 bg-transparent pl-12 pr-28 py-4 text-sm text-white placeholder-gray-500 outline-none transition-all resize-none min-h-[56px] max-h-[200px] custom-scrollbar ${isGenerating ? 'opacity-50' : ''}`}
+                                    className={`w-full bg-transparent px-4 py-3 pr-14 text-sm text-gray-200 placeholder-gray-600 outline-none resize-none min-h-[44px] max-h-[200px] ${isGenerating ? 'opacity-40' : ''}`}
                                     rows={1}
                                 />
-                                <div className="absolute right-2 bottom-2 flex items-center gap-2">
-                                    <button
-                                        onClick={() => setIsListening(!isListening)}
-                                        className={`p-2 rounded-lg transition-all ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : 'bg-transparent text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
-                                        title="Voice Input"
-                                    >
-                                        <Mic className="w-5 h-5" />
-                                    </button>
-
+                                <div className="absolute right-2 bottom-2">
                                     {isGenerating ? (
                                         <button
                                             onClick={handleStop}
-                                            className="p-2.5 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all border border-red-500/20 group"
-                                            title="Stop Generation"
+                                            className="p-1.5 rounded-lg bg-white/10 text-gray-400 hover:text-white hover:bg-white/15 transition-colors"
+                                            title="Stop"
                                         >
-                                            <div className="w-4 h-4 bg-current rounded-sm group-hover:scale-90 transition-transform" />
+                                            <Square className="w-4 h-4" />
                                         </button>
                                     ) : (
                                         <button
                                             onClick={handleSend}
                                             disabled={!input.trim() || !currentModelId}
-                                            className={`p-2.5 rounded-xl transition-all ${input.trim() && currentModelId ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95' : 'bg-white/5 text-gray-600 cursor-not-allowed'}`}
+                                            title="Send message"
+                                            className={`p-1.5 rounded-lg transition-colors ${input.trim() && currentModelId ? 'bg-white text-black hover:bg-gray-200' : 'bg-white/5 text-gray-700 cursor-not-allowed'}`}
                                         >
-                                            <Send className="w-5 h-5" />
+                                            <ArrowUp className="w-4 h-4" />
                                         </button>
                                     )}
                                 </div>
@@ -432,79 +450,53 @@ export function ChatInterface() {
                     </div>
                 </div>
 
-                {/* Right Parameter Sidebar */}
+                {/* Parameters Sidebar */}
                 {showSettings && (
-                    <div className="w-80 bg-black/20 border border-white/10 rounded-xl flex flex-col shrink-0 overflow-y-auto custom-scrollbar animate-in slide-in-from-right-4 duration-200">
-                        <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center gap-2 sticky top-0 backdrop-blur-md z-10">
-                            <SlidersHorizontal className="w-4 h-4 text-blue-400" />
-                            <h3 className="font-semibold text-sm uppercase tracking-widest text-gray-400">Parameters</h3>
+                    <div className="w-72 border-l border-white/5 flex flex-col shrink-0 overflow-y-auto pl-4">
+                        <div className="flex items-center gap-2 mb-5 pt-1">
+                            <SlidersHorizontal className="w-3.5 h-3.5 text-gray-500" />
+                            <h3 className="text-xs font-medium text-gray-400">Parameters</h3>
                         </div>
 
-                        <div className="p-5 space-y-6">
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Temperature</label>
-                                        <span className="text-xs font-mono text-blue-400">{settings.temperature.toFixed(2)}</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="0" max="2" step="0.05"
-                                        value={settings.temperature}
-                                        onChange={(e) => setSettings({ ...settings, temperature: parseFloat(e.target.value) })}
-                                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                    />
-                                </div>
+                        <div className="space-y-5">
+                            <ParameterSlider
+                                label="Temperature"
+                                value={settings.temperature}
+                                min={0} max={2} step={0.05}
+                                format={(v) => v.toFixed(2)}
+                                onChange={(v) => setSettings({ ...settings, temperature: v })}
+                            />
+                            <ParameterSlider
+                                label="Max Tokens"
+                                value={settings.maxTokens}
+                                min={64} max={8192} step={64}
+                                format={(v) => v.toString()}
+                                onChange={(v) => setSettings({ ...settings, maxTokens: v })}
+                            />
 
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Max Tokens</label>
-                                        <span className="text-xs font-mono text-blue-400">{settings.maxTokens}</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="64" max="8192" step="64"
-                                        value={settings.maxTokens}
-                                        onChange={(e) => setSettings({ ...settings, maxTokens: parseInt(e.target.value) })}
-                                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                    />
-                                </div>
-
-                                <div className="space-y-2 border-t border-white/5 pt-4">
-                                    <div className="flex justify-between items-center">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Top-P</label>
-                                        <span className="text-xs font-mono text-purple-400">{settings.topP.toFixed(2)}</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="0" max="1" step="0.05"
-                                        value={settings.topP}
-                                        onChange={(e) => setSettings({ ...settings, topP: parseFloat(e.target.value) })}
-                                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Rep. Penalty</label>
-                                        <span className="text-xs font-mono text-purple-400">{settings.repetitionPenalty.toFixed(2)}</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="0.5" max="2" step="0.05"
-                                        value={settings.repetitionPenalty}
-                                        onChange={(e) => setSettings({ ...settings, repetitionPenalty: parseFloat(e.target.value) })}
-                                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                                    />
-                                </div>
+                            <div className="border-t border-white/5 pt-5">
+                                <ParameterSlider
+                                    label="Top-P"
+                                    value={settings.topP}
+                                    min={0} max={1} step={0.05}
+                                    format={(v) => v.toFixed(2)}
+                                    onChange={(v) => setSettings({ ...settings, topP: v })}
+                                />
                             </div>
+                            <ParameterSlider
+                                label="Repetition Penalty"
+                                value={settings.repetitionPenalty}
+                                min={0.5} max={2} step={0.05}
+                                format={(v) => v.toFixed(2)}
+                                onChange={(v) => setSettings({ ...settings, repetitionPenalty: v })}
+                            />
 
-                            <div className="pt-6 border-t border-white/5">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">System Instructions</label>
+                            <div className="border-t border-white/5 pt-5">
+                                <label className="text-xs text-gray-500 block mb-2">System Prompt</label>
                                 <textarea
                                     value={settings.systemPrompt}
                                     onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-gray-300 h-32 resize-none outline-none focus:border-blue-500/50"
+                                    className="w-full bg-white/[0.03] border border-white/10 rounded-lg p-3 text-xs text-gray-300 h-28 resize-none outline-none focus:border-white/20 transition-colors leading-relaxed"
                                     placeholder="Set model behavior..."
                                 />
                             </div>
@@ -512,6 +504,93 @@ export function ChatInterface() {
                     </div>
                 )}
             </div>
+        </div>
+    )
+}
+
+function CodeBlock({
+    code,
+    language,
+    onAction,
+}: {
+    code: string;
+    language: string;
+    onAction: (code: string, action: string) => void;
+}) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const actions = [
+        { key: 'improve', label: 'Improve', icon: <Wand2 className="w-3 h-3" /> },
+        { key: 'secure', label: 'Secure', icon: <Shield className="w-3 h-3" /> },
+        { key: 'faster', label: 'Faster', icon: <Zap className="w-3 h-3" /> },
+    ];
+
+    return (
+        <div className="rounded-lg border border-white/5 bg-black/30 overflow-hidden my-3 group/code">
+            {/* Header bar */}
+            <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.03] border-b border-white/5">
+                <span className="text-[10px] font-mono text-gray-500">{language || 'code'}</span>
+                <div className="flex items-center gap-1">
+                    {actions.map(a => (
+                        <button
+                            key={a.key}
+                            onClick={() => onAction(code, a.key)}
+                            title={a.label}
+                            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors opacity-0 group-hover/code:opacity-100"
+                        >
+                            {a.icon}
+                            <span>{a.label}</span>
+                        </button>
+                    ))}
+                    <button
+                        onClick={handleCopy}
+                        title="Copy code"
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
+                    >
+                        {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                        <span>{copied ? 'Copied' : 'Copy'}</span>
+                    </button>
+                </div>
+            </div>
+            {/* Code content */}
+            <pre className="p-4 overflow-x-auto">
+                <code className="text-sm font-mono text-blue-300 leading-relaxed">{code}</code>
+            </pre>
+        </div>
+    );
+}
+
+function ParameterSlider({
+    label, value, min, max, step, format, onChange
+}: {
+    label: string;
+    value: number;
+    min: number;
+    max: number;
+    step: number;
+    format: (v: number) => string;
+    onChange: (v: number) => void;
+}) {
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-1.5">
+                <label className="text-xs text-gray-500">{label}</label>
+                <span className="text-xs font-mono text-gray-400 tabular-nums">{format(value)}</span>
+            </div>
+            <input
+                type="range"
+                title={label}
+                min={min} max={max} step={step}
+                value={value}
+                onChange={(e) => onChange(parseFloat(e.target.value))}
+                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-white/50"
+            />
         </div>
     )
 }

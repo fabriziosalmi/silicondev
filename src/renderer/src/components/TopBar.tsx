@@ -1,6 +1,6 @@
 import { useGlobalState } from '../context/GlobalState';
 import { apiClient } from '../api/client';
-import { Cpu, Activity, DatabaseZap, LogOut } from 'lucide-react';
+import { DatabaseZap, LogOut } from 'lucide-react';
 
 export function TopBar() {
     const { backendReady, systemStats, activeModel, setActiveModel, isTraining } = useGlobalState();
@@ -16,7 +16,7 @@ export function TopBar() {
             {/* Left: Window Title Placeholder */}
             <div className="flex items-center space-x-2 pl-[80px]">
                 {/* pl-[80px] clears mac OS window traffic light buttons perfectly */}
-                <span className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">Silicon Studio</span>
+                <span className="text-[10px] font-bold text-gray-500 tracking-wide uppercase">Silicon Studio</span>
             </div>
 
             {/* Center/Right: Status Indicators */}
@@ -24,12 +24,9 @@ export function TopBar() {
 
                 {/* Backend Status */}
                 <div className="flex items-center space-x-2 h-full">
-                    <div className="relative flex items-center justify-center">
-                        <div className={`w-1.5 h-1.5 rounded-full ${backendReady ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]'}`}></div>
-                        {backendReady && <div className="absolute w-1.5 h-1.5 rounded-full bg-green-500 animate-ping opacity-75"></div>}
-                    </div>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                        {backendReady ? 'Engine Ready' : 'Starting...'}
+                    <div className={`w-1.5 h-1.5 rounded-full ${backendReady ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                    <span className="text-[10px] text-gray-400 font-medium">
+                        {backendReady ? 'Ready' : 'Starting...'}
                     </span>
                 </div>
 
@@ -37,9 +34,9 @@ export function TopBar() {
 
                 {/* Active Model */}
                 {activeModel ? (
-                    <div className="flex items-center space-x-2 bg-blue-500/10 h-7 px-2.5 rounded border border-blue-500/20 shadow-sm">
+                    <div className="flex items-center space-x-2 bg-blue-500/10 h-7 px-2.5 rounded border border-blue-500/20">
                         <DatabaseZap size={13} className="text-blue-400" />
-                        <span className="text-[11px] font-bold tracking-wide uppercase text-blue-300">{activeModel.name}</span>
+                        <span className="text-[11px] font-medium text-blue-300">{activeModel.name}</span>
                         <div className="w-px h-3.5 bg-blue-500/20 mx-1"></div>
                         <button
                             onClick={handleEject}
@@ -47,12 +44,12 @@ export function TopBar() {
                             title="Unload model from memory"
                         >
                             <LogOut size={11} />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Eject</span>
+                            <span className="text-[10px] font-medium">Eject</span>
                         </button>
                     </div>
                 ) : (
                     <div className="flex items-center space-x-2 h-7 px-2.5 border border-transparent">
-                        <span className="text-[11px] text-gray-500 font-medium uppercase tracking-wider">No Model Loaded</span>
+                        <span className="text-[11px] text-gray-500 font-medium">No model loaded</span>
                     </div>
                 )}
 
@@ -61,25 +58,19 @@ export function TopBar() {
                 {/* System Stats (RAM/VRAM) */}
                 {systemStats ? (
                     <div className="flex items-center space-x-4">
-                        {/* Unified Memory (RAM) */}
-                        <div className="flex items-center gap-2 group transition-all" title="System RAM Usage">
-                            <Cpu size={14} className="text-gray-500 group-hover:text-blue-400 transition-colors" />
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">RAM</span>
-                                <span className="text-xs text-gray-300 font-mono font-medium">
-                                    {(systemStats.memory.used / (1024 * 1024 * 1024)).toFixed(1)}<span className="text-[10px] opacity-50">GB</span>
-                                </span>
-                            </div>
+                        <div className="flex items-center gap-1.5" title="System RAM Usage">
+                            <span className="text-[10px] text-gray-500 font-mono">RAM</span>
+                            <span className="text-[11px] text-gray-300 font-mono tabular-nums">
+                                {(systemStats.memory.used / (1024 * 1024 * 1024)).toFixed(1)}
+                                <span className="text-gray-500">/{(systemStats.memory.total / (1024 * 1024 * 1024)).toFixed(0)}GB</span>
+                            </span>
                         </div>
 
-                        <div className="flex items-center gap-2 group transition-all" title="CPU Load">
-                            <Activity size={14} className={activeModel ? "text-purple-400 drop-shadow-[0_0_5px_rgba(168,85,247,0.4)]" : "text-gray-500 group-hover:text-purple-400 transition-colors"} />
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">CPU</span>
-                                <span className="text-xs text-gray-300 font-mono font-medium">
-                                    {systemStats.cpu.percent.toFixed(0)}<span className="text-[10px] opacity-50">%</span>
-                                </span>
-                            </div>
+                        <div className="flex items-center gap-1.5" title="CPU Load">
+                            <span className="text-[10px] text-gray-500 font-mono">CPU</span>
+                            <span className="text-[11px] text-gray-300 font-mono tabular-nums">
+                                {systemStats.cpu.percent.toFixed(0)}%
+                            </span>
                         </div>
                     </div>
                 ) : (
@@ -91,7 +82,7 @@ export function TopBar() {
                     <>
                         <div className="h-4 w-px bg-white/10" />
                         <div className="flex items-center space-x-1.5">
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
                             <span className="text-xs text-blue-400 font-medium">Training Active</span>
                         </div>
                     </>

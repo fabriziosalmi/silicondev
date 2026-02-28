@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react'
 import { apiClient } from '../api/client'
-import { PageHeader } from './ui/PageHeader'
-import { MemoryTetris } from './MemoryTetris'
 import { Card } from './ui/Card'
 import { Cpu, Activity, Play, Settings2, ShieldAlert, FileText, Download } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -134,13 +132,6 @@ export function EngineInterface() {
 
     return (
         <div className="h-full flex flex-col space-y-4 text-white overflow-hidden pb-4">
-            <PageHeader
-                title="Fine-Tuning Engine"
-                description="Train LoRA adapters directly on your local Apple Silicon. Private, accelerated, and efficient."
-                badge="MLX"
-            />
-
-            <MemoryTetris />
 
             {models.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-xl bg-white/[0.02] p-8 mt-4">
@@ -158,7 +149,7 @@ export function EngineInterface() {
 
                     {/* Settings Sidebar */}
                     <div className="w-[450px] flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2">
-                        <Card className="p-0 overflow-hidden bg-[#18181B] border border-white/10 shadow-xl">
+                        <Card className="p-0 overflow-hidden bg-[#18181B] border border-white/10">
                             <div className="p-4 border-b border-white/10 bg-white/[0.02] flex items-center gap-2">
                                 <Settings2 className="w-5 h-5 text-blue-400" />
                                 <h3 className="font-bold">Job Configuration</h3>
@@ -168,7 +159,7 @@ export function EngineInterface() {
 
                                 {/* Target Name */}
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Target Model Name</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Target Model Name</label>
                                     <input
                                         type="text"
                                         placeholder="e.g. My-Llama-Finance-Expert"
@@ -180,8 +171,9 @@ export function EngineInterface() {
 
                                 {/* Base Model */}
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Base Foundation Model</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Base Foundation Model</label>
                                     <select
+                                        title="Base Foundation Model"
                                         className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 appearance-none"
                                         value={selectedModel}
                                         onChange={e => setSelectedModel(e.target.value)}
@@ -192,7 +184,7 @@ export function EngineInterface() {
 
                                 {/* Dataset Path */}
                                 <div className="space-y-3">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Dataset Selection (.jsonl)</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Dataset Selection (.jsonl)</label>
                                     <div className="flex gap-2">
                                         <div className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[13px] text-blue-100/70 truncate flex items-center gap-2">
                                             <FileText className="w-4 h-4 text-blue-400" />
@@ -203,7 +195,7 @@ export function EngineInterface() {
                                                 const path = await (window as any).electronAPI.selectFile();
                                                 if (path) setDatasetPath(path);
                                             }}
-                                            className="bg-white text-black hover:bg-gray-200 px-4 py-2 rounded-xl transition-all text-sm font-bold shadow-lg"
+                                            className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl transition-colors text-sm font-medium"
                                         >
                                             Select
                                         </button>
@@ -216,11 +208,12 @@ export function EngineInterface() {
                                 {/* Hyperparameters Preset */}
                                 <div className="pt-4 border-t border-white/5 space-y-4">
                                     <div className="flex justify-between items-center">
-                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Hyperparameters</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Hyperparameters</label>
                                         <select
+                                            title="Hyperparameters Preset"
                                             value={preset}
                                             onChange={(e) => handlePresetChange(e.target.value as any)}
-                                            className="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs rounded px-2 py-1 outline-none"
+                                            className="bg-white/5 text-gray-300 border border-white/10 text-xs rounded px-2 py-1 outline-none"
                                         >
                                             <option value="draft">Draft (Fast)</option>
                                             <option value="balanced">Balanced</option>
@@ -232,19 +225,19 @@ export function EngineInterface() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] text-gray-500 uppercase">Epochs</label>
-                                            <input type="number" value={epochs} onChange={e => { setEpochs(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs font-mono outline-none" />
+                                            <input type="number" title="Epochs" value={epochs} onChange={e => { setEpochs(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs font-mono outline-none" />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] text-gray-500 uppercase">Batch Size</label>
-                                            <input type="number" value={batchSize} onChange={e => { setBatchSize(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs font-mono outline-none" />
+                                            <input type="number" title="Batch Size" value={batchSize} onChange={e => { setBatchSize(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs font-mono outline-none" />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] text-gray-500 uppercase">Learning Rate</label>
-                                            <input type="number" step="0.00001" value={learningRate} onChange={e => { setLearningRate(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs font-mono outline-none" />
+                                            <input type="number" title="Learning Rate" step="0.00001" value={learningRate} onChange={e => { setLearningRate(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs font-mono outline-none" />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] text-gray-500 uppercase">Max Seq Length</label>
-                                            <input type="number" value={maxSeqLength} onChange={e => { setMaxSeqLength(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs font-mono outline-none" />
+                                            <input type="number" title="Max Seq Length" value={maxSeqLength} onChange={e => { setMaxSeqLength(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs font-mono outline-none" />
                                         </div>
                                     </div>
 
@@ -253,19 +246,19 @@ export function EngineInterface() {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
                                                 <label className="text-[10px] text-gray-500 uppercase">Rank (R)</label>
-                                                <input type="number" value={loraRank} onChange={e => { setLoraRank(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
+                                                <input type="number" title="LoRA Rank" value={loraRank} onChange={e => { setLoraRank(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
                                             </div>
                                             <div className="space-y-1.5">
                                                 <label className="text-[10px] text-gray-500 uppercase">Alpha</label>
-                                                <input type="number" value={loraAlpha} onChange={e => { setLoraAlpha(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
+                                                <input type="number" title="LoRA Alpha" value={loraAlpha} onChange={e => { setLoraAlpha(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
                                             </div>
                                             <div className="space-y-1.5">
                                                 <label className="text-[10px] text-gray-500 uppercase">Target Layers</label>
-                                                <input type="number" value={loraLayers} onChange={e => { setLoraLayers(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
+                                                <input type="number" title="Target Layers" value={loraLayers} onChange={e => { setLoraLayers(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
                                             </div>
                                             <div className="space-y-1.5">
                                                 <label className="text-[10px] text-gray-500 uppercase">Dropout</label>
-                                                <input type="number" step="0.05" value={loraDropout} onChange={e => { setLoraDropout(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
+                                                <input type="number" title="LoRA Dropout" step="0.05" value={loraDropout} onChange={e => { setLoraDropout(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
                                             </div>
                                         </div>
                                     </div>
@@ -275,7 +268,7 @@ export function EngineInterface() {
                                 <button
                                     onClick={startTraining}
                                     disabled={loading || (jobStatus && jobStatus.status === 'training')}
-                                    className="w-full bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/25 drop-shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4 border border-blue-400/20"
+                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
                                 >
                                     {loading ? (
                                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -293,12 +286,12 @@ export function EngineInterface() {
 
                         {/* Status Strip */}
                         {jobStatus ? (
-                            <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-xl p-5 shadow-inner shrink-0">
+                            <div className="bg-black/40 border border-white/10 rounded-xl p-5 shrink-0">
                                 <div className="flex justify-between items-center mb-4">
                                     <div>
                                         <div className="text-lg font-bold flex items-center gap-3">
-                                            {jobStatus.status === 'training' && <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]" />}
-                                            {jobStatus.status === 'completed' && <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />}
+                                            {jobStatus.status === 'training' && <div className="w-3 h-3 rounded-full bg-blue-500" />}
+                                            {jobStatus.status === 'completed' && <div className="w-3 h-3 rounded-full bg-green-500" />}
                                             {jobStatus.status === 'failed' && <div className="w-3 h-3 rounded-full bg-red-500" />}
                                             {jobStatus.job_name || 'Active Run'}
                                         </div>
@@ -306,7 +299,7 @@ export function EngineInterface() {
                                     </div>
                                     <div className="text-right">
                                         <div className="text-2xl font-mono text-white mb-1">{jobStatus.progress}%</div>
-                                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-widest ${jobStatus.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide ${jobStatus.status === 'completed' ? 'bg-green-500/20 text-green-400' :
                                             jobStatus.status === 'training' ? 'bg-blue-500/20 text-blue-400' :
                                                 jobStatus.status === 'failed' ? 'bg-red-500/20 text-red-400' :
                                                     'bg-gray-500/20 text-gray-400'
@@ -328,7 +321,7 @@ export function EngineInterface() {
 
                                 {jobStatus.status === 'completed' && (
                                     <div className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-3">
-                                        <div className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Post-Training Actions</div>
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">Post-Training Actions</div>
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => handleExport(4)}
@@ -351,7 +344,7 @@ export function EngineInterface() {
                                 )}
                             </div>
                         ) : (
-                            <div className="bg-black/20 border border-white/10 border-dashed rounded-xl p-6 text-center shrink-0 shadow-inner">
+                            <div className="bg-black/20 border border-white/10 border-dashed rounded-xl p-6 text-center shrink-0">
                                 <ShieldAlert className="w-8 h-8 text-gray-600 mx-auto mb-2" />
                                 <h4 className="text-gray-400 font-medium">No Active Jobs</h4>
                                 <p className="text-gray-600 text-sm">Configure your parameters and start a job to view live telemetry.</p>
@@ -359,10 +352,10 @@ export function EngineInterface() {
                         )}
 
                         {/* Telemetry Chart */}
-                        <div className="flex-1 bg-[#18181B] border border-white/10 rounded-xl flex flex-col overflow-hidden shadow-xl min-h-[300px]">
+                        <div className="flex-1 bg-[#18181B] border border-white/10 rounded-xl flex flex-col overflow-hidden min-h-[300px]">
                             <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between z-10">
                                 <div className="flex items-center gap-2">
-                                    <Activity className="w-5 h-5 text-purple-400" />
+                                    <Activity className="w-5 h-5 text-blue-400" />
                                     <h3 className="font-bold">Real-time Training Loss</h3>
                                 </div>
                                 <div className="text-xs flex gap-4 text-gray-500">
@@ -399,23 +392,17 @@ export function EngineInterface() {
                                             <Line
                                                 type="monotone"
                                                 dataKey="loss"
-                                                stroke="url(#lineGradient)"
-                                                strokeWidth={3}
+                                                stroke="#3b82f6"
+                                                strokeWidth={2}
                                                 dot={false}
-                                                activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                                                activeDot={{ r: 5, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }}
                                                 isAnimationActive={true}
                                             />
-                                            <defs>
-                                                <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-                                                    <stop offset="0%" stopColor="#3b82f6" />
-                                                    <stop offset="100%" stopColor="#8b5cf6" />
-                                                </linearGradient>
-                                            </defs>
                                         </LineChart>
                                     </ResponsiveContainer>
                                 ) : (
                                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <div className="text-gray-600 opacity-50 font-mono text-sm tracking-widest uppercase">Awaiting Data stream...</div>
+                                        <div className="text-gray-600 opacity-50 font-mono text-sm">Waiting for training data...</div>
                                     </div>
                                 )}
                             </div>

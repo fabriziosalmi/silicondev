@@ -322,6 +322,11 @@ export const apiClient = {
             const res = await fetch(`${API_BASE}/api/deployment/status`);
             if (!res.ok) throw new Error('Failed to fetch deployment status');
             return res.json();
+        },
+        getLogs: async (since: number = 0): Promise<{ logs: { timestamp: number; source: string; message: string }[] }> => {
+            const res = await fetch(`${API_BASE}/api/deployment/logs?since=${since}`);
+            if (!res.ok) throw new Error('Failed to fetch deployment logs');
+            return res.json();
         }
     },
     checkHealth: async (): Promise<boolean> => {

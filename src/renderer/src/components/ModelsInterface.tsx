@@ -204,10 +204,7 @@ export function ModelsInterface() {
 
     return (
         <div className="h-full flex flex-col text-white overflow-hidden pb-4">
-            <PageHeader
-                title="Models"
-                description={activeTab === 'my-models' ? "Manage and load your local models." : "Discover and download open-source models optimized for Apple Silicon."}
-            >
+            <PageHeader>
                 <button
                     onClick={() => { resetAddModal(); setShowAddModal(true); }}
                     className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/5 whitespace-nowrap"
@@ -261,7 +258,7 @@ export function ModelsInterface() {
 
                         <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-black/20">
                             <table className="w-full text-left text-sm whitespace-nowrap">
-                                <thead className="bg-[#18181B]/80 text-gray-400 sticky top-0 backdrop-blur-xl z-10 border-b border-white/10 uppercase text-[10px] tracking-widest">
+                                <thead className="bg-[#18181B] text-gray-400 border-b border-white/10 uppercase text-[11px] tracking-wide">
                                     <tr>
                                         <th className="px-5 py-3 font-semibold w-[30%]">Name / ID</th>
                                         <th className="px-5 py-3 font-semibold">Arch</th>
@@ -289,7 +286,7 @@ export function ModelsInterface() {
                                                         <div className="flex flex-col justify-center">
                                                             <div className="font-semibold text-white/90 flex items-center gap-2 text-[13px] leading-tight">
                                                                 {model.name}
-                                                                {model.is_finetuned && <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/20 uppercase tracking-widest font-bold">Fine-Tuned</span>}
+                                                                {model.is_finetuned && <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/20 uppercase tracking-wide font-bold">Fine-Tuned</span>}
                                                             </div>
                                                             <div className="text-[11px] text-gray-500 font-mono mt-0.5 truncate max-w-[220px]" title={model.id}>{model.id}</div>
                                                         </div>
@@ -304,7 +301,7 @@ export function ModelsInterface() {
                                                     {model.context_window || '-'}
                                                 </td>
                                                 <td className="px-5 py-3.5 align-middle">
-                                                    <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20 text-blue-300 shadow-sm">
+                                                    <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20 text-blue-300">
                                                         {model.quantization || guessQuant(model.name)}
                                                     </span>
                                                 </td>
@@ -314,9 +311,9 @@ export function ModelsInterface() {
                                                 <td className="px-5 py-3.5 align-middle text-right">
                                                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         {activeModel?.id === model.id ? (
-                                                            <div className="flex bg-green-500/10 border border-green-500/20 rounded h-7 overflow-hidden shadow-sm">
+                                                            <div className="flex bg-green-500/10 border border-green-500/20 rounded h-7 overflow-hidden">
                                                                 <div className="px-2.5 flex items-center gap-1.5 text-green-400 text-[11px] font-bold tracking-wide uppercase border-r border-green-500/20">
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
                                                                     Active
                                                                 </div>
                                                                 <button
@@ -330,7 +327,7 @@ export function ModelsInterface() {
                                                         ) : (
                                                             <button
                                                                 onClick={() => loadModelIntoMemory(model)}
-                                                                className="h-7 px-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 hover:text-blue-300 rounded transition-colors text-[11px] font-bold uppercase tracking-wide flex items-center gap-1.5 shadow-sm"
+                                                                className="h-7 px-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 hover:text-blue-300 rounded transition-colors text-[11px] font-bold uppercase tracking-wide flex items-center gap-1.5"
                                                                 title="Load Model into VRAM"
                                                             >
                                                                 <Play className="w-3 h-3 fill-current" />
@@ -339,7 +336,7 @@ export function ModelsInterface() {
                                                         )}
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleDelete(model.id); }}
-                                                            className="h-7 w-7 flex items-center justify-center bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 rounded transition-colors shadow-sm"
+                                                            className="h-7 w-7 flex items-center justify-center bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 rounded transition-colors"
                                                             title="Delete Model from Disk"
                                                         >
                                                             <Trash2 className="w-3.5 h-3.5" />
@@ -354,7 +351,6 @@ export function ModelsInterface() {
                         </div>
                     </div>
                 )}
-
 
                 {/* --- DISCOVER VIEW (Split-View) --- */}
                 {activeTab === 'discover' && (
@@ -404,11 +400,11 @@ export function ModelsInterface() {
                                         <button
                                             onClick={() => handleDownload(selectedModel.id)}
                                             disabled={downloading.has(selectedModel.id)}
-                                            className="px-6 py-2.5 bg-white hover:bg-gray-200 text-black font-semibold rounded-lg shadow-lg flex items-center gap-2 transition-all disabled:opacity-50"
+                                            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
                                         >
                                             {downloading.has(selectedModel.id) ? (
                                                 <>
-                                                    <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                                     Downloading...
                                                 </>
                                             ) : (
@@ -449,7 +445,7 @@ export function ModelsInterface() {
             {/* Add Custom Local Folder Modal */}
             {showAddModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => resetAddModal()}>
-                    <div className="bg-[#18181B] border border-white/10 rounded-xl max-w-md w-full p-6 shadow-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-[#18181B] border border-white/10 rounded-xl max-w-md w-full p-6 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                             <HardDrive className="w-5 h-5 text-blue-400" />
                             Add Local Model Directory
@@ -552,7 +548,7 @@ export function ModelsInterface() {
 
                                 {foundModels.length > 0 && (
                                     <div className="mt-6 border border-white/10 rounded-lg overflow-hidden bg-black/40 max-h-48 overflow-y-auto custom-scrollbar">
-                                        <div className="bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 border-b border-white/5 flex justify-between">
+                                        <div className="bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-gray-400 border-b border-white/5 flex justify-between">
                                             <span>Found Models ({foundModels.length})</span>
                                             <span>Select</span>
                                         </div>
@@ -594,7 +590,7 @@ export function ModelsInterface() {
                             <button
                                 onClick={handleRegister}
                                 disabled={(!customName || (!customPath && selectedPaths.size === 0)) || loading || scanning}
-                                className="px-5 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50"
+                                className="px-5 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50"
                             >
                                 {foundModels.length > 0 ? `Add Selected (${selectedPaths.size})` : 'Add Model'}
                             </button>

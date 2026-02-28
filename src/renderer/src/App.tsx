@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { DataPreparation } from './components/DataPreparation'
-import { MemoryTetrisMini } from './components/MemoryTetrisMini'
 import { ChatInterface } from './components/ChatInterface'
 import { EngineInterface } from './components/EngineInterface'
 
@@ -64,7 +63,7 @@ function App() {
             <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
           </div>
           <div className="text-center">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mb-2">
+            <h1 className="text-2xl font-bold text-white mb-2">
               Silicon Studio
             </h1>
             <p className="text-sm text-gray-400">{loadingMessage}</p>
@@ -81,15 +80,15 @@ function App() {
       <TopBar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden rounded-bl-lg rounded-br-lg border-t border-white/10 bg-[rgba(20,20,20,0.7)] backdrop-blur-3xl shadow-[inset_0_2px_20px_rgba(255,255,255,0.02)]">
+      <div className="flex-1 flex overflow-hidden rounded-bl-lg rounded-br-lg border-t border-white/10 bg-[rgba(20,20,20,0.7)]">
 
         {/* Sidebar */}
-        <div className="w-64 bg-black/40 backdrop-blur-md flex flex-col p-4 pt-6 border-r border-white/5 relative z-20 shadow-[10px_0_30px_rgba(0,0,0,0.5)] rounded-bl-lg">
+        <div className="w-64 bg-black/40 flex flex-col p-4 pt-6 border-r border-white/5 relative z-20 rounded-bl-lg">
 
           <nav className="space-y-6">
 
             <div>
-              <div className="px-3 mb-2 text-[10px] font-bold tracking-wider text-gray-500 uppercase">Local Server</div>
+              <div className="px-3 mb-2 text-[10px] font-bold tracking-wide text-gray-500 uppercase">Local Server</div>
               <div className="space-y-1">
                 <SidebarItem
                   label="Models"
@@ -104,7 +103,7 @@ function App() {
                   icon={<MessageSquare size={18} />}
                 />
                 <SidebarItem
-                  label="AI Notepad"
+                  label="Notes"
                   active={activeTab === 'workspace'}
                   onClick={() => setActiveTab('workspace')}
                   icon={<FileText size={18} />}
@@ -113,7 +112,7 @@ function App() {
             </div>
 
             <div>
-              <div className="px-3 mb-2 text-[10px] font-bold tracking-wider text-gray-500 uppercase">Advanced Tools</div>
+              <div className="px-3 mb-2 text-[10px] font-bold tracking-wide text-gray-500 uppercase">Advanced Tools</div>
               <div className="space-y-1">
                 <SidebarItem
                   label="Data Preparation"
@@ -146,7 +145,7 @@ function App() {
                   icon={<Zap size={18} />}
                 />
                 <SidebarItem
-                  label="Deployment Hub"
+                  label="Deployment"
                   active={activeTab === 'deployment'}
                   onClick={() => setActiveTab('deployment')}
                   icon={<Rocket size={18} />}
@@ -157,8 +156,6 @@ function App() {
           </nav>
 
           <div className="flex-1" />
-
-          <MemoryTetrisMini />
         </div>
 
         <div className="flex-1 overflow-y-auto no-drag relative">
@@ -185,12 +182,12 @@ function SidebarItem({ label, active, onClick, icon }: { label: string, active: 
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-300 group ${active
-        ? 'bg-gradient-to-r from-blue-600/20 to-indigo-600/10 text-white border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.15)] ring-1 ring-inset ring-white/5'
-        : 'text-gray-400 hover:bg-white/10 hover:text-white border border-transparent hover:shadow-lg'
+      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${active
+        ? 'bg-white/10 text-white'
+        : 'text-gray-400 hover:bg-white/5 hover:text-white'
         }`}
     >
-      <span className={`flex items-center justify-center w-5 h-5 transition-all duration-300 ${active ? 'opacity-100 text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.6)]' : 'opacity-70 group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]'}`}>{icon}</span>
+      <span className={`flex items-center justify-center w-5 h-5 ${active ? 'text-blue-400' : 'opacity-70 group-hover:opacity-100'}`}>{icon}</span>
       <span className="tracking-wide">{label}</span>
     </button>
   )

@@ -1,265 +1,364 @@
-import { useState } from 'react'
-import { PageHeader } from './ui/PageHeader'
-import { Card } from './ui/Card'
-import { Server, Activity, Copy, Check, Globe, ShieldCheck } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Server, Copy, Check, Globe, ChevronRight, Terminal } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
 import { apiClient } from '../api/client'
-import { useEffect } from 'react'
+
+interface LogEntry {
+    timestamp: number
+    source: string
+    message: string
+}
 
 export function Deployment() {
     const { activeModel } = useGlobalState()
     const [serverRunning, setServerRunning] = useState(false)
     const [host, setHost] = useState('127.0.0.1')
     const [port, setPort] = useState('8000')
-    const [apiKey, setApiKey] = useState('sk-silicon-studio-local')
     const [errorMsg, setErrorMsg] = useState('')
     const [loading, setLoading] = useState(false)
-    const [copied, setCopied] = useState(false)
     const [uptime, setUptime] = useState<number | null>(null)
+    const [pid, setPid] = useState<number | null>(null)
 
+    // Logs
+    const [logs, setLogs] = useState<LogEntry[]>([])
+    const [logSince, setLogSince] = useState(0)
+    const logEndRef = useRef<HTMLDivElement>(null)
+    const [autoScroll, setAutoScroll] = useState(true)
+
+    // Copy state per snippet
+    const [copiedId, setCopiedId] = useState<string | null>(null)
+
+    // Collapsible snippets
+    const [showSnippets, setShowSnippets] = useState(false)
+
+    // Poll server status
     useEffect(() => {
         const checkStatus = async () => {
             try {
-                const status = await apiClient.deployment.getStatus();
-                setServerRunning(status.running);
-                setUptime(status.uptime_seconds ?? null);
+                const status = await apiClient.deployment.getStatus()
+                setServerRunning(status.running)
+                setUptime(status.uptime_seconds ?? null)
+                setPid(status.pid ?? null)
             } catch (e) {
-                console.error("Failed to check server status", e);
+                console.error("Failed to check server status", e)
             }
-        };
-        checkStatus();
-        const interval = setInterval(checkStatus, 3000);
-        return () => clearInterval(interval);
-    }, []);
+        }
+        checkStatus()
+        const interval = setInterval(checkStatus, 3000)
+        return () => clearInterval(interval)
+    }, [])
 
-    const handleCopy = (text: string) => {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+    // Poll logs when server is running
+    useEffect(() => {
+        if (!serverRunning) return
+        const fetchLogs = async () => {
+            try {
+                const data = await apiClient.deployment.getLogs(logSince)
+                if (data.logs.length > 0) {
+                    setLogs(prev => [...prev, ...data.logs])
+                    setLogSince(data.logs[data.logs.length - 1].timestamp)
+                }
+            } catch {
+                // ignore log fetch errors
+            }
+        }
+        fetchLogs()
+        const interval = setInterval(fetchLogs, 1500)
+        return () => clearInterval(interval)
+    }, [serverRunning, logSince])
+
+    // Auto-scroll logs
+    useEffect(() => {
+        if (autoScroll) {
+            logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        }
+    }, [logs, autoScroll])
+
+    const handleCopy = (text: string, id: string) => {
+        navigator.clipboard.writeText(text)
+        setCopiedId(id)
+        setTimeout(() => setCopiedId(null), 2000)
     }
 
     const toggleServer = async () => {
-        setErrorMsg('');
+        setErrorMsg('')
         if (serverRunning) {
-            setLoading(true);
+            setLoading(true)
             try {
-                await apiClient.deployment.stop();
-                setServerRunning(false);
+                await apiClient.deployment.stop()
+                setServerRunning(false)
+                setPid(null)
             } catch (e: any) {
-                setErrorMsg(e.message);
+                setErrorMsg(e.message)
             } finally {
-                setLoading(false);
+                setLoading(false)
             }
         } else {
             if (!activeModel) {
-                setErrorMsg("No active model is loaded in memory. Please select a model in the Models tab first.");
-                return;
+                setErrorMsg("No active model loaded. Select a model in the Models tab first.")
+                return
             }
             if (!activeModel.path) {
-                setErrorMsg("Active model does not have a valid local path.");
-                return;
+                setErrorMsg("Active model does not have a valid local path.")
+                return
             }
 
-            setLoading(true);
+            setLoading(true)
+            setLogs([])
+            setLogSince(0)
             try {
-                await apiClient.deployment.start(activeModel.path, host, parseInt(port));
-                setServerRunning(true);
+                await apiClient.deployment.start(activeModel.path, host, parseInt(port))
+                setServerRunning(true)
             } catch (e: any) {
-                setErrorMsg(e.message);
+                setErrorMsg(e.message)
             } finally {
-                setLoading(false);
+                setLoading(false)
             }
         }
     }
 
-    return (
-        <div className="h-full flex flex-col text-white overflow-hidden pb-4">
-            <PageHeader
-                title="Deployment Hub"
-                description="Expose your loaded local models as an OpenAI-compatible API server on your network."
-                badge="BETA"
-            />
+    const formatUptime = (s: number) => {
+        const h = Math.floor(s / 3600)
+        const m = Math.floor((s % 3600) / 60)
+        const sec = s % 60
+        if (h > 0) return `${h}h ${m}m ${sec}s`
+        if (m > 0) return `${m}m ${sec}s`
+        return `${sec}s`
+    }
 
-            <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
+    const formatLogTime = (ts: number) => {
+        const d = new Date(ts * 1000)
+        return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    }
 
-                {/* Configuration Sidebar */}
-                <div className="w-[400px] flex flex-col gap-6 overflow-y-auto no-scrollbar pb-8">
+    const endpoint = `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}`
 
-                    <Card className="p-0 overflow-hidden flex flex-col border border-white/10 shadow-xl bg-[#18181B]">
-                        <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
-                            <div className="flex items-center gap-3">
-                                <div className={`w-3 h-3 rounded-full ${serverRunning ? 'bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
-                                <h3 className="font-bold">Server Status</h3>
-                            </div>
-                            <span className={`text-xs font-bold px-2 py-1 rounded border uppercase tracking-wider ${serverRunning ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                                {serverRunning ? 'RUNNING' : 'STOPPED'}
-                            </span>
-                        </div>
-
-                        <div className="p-6 space-y-6">
-
-                            {errorMsg && (
-                                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-xs">
-                                    {errorMsg}
-                                </div>
-                            )}
-
-                            <button
-                                onClick={toggleServer}
-                                disabled={loading}
-                                className={`w-full py-3.5 px-6 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:opacity-50 ${serverRunning
-                                    ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30'
-                                    : 'bg-gradient-to-b from-green-500 to-green-600 hover:from-green-400 hover:to-green-500 text-white border border-green-400/20 shadow-green-500/25 drop-shadow-md'
-                                    }`}
-                            >
-                                {loading ? (
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <Server className="w-5 h-5" />
-                                )}
-                                {serverRunning ? 'Stop API Server' : 'Start API Server'}
-                            </button>
-
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                                    <Globe className="w-3.5 h-3.5" /> Bind Address
-                                </label>
-                                <select value={host} onChange={(e) => setHost(e.target.value)} disabled={serverRunning} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[13px] text-gray-300 outline-none focus:border-blue-500 disabled:opacity-50 appearance-none shadow-inner">
-                                    <option value="127.0.0.1">localhost (127.0.0.1) - Secure</option>
-                                    <option value="0.0.0.0">0.0.0.0 - Expose to Network</option>
-                                </select>
-                            </div>
-
-                            <div className="space-y-4 pt-4 border-t border-white/5">
-                                <div className="bg-black/40 border border-white/5 rounded-xl p-4 text-center">
-                                    <div className="text-[10px] text-gray-500 font-bold uppercase mb-1">Uptime</div>
-                                    <div className="text-xl font-mono text-blue-400">
-                                        {uptime != null ? `${Math.floor(uptime / 60)}m ${uptime % 60}s` : '--'}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                                        Port Number
-                                    </label>
-                                    <input
-                                        type="number"
-                                        disabled={serverRunning}
-                                        value={port}
-                                        onChange={(e) => setPort(e.target.value)}
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[13px] text-gray-300 outline-none focus:border-blue-500 disabled:opacity-50 font-mono shadow-inner"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center justify-between">
-                                        <div className="flex items-center gap-2">API Key (Auth)</div>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        disabled={serverRunning}
-                                        value={apiKey}
-                                        onChange={(e) => setApiKey(e.target.value)}
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[13px] text-gray-300 outline-none focus:border-blue-500 disabled:opacity-50 font-mono shadow-inner"
-                                    />
-                                    <p className="text-[10px] text-yellow-500/70 leading-relaxed">Client-side only. The backend does not enforce this key.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
-
-                    <Card className="p-5 border border-white/10 bg-gradient-to-br from-blue-900/20 to-purple-900/20">
-                        <div className="flex items-start gap-3">
-                            <ShieldCheck className="w-6 h-6 text-blue-400 shrink-0" />
-                            <div>
-                                <h4 className="text-sm font-bold text-blue-100 mb-1">OpenAI Compatible</h4>
-                                <p className="text-xs text-blue-200/70 leading-relaxed">
-                                    Silicon Studio exposes a drop-in replacement API for standard OpenAI SDKs (Python, Node.js). Point your remote apps to your IP address to use your local MLX instances for free.
-                                </p>
-                            </div>
-                        </div>
-                    </Card>
-
-                </div>
-
-                {/* Integration Examples Area */}
-                <div className="flex-1 flex flex-col bg-black/20 border border-white/10 rounded-xl overflow-hidden relative">
-                    <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center gap-2 sticky top-0 backdrop-blur-md z-10">
-                        <Activity className="w-5 h-5 text-gray-400" />
-                        <h3 className="font-semibold">Integration Examples</h3>
-                    </div>
-
-                    <div className="p-6 overflow-y-auto space-y-6">
-
-                        {/* Notice Banner */}
-                        <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 p-4 rounded-lg text-sm flex items-start gap-3">
-                            <span className="text-xl leading-none">⚠️</span>
-                            <div>
-                                <strong className="block mb-1">Note on Model IDs</strong>
-                                <p className="text-yellow-500/80">When querying this API, the `model` parameter is ignored. The API will always route requests to the model currently loaded in Silicon Studio's Active Memory ({activeModel ? activeModel.name : 'None'}).</p>
-                            </div>
-                        </div>
-
-                        {/* cURL Code Snippet */}
-                        <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40 shadow-inner">
-                            <div className="bg-[#18181B]/80 px-4 py-3 border-b border-white/10 flex justify-between items-center backdrop-blur-md">
-                                <span className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">cURL Example</span>
-                                <button onClick={() => handleCopy(`curl http://127.0.0.1:${port}/v1/chat/completions \\
+    const curlSnippet = `curl ${endpoint}/v1/chat/completions \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${apiKey}" \\
   -d '{
     "model": "local-model",
     "messages": [
-      {"role": "system", "content": "You are a helpful assistant."},
       {"role": "user", "content": "Hello!"}
     ]
-  }'`)} className="text-gray-500 hover:text-white transition-colors">
-                                    {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-                                </button>
-                            </div>
-                            <pre className="p-4 text-sm font-mono text-blue-300 overflow-x-auto">
-                                {`curl http://127.0.0.1:${port}/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${apiKey}" \\
-  -d '{
-    "model": "local-model",
-    "messages": [
-      {"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "Hello!"}
-    ]
-  }'`}
-                            </pre>
-                        </div>
+  }'`
 
-                        {/* Python Code Snippet */}
-                        <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40 shadow-inner">
-                            <div className="bg-[#18181B]/80 px-4 py-3 border-b border-white/10 flex justify-between items-center backdrop-blur-md">
-                                <span className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">Python (OpenAI SDK)</span>
-                            </div>
-                            <pre className="p-4 text-sm font-mono overflow-x-auto text-orange-200">
-                                {`from openai import OpenAI
+    const pythonSnippet = `from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://127.0.0.1:${port}/v1",
-    api_key="${apiKey}"
+    base_url="${endpoint}/v1",
+    api_key="not-needed"
 )
 
 response = client.chat.completions.create(
     model="local-model",
     messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Write a haiku about local AI."}
     ]
 )
 
-print(response.choices[0].message.content)`}
-                            </pre>
+print(response.choices[0].message.content)`
+
+    return (
+        <div className="h-full flex flex-col text-white overflow-hidden pb-4">
+
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0 gap-4">
+
+                {/* Top bar: controls + config */}
+                <div className="shrink-0 flex flex-col gap-3 px-1">
+
+                    {/* Server control row */}
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={toggleServer}
+                            disabled={loading}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${serverRunning
+                                ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20'
+                                : 'bg-blue-600 hover:bg-blue-500 text-white'
+                                }`}
+                        >
+                            {loading ? (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <Server className="w-4 h-4" />
+                            )}
+                            {serverRunning ? 'Stop Server' : 'Start Server'}
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${serverRunning ? 'bg-green-500' : 'bg-gray-600'}`} />
+                            <span className="text-xs text-gray-400">
+                                {serverRunning ? 'Running' : 'Stopped'}
+                            </span>
                         </div>
 
+                        {serverRunning && uptime != null && (
+                            <span className="text-xs text-gray-500 font-mono tabular-nums">
+                                {formatUptime(uptime)}
+                            </span>
+                        )}
+
+                        {serverRunning && pid && (
+                            <span className="text-xs text-gray-600 font-mono">
+                                PID {pid}
+                            </span>
+                        )}
+
+                        <div className="ml-auto flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                                <Globe className="w-3.5 h-3.5 text-gray-600" />
+                                <select
+                                    title="Bind address"
+                                    value={host}
+                                    onChange={(e) => setHost(e.target.value)}
+                                    disabled={serverRunning}
+                                    className="bg-transparent text-xs text-gray-400 outline-none cursor-pointer hover:text-gray-300 disabled:opacity-50"
+                                >
+                                    <option value="127.0.0.1" className="bg-[#18181B]">localhost</option>
+                                    <option value="0.0.0.0" className="bg-[#18181B]">0.0.0.0</option>
+                                </select>
+                            </div>
+                            <span className="text-gray-700">:</span>
+                            <input
+                                type="number"
+                                title="Port"
+                                disabled={serverRunning}
+                                value={port}
+                                onChange={(e) => setPort(e.target.value)}
+                                className="w-16 bg-transparent border-b border-white/10 text-xs text-gray-400 outline-none focus:border-white/30 disabled:opacity-50 font-mono text-center"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Error message */}
+                    {errorMsg && (
+                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-3 py-2 rounded-lg text-xs">
+                            {errorMsg}
+                        </div>
+                    )}
+
+                    {/* Endpoint URL when running */}
+                    {serverRunning && (
+                        <div className="flex items-center gap-2 bg-white/[0.03] border border-white/5 rounded-lg px-3 py-2">
+                            <span className="text-xs text-gray-500">Endpoint</span>
+                            <code className="text-xs font-mono text-gray-300 flex-1">{endpoint}/v1</code>
+                            <button
+                                onClick={() => handleCopy(`${endpoint}/v1`, 'endpoint')}
+                                className="text-gray-600 hover:text-gray-400 transition-colors"
+                                title="Copy endpoint URL"
+                            >
+                                {copiedId === 'endpoint' ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                            <div className="w-px h-4 bg-white/5 mx-1" />
+                            <span className="text-xs text-gray-500">Model</span>
+                            <span className="text-xs text-gray-400 font-mono truncate max-w-48">
+                                {activeModel?.name ?? 'none'}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Collapsible code snippets */}
+                    <details
+                        open={showSnippets}
+                        onToggle={(e) => setShowSnippets((e.target as HTMLDetailsElement).open)}
+                    >
+                        <summary className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500 hover:text-gray-400 transition-colors select-none py-1">
+                            <ChevronRight className={`w-3 h-3 transition-transform ${showSnippets ? 'rotate-90' : ''}`} />
+                            <span>Integration snippets</span>
+                        </summary>
+                        <div className="mt-2 grid grid-cols-2 gap-3">
+                            <SnippetBlock
+                                label="cURL"
+                                code={curlSnippet}
+                                copied={copiedId === 'curl'}
+                                onCopy={() => handleCopy(curlSnippet, 'curl')}
+                            />
+                            <SnippetBlock
+                                label="Python (OpenAI SDK)"
+                                code={pythonSnippet}
+                                copied={copiedId === 'python'}
+                                onCopy={() => handleCopy(pythonSnippet, 'python')}
+                            />
+                        </div>
+                    </details>
+                </div>
+
+                {/* Log panel — takes remaining space */}
+                <div className="flex-1 flex flex-col bg-black/30 border border-white/5 rounded-xl overflow-hidden min-h-0">
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-white/[0.02] shrink-0">
+                        <div className="flex items-center gap-2">
+                            <Terminal className="w-3.5 h-3.5 text-gray-500" />
+                            <span className="text-xs font-medium text-gray-400">Server Log</span>
+                            <span className="text-[10px] text-gray-600 font-mono">{logs.length} entries</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-1.5 text-[10px] text-gray-600 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={autoScroll}
+                                    onChange={(e) => setAutoScroll(e.target.checked)}
+                                    className="accent-white/50"
+                                />
+                                Auto-scroll
+                            </label>
+                            {logs.length > 0 && (
+                                <button
+                                    onClick={() => { setLogs([]); setLogSince(0); }}
+                                    className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto font-mono text-xs p-3 space-y-0">
+                        {logs.length === 0 ? (
+                            <div className="h-full flex items-center justify-center">
+                                <p className="text-gray-600 text-xs">
+                                    {serverRunning ? 'Waiting for log output...' : 'Start the server to see logs here.'}
+                                </p>
+                            </div>
+                        ) : (
+                            logs.map((entry, i) => (
+                                <div key={i} className="flex gap-3 py-0.5 hover:bg-white/[0.02] px-1 rounded">
+                                    <span className="text-gray-600 tabular-nums shrink-0">{formatLogTime(entry.timestamp)}</span>
+                                    <span className={`shrink-0 w-12 text-right ${entry.source === 'stderr' ? 'text-yellow-600' : 'text-gray-600'}`}>
+                                        {entry.source === 'stderr' ? 'err' : 'out'}
+                                    </span>
+                                    <span className="text-gray-400 break-all">{entry.message}</span>
+                                </div>
+                            ))
+                        )}
+                        <div ref={logEndRef} />
                     </div>
                 </div>
 
             </div>
+        </div>
+    )
+}
+
+function SnippetBlock({ label, code, copied, onCopy }: {
+    label: string
+    code: string
+    copied: boolean
+    onCopy: () => void
+}) {
+    return (
+        <div className="rounded-lg border border-white/5 bg-black/30 overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.03] border-b border-white/5">
+                <span className="text-[10px] font-mono text-gray-500">{label}</span>
+                <button
+                    onClick={onCopy}
+                    title={`Copy ${label} snippet`}
+                    className="flex items-center gap-1 text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
+                >
+                    {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                    <span>{copied ? 'Copied' : 'Copy'}</span>
+                </button>
+            </div>
+            <pre className="p-3 text-[11px] font-mono text-blue-300/80 overflow-x-auto max-h-48 overflow-y-auto">
+                {code}
+            </pre>
         </div>
     )
 }

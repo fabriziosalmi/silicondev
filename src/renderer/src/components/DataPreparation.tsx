@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { apiClient, type PreviewRow } from '../api/client'
-import { PageHeader } from './ui/PageHeader'
 import { Card } from './ui/Card'
 import { useGlobalState } from '../context/GlobalState'
 import { Database, FileText, Server, Sparkles, MessageSquare, FolderOpen, Save } from 'lucide-react'
@@ -114,13 +113,6 @@ export function DataPreparation() {
 
     return (
         <div className="h-full flex flex-col space-y-4 text-white">
-            <PageHeader
-                title="Data Preparation"
-                badge="BETA"
-                description={dataMode === 'file'
-                    ? "Convert any CSV dataset into structured JSONL fine-tuning data."
-                    : "Use an MCP Server and a Bridge Model to auto-generate a dataset."}
-            />
 
             {error && (
                 <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg text-sm flex justify-between items-center transition-all">
@@ -139,11 +131,12 @@ export function DataPreparation() {
                     {dataMode === 'file' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>}
                 </button>
                 <button
-                    onClick={() => { setDataMode('mcp'); setPreview([]); }}
-                    className={`pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 ${dataMode === 'mcp' ? 'text-purple-400' : 'text-gray-400 hover:text-white'}`}
+                    disabled
+                    className="pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 text-gray-600 cursor-not-allowed"
+                    title="MCP-based generation is not yet implemented"
                 >
                     <Server className="w-4 h-4" /> Generate via MCP
-                    {dataMode === 'mcp' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-400"></div>}
+                    <span className="text-[10px] bg-white/5 text-gray-600 px-1.5 py-0.5 rounded border border-white/5">Soon</span>
                 </button>
             </div>
 
@@ -155,7 +148,7 @@ export function DataPreparation() {
                             <label className="text-xs font-bold text-gray-500 uppercase">Input Dataset (CSV)</label>
                             <button
                                 onClick={handleFileSelect}
-                                className={`flex items-center justify-between px-3 h-10 rounded-lg border text-[13px] font-medium transition-all text-left shadow-sm ${fileName
+                                className={`flex items-center justify-between px-3 h-10 rounded-lg border text-[13px] font-medium transition-all text-left ${fileName
                                     ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
                                     : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20'
                                     }`}
@@ -171,7 +164,7 @@ export function DataPreparation() {
                                     const path = await (window as any).electronAPI.selectDirectory();
                                     if (path) setOutputPath(path + "/" + (fileName ? fileName.replace('.csv', '_train.jsonl') : 'train.jsonl'));
                                 }}
-                                className={`flex items-center justify-between px-3 h-10 rounded-lg border text-[13px] font-medium transition-all text-left shadow-sm ${outputPath
+                                className={`flex items-center justify-between px-3 h-10 rounded-lg border text-[13px] font-medium transition-all text-left ${outputPath
                                     ? 'bg-green-500/10 border-green-500/30 text-green-200'
                                     : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20'
                                     }`}
@@ -189,11 +182,11 @@ export function DataPreparation() {
                             <div className="flex flex-col space-y-1.5">
                                 <label className="text-xs font-bold text-gray-500 uppercase">Active MCP Server</label>
                                 <div className="relative">
-                                    <Database className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
+                                    <Database className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400" />
                                     <select
                                         value={mcpServer}
                                         onChange={(e) => setMcpServer(e.target.value)}
-                                        className="w-full bg-black/40 border border-purple-500/30 rounded-lg pl-9 pr-3 py-2.5 text-white text-sm outline-none focus:border-purple-500"
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-white text-sm outline-none focus:border-blue-500"
                                     >
                                         <option value="local-postgres">local-postgres (Database)</option>
                                         <option value="github-repo">github-repo (Source Code)</option>
@@ -243,7 +236,7 @@ export function DataPreparation() {
                                     value={mcpPrompt}
                                     onChange={(e) => setMcpPrompt(e.target.value)}
                                     rows={3}
-                                    className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-white outline-none focus:border-purple-500 text-sm resize-none"
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-white outline-none focus:border-blue-500 text-sm resize-none"
                                     placeholder="Tell the Bridge Model what kind of Instruction/Output pairs to generate from the MCP server..."
                                 />
                             </div>
@@ -253,7 +246,7 @@ export function DataPreparation() {
                             <button
                                 onClick={handleGenerateMcp}
                                 disabled={mcpGenerating || !outputPath || !activeModel}
-                                className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 px-6 rounded-lg shadow-lg shadow-purple-500/20 transition-all text-sm disabled:opacity-50 flex items-center gap-2"
+                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-6 rounded-lg transition-all text-sm disabled:opacity-50 flex items-center gap-2"
                             >
                                 {mcpGenerating ? (
                                     <>
@@ -302,7 +295,7 @@ export function DataPreparation() {
                             <button
                                 onClick={handleConvertFile}
                                 disabled={loading || !outputPath}
-                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-4 rounded-lg shadow-lg shadow-blue-500/20 transition-all text-sm disabled:opacity-50 flex items-center gap-2"
+                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-4 rounded-lg transition-all text-sm disabled:opacity-50 flex items-center gap-2"
                             >
                                 {loading ? 'Processing...' : 'Save JSONL'}
                                 {!loading && <Sparkles className="w-3.5 h-3.5" />}
@@ -311,9 +304,9 @@ export function DataPreparation() {
                     </div>
 
                     {/* Table */}
-                    <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-[#0E0E10] shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
+                    <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-[#0E0E10]">
                         <table className="w-full text-left text-sm text-gray-400 border-separate border-spacing-0">
-                            <thead className="bg-[#18181B] text-gray-500 uppercase font-bold text-[10px] tracking-widest sticky top-0 z-20 shadow-md">
+                            <thead className="bg-[#18181B] text-gray-500 uppercase font-bold text-[10px] tracking-wide sticky top-0 z-20">
                                 <tr>
                                     <th className="px-4 py-3 bg-[#18181B] border-b border-white/10 w-12 text-center">#</th>
                                     {columns.map(header => (
@@ -346,8 +339,8 @@ export function DataPreparation() {
                 </Card>
             ) : (
                 <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-white/20 rounded-2xl bg-black/20 hover:bg-black/40 transition-all cursor-pointer group">
-                    <div className="w-16 h-16 bg-[#18181B] rounded-2xl flex items-center justify-center mb-4 border border-white/5 group-hover:scale-105 transition-transform shadow-lg">
-                        {dataMode === 'file' ? <FileText className="w-8 h-8 text-blue-400/80 group-hover:text-blue-400" /> : <Server className="w-8 h-8 text-purple-400/80 group-hover:text-purple-400" />}
+                    <div className="w-16 h-16 bg-[#18181B] rounded-2xl flex items-center justify-center mb-4 border border-white/5 group-hover:scale-105 transition-transform">
+                        {dataMode === 'file' ? <FileText className="w-8 h-8 text-blue-400/80 group-hover:text-blue-400" /> : <Server className="w-8 h-8 text-blue-400/80 group-hover:text-blue-400" />}
                     </div>
                     <p className="text-gray-300 font-bold tracking-wide">
                         {dataMode === 'file' ? "Select a CSV dataset to begin" : "Configure MCP and Model to generate Data"}

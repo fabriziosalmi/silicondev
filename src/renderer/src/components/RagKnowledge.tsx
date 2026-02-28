@@ -75,13 +75,10 @@ export function RagKnowledge() {
 
     return (
         <div className="h-full flex flex-col text-white overflow-hidden pb-4">
-            <PageHeader
-                title="RAG Knowledge Base"
-                description="Manage local vector databases to augment your models with private documents and context."
-            >
+            <PageHeader>
                 <button
                     onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white text-black hover:bg-gray-200 rounded-lg text-sm font-semibold transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors border border-white/5"
                 >
                     <Plus className="w-4 h-4" />
                     New Collection
@@ -113,32 +110,32 @@ export function RagKnowledge() {
                         <div className="flex items-center gap-6 px-4 py-2.5 bg-black/20 rounded-lg border border-white/5 mb-6">
                             <div className="flex items-center gap-2">
                                 <Database className="w-3.5 h-3.5 text-blue-400" />
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Collections</span>
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Collections</span>
                                 <span className="text-sm font-bold font-mono text-gray-200">{collections.length}</span>
                             </div>
                             <div className="w-px h-4 bg-white/10" />
                             <div className="flex items-center gap-2">
-                                <Brain className="w-3.5 h-3.5 text-purple-400" />
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Chunks</span>
+                                <Brain className="w-3.5 h-3.5 text-blue-400" />
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Chunks</span>
                                 <span className="text-sm font-bold font-mono text-gray-200">{collections.reduce((sum: number, c: any) => sum + (c.chunks || 0), 0).toLocaleString()}</span>
                             </div>
                             <div className="w-px h-4 bg-white/10" />
                             <div className="flex items-center gap-2">
                                 <Database className="w-3.5 h-3.5 text-green-400" />
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Embedder</span>
-                                <span className="text-sm font-mono text-green-300">nomic-embed-text</span>
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Embedder</span>
+                                <span className="text-sm font-mono text-gray-300">nomic-embed-text</span>
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-black/20 shadow-inner">
+                        <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-black/20">
                             <table className="w-full text-left text-sm">
-                                <thead className="bg-[#18181B]/90 backdrop-blur-md text-gray-500 border-b border-white/10 z-10 shadow-sm">
+                                <thead className="bg-[#18181B] text-gray-500 border-b border-white/10">
                                     <tr>
-                                        <th className="px-5 py-3 text-[10px] font-bold tracking-widest uppercase">Collection Name</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold tracking-widest uppercase">Chunks</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold tracking-widest uppercase">Estimated Size</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold tracking-widest uppercase">Last Updated</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold tracking-widest uppercase text-right">Actions</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold tracking-wide uppercase">Collection Name</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold tracking-wide uppercase">Chunks</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold tracking-wide uppercase">Estimated Size</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold tracking-wide uppercase">Last Updated</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold tracking-wide uppercase text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
@@ -177,8 +174,8 @@ export function RagKnowledge() {
 
                 {activeTab === 'ingest' && (
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                        <Card className="xl:col-span-2 flex flex-col items-center justify-center p-12 border-2 border-dashed border-white/10 hover:border-white/20 transition-all bg-black/20 text-center min-h-[400px] shadow-inner group rounded-2xl">
-                            <div className="w-20 h-20 bg-[#18181B] border border-white/5 rounded-2xl flex items-center justify-center mb-6 shadow-lg group-hover:scale-105 transition-transform">
+                        <Card className="xl:col-span-2 flex flex-col items-center justify-center p-12 border-2 border-dashed border-white/10 hover:border-white/20 transition-all bg-black/20 text-center min-h-[400px] group rounded-2xl">
+                            <div className="w-20 h-20 bg-[#18181B] border border-white/5 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
                                 <Upload className="w-10 h-10 text-blue-400" />
                             </div>
                             <h2 className="text-xl font-bold mb-3 text-gray-200 tracking-wide">Upload Files for Embedding</h2>
@@ -198,7 +195,7 @@ export function RagKnowledge() {
                                 <button
                                     onClick={handleIngest}
                                     disabled={uploading || collections.length === 0}
-                                    className="px-8 py-3.5 bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white rounded-xl shadow-lg shadow-blue-500/25 drop-shadow-md font-bold transition-all disabled:opacity-50 flex items-center gap-2 border border-blue-400/20"
+                                    className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
                                 >
                                     {uploading ? (
                                         <>
@@ -209,21 +206,21 @@ export function RagKnowledge() {
                                         "Select Files"
                                     )}
                                 </button>
-                                <button className="px-6 py-3.5 bg-black/40 hover:bg-white/10 border border-white/10 text-gray-300 rounded-xl font-bold transition-colors shadow-sm">
+                                <button className="px-6 py-3.5 bg-black/40 hover:bg-white/10 border border-white/10 text-gray-300 rounded-xl font-bold transition-colors">
                                     Add URL
                                 </button>
                             </div>
                         </Card>
 
                         <div className="space-y-6">
-                            <Card className="p-6 bg-[#18181B] border border-white/10 shadow-xl">
-                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">Pipeline Settings</h3>
+                            <Card className="p-6 bg-[#18181B] border border-white/10">
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-6">Pipeline Settings</h3>
 
                                 <div className="space-y-6">
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
                                             <label className="text-[11px] font-bold text-gray-500 uppercase">Chunk Size</label>
-                                            <span className="text-xs font-mono text-blue-400 font-bold">{chunkSize} chars</span>
+                                            <span className="text-xs font-mono text-gray-400">{chunkSize} chars</span>
                                         </div>
                                         <input
                                             type="range"
@@ -232,14 +229,14 @@ export function RagKnowledge() {
                                             step="128"
                                             value={chunkSize}
                                             onChange={(e) => setChunkSize(parseInt(e.target.value))}
-                                            className="w-full h-1.5 bg-black/60 rounded-lg appearance-none cursor-pointer accent-blue-500 border border-white/5"
+                                            className="w-full h-1.5 bg-black/60 rounded-lg appearance-none cursor-pointer accent-white/50 border border-white/5"
                                         />
                                     </div>
 
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
                                             <label className="text-[11px] font-bold text-gray-500 uppercase">Overlap</label>
-                                            <span className="text-xs font-mono text-purple-400 font-bold">{chunkOverlap} chars</span>
+                                            <span className="text-xs font-mono text-gray-400">{chunkOverlap} chars</span>
                                         </div>
                                         <input
                                             type="range"
@@ -248,7 +245,7 @@ export function RagKnowledge() {
                                             step="10"
                                             value={chunkOverlap}
                                             onChange={(e) => setChunkOverlap(parseInt(e.target.value))}
-                                            className="w-full h-1.5 bg-black/60 rounded-lg appearance-none cursor-pointer accent-purple-500 border border-white/5"
+                                            className="w-full h-1.5 bg-black/60 rounded-lg appearance-none cursor-pointer accent-white/50 border border-white/5"
                                         />
                                     </div>
 
@@ -257,7 +254,7 @@ export function RagKnowledge() {
                                         <select
                                             value={embeddingModel}
                                             onChange={(e) => setEmbeddingModel(e.target.value)}
-                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[13px] text-gray-300 outline-none focus:border-blue-500 appearance-none shadow-inner"
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[13px] text-gray-300 outline-none focus:border-blue-500 appearance-none"
                                         >
                                             <option value="nomic-embed-text-v1.5">Nomic Embed Text v1.5 (Recommended)</option>
                                             <option value="bge-m3">BGE-M3 (Multilingual)</option>
@@ -270,7 +267,7 @@ export function RagKnowledge() {
                             <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl flex gap-3">
                                 <Search className="w-5 h-5 text-blue-400 shrink-0" />
                                 <p className="text-[11px] text-blue-200/70 leading-relaxed italic">
-                                    Higher chunk sizes improve context quality but increase retrieval latency. 512 is industry standard for long documents.
+                                    Higher chunk sizes improve context but increase retrieval latency. 512 is a good default for long documents.
                                 </p>
                             </div>
                         </div>
@@ -282,21 +279,21 @@ export function RagKnowledge() {
             {/* Create Collection Modal */}
             {showCreateModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                    <div className="bg-[#18181B] border border-white/10 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+                    <div className="bg-[#18181B] border border-white/10 rounded-2xl max-w-md w-full p-6">
                         <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                             <Plus className="w-5 h-5 text-blue-400" />
                             New Vector Collection
                         </h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Collection Name</label>
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Collection Name</label>
                                 <input
                                     type="text"
                                     autoFocus
                                     value={newCollectionName}
                                     onChange={(e) => setNewCollectionName(e.target.value)}
                                     placeholder="e.g. Legal Documents 2024"
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500 transition-colors shadow-inner"
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500 transition-colors"
                                 />
                             </div>
                         </div>
@@ -310,7 +307,7 @@ export function RagKnowledge() {
                             <button
                                 onClick={handleCreateCollection}
                                 disabled={!newCollectionName}
-                                className="px-6 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50"
+                                className="px-6 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50"
                             >
                                 Create
                             </button>
