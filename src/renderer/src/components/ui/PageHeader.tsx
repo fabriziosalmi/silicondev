@@ -10,7 +10,7 @@ export function PageHeader({
 }) {
     if (!children) return null;
     return (
-        <div className="flex items-center justify-end gap-3 mb-3 shrink-0">
+        <div className="flex items-center justify-center gap-3 mb-3 shrink-0">
             {children}
         </div>
     );
