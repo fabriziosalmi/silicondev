@@ -14,7 +14,7 @@
 
 **SiliconDev** is an open-source desktop app for local LLM fine-tuning, inference, and tooling on Apple Silicon. Built on [MLX](https://github.com/ml-explore/mlx), it provides a unified interface for data preparation, model management, fine-tuning, chat, RAG, MCP integration, and more.
 
-**SiliconDev** is based on [Silicon-Studio](https://github.com/rileycleavenger/Silicon-Studio) by Riley Cleavenger. Licensed under MIT.
+> **SiliconDev** is based on [Silicon-Studio](https://github.com/rileycleavenger/Silicon-Studio) by Riley Cleavenger. Licensed under MIT.
 
 ## Features
 
