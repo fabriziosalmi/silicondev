@@ -60,6 +60,11 @@ export function AgentTerminal() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mode, setMode] = useState<TerminalMode>(loadPersistedMode)
 
+  // Abort any running stream on unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort() }
+  }, [])
+
   useEffect(() => {
     try { sessionStorage.setItem(STORAGE_KEY_FEED, JSON.stringify(feedItems)) } catch { /* quota */ }
   }, [feedItems])
@@ -81,6 +86,7 @@ export function AgentTerminal() {
 
   const aiTextIdRef = useRef<string | null>(null)
   const toolOutputIdRef = useRef<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const addFeedItem = useCallback((item: FeedItem) => {
     setFeedItems((prev) => [...prev, item])
@@ -102,11 +108,15 @@ export function AgentTerminal() {
 
   // --- SSE stream consumer (shared between both modes) ---
   const consumeSSE = useCallback(async (url: string, body: Record<string, unknown>) => {
+    const controller = new AbortController()
+    abortRef.current = controller
+
     try {
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: controller.signal,
       })
 
       if (!res.ok || !res.body) {
@@ -145,7 +155,13 @@ export function AgentTerminal() {
         } catch { /* ignore */ }
       }
     } catch (err) {
-      addFeedItem({ id: crypto.randomUUID(), type: 'error', content: String(err), timestamp: Date.now() })
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        addFeedItem({ id: crypto.randomUUID(), type: 'info', content: 'Stopped.', timestamp: Date.now() })
+      } else {
+        addFeedItem({ id: crypto.randomUUID(), type: 'error', content: String(err), timestamp: Date.now() })
+      }
+    } finally {
+      abortRef.current = null
     }
 
     function processEvent(evt: SSEEvent) {
@@ -307,11 +323,15 @@ export function AgentTerminal() {
   }, [isRunning, mode, activeModel, addFeedItem, consumeSSE])
 
   const handleStop = useCallback(async () => {
+    // Abort the SSE fetch stream (works for both terminal and agent modes)
+    abortRef.current?.abort()
+
+    // For agent mode, also tell the backend to stop the supervisor loop
     if (sessionId) {
       try {
         await apiClient.terminal.stop(sessionId)
       } catch {
-        // ignore
+        // ignore — session may already be done
       }
     }
   }, [sessionId])
