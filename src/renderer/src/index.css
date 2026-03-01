@@ -38,11 +38,25 @@ body {
   outline: none;
 }
 *:focus-visible {
-  outline: 1px solid rgba(59, 130, 246, 0.5);
-  outline-offset: 1px;
+  outline: 2px solid rgba(59, 130, 246, 0.6);
+  outline-offset: 2px;
 }
 input[type="range"]:focus-visible {
   outline: none;
+}
+
+/* iOS-style tactile press on all interactive elements */
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled),
+[role="switch"]:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Smooth transition for the scale bounce-back */
+button,
+[role="button"],
+[role="switch"] {
+  transition: transform 0.1s ease, background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
 /* Custom Scrollbar — Webkit (Chrome, Electron) */
@@ -75,6 +89,11 @@ summary.list-none::-webkit-details-marker { display: none; }
 
 /* Rotate chevron when details is open */
 details[open] > summary .chevron-rotate { transform: rotate(90deg); }
+
+/* Tight tracking on headings — Apple style */
+h1, h2, h3 {
+  letter-spacing: -0.02em;
+}
 
 /* Dark select dropdown */
 select option {

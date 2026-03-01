@@ -45,7 +45,7 @@ export function ConversationListPanel({
                     placeholder="Search conversations..."
                     value={searchQuery}
                     onChange={(e) => onSearch(e.target.value)}
-                    className="w-full bg-white/[0.03] border border-white/10 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-gray-600 outline-none focus:border-blue-500/50 transition-all"
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500/50 transition-all"
                 />
             </div>
 

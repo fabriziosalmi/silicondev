@@ -210,7 +210,7 @@ export function RagKnowledge() {
                                 value={ingestPath}
                                 onChange={(e) => setIngestPath(e.target.value)}
                                 placeholder="/path/to/doc1.pdf, /path/to/doc2.txt"
-                                className="w-full max-w-md bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 placeholder-gray-600 font-medium mb-6"
+                                className="w-full max-w-md bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 placeholder-gray-500 font-medium mb-6"
                             />
 
                             <div className="flex items-center gap-4">

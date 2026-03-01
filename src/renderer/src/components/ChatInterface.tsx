@@ -1168,7 +1168,7 @@ Return exactly this JSON structure (no other text):
                                     if (e.key === 'Escape') toggleSearch();
                                 }}
                                 placeholder="Search in conversation..."
-                                className="flex-1 bg-transparent text-sm text-white placeholder-gray-600 outline-none"
+                                className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none"
                             />
                             {searchQuery && (
                                 <div className="flex items-center gap-1 shrink-0">
@@ -1481,7 +1481,7 @@ Return exactly this JSON structure (no other text):
                                     onKeyDown={handleKeyDown}
                                     placeholder={isGenerating ? "Generating..." : "Send a message..."}
                                     disabled={isGenerating}
-                                    className={`w-full bg-transparent px-4 py-3 pr-14 text-sm text-gray-200 placeholder-gray-600 outline-none resize-none min-h-[44px] max-h-[200px] ${isGenerating ? 'opacity-40' : ''}`}
+                                    className={`w-full bg-transparent px-4 py-3 pr-14 text-sm text-gray-200 placeholder-gray-500 outline-none resize-none min-h-[44px] max-h-[200px] ${isGenerating ? 'opacity-40' : ''}`}
                                     rows={1}
                                 />
                                 <div className="absolute right-2 bottom-2">

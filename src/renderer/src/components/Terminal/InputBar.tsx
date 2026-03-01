@@ -86,7 +86,7 @@ export function InputBar({ onSubmit, onStop, isRunning, disabled, mode, onModeCh
           placeholder={disabled ? 'Load a model first...' : mode === 'terminal' ? 'Enter command...' : 'Ask NanoCore...'}
           disabled={disabled || isRunning}
           rows={1}
-          className="flex-1 resize-none bg-transparent text-sm text-white placeholder-gray-600 focus:outline-none disabled:opacity-40 select-text font-mono leading-relaxed"
+          className="flex-1 resize-none bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none disabled:opacity-50 select-text font-mono leading-relaxed"
         />
 
         {isRunning ? (

@@ -190,7 +190,7 @@ export function EngineInterface() {
                                         placeholder="e.g. My-Llama-Finance-Expert"
                                         value={jobName}
                                         onChange={e => setJobName(e.target.value)}
-                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 placeholder-gray-600 font-medium"
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 placeholder-gray-500 font-medium"
                                     />
                                 </div>
 
