@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { apiClient } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
-import { Settings2, SlidersHorizontal, Cpu, Copy, Check, Eraser, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap } from 'lucide-react'
+import { Settings2, SlidersHorizontal, Cpu, Copy, Check, Eraser, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -11,6 +11,7 @@ interface Message {
     id?: string
     role: 'system' | 'user' | 'assistant'
     content: string
+    displayContent?: string
     stats?: {
         tokensPerSecond: number;
         timeToFirstToken: number;
@@ -39,30 +40,42 @@ export function ChatInterface() {
 
     const [showSettings, setShowSettings] = useState(false)
     const [settings, setSettings] = useState(() => {
+        const defaults = {
+            systemPrompt: "You are a helpful AI assistant running locally on Apple Silicon.",
+            temperature: 0.7,
+            maxTokens: 2048,
+            maxContext: 4096,
+            topP: 0.9,
+            repetitionPenalty: 1.1,
+            reasoningMode: 'auto' as 'off' | 'auto' | 'low' | 'high',
+        };
         try {
             const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
-            return saved ? JSON.parse(saved) : {
-                systemPrompt: "You are a helpful AI assistant running locally on Apple Silicon.",
-                temperature: 0.7,
-                maxTokens: 1024,
-                maxContext: 4096,
-                topP: 0.9,
-                repetitionPenalty: 1.1
-            };
+            return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
         } catch {
-            return {
-                systemPrompt: "You are a helpful AI assistant running locally on Apple Silicon.",
-                temperature: 0.7,
-                maxTokens: 1024,
-                maxContext: 4096,
-                topP: 0.9,
-                repetitionPenalty: 1.1
-            };
+            return defaults;
         }
     })
 
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const [isGenerating, setIsGenerating] = useState(false)
+
+    // Dynamic defaults: adjust maxTokens when a model with known context_window is loaded
+    useEffect(() => {
+        const cw = activeModel?.context_window;
+        if (!cw) return;
+        // Set maxTokens to half the context window, clamped between 2048 and 16384
+        const recommended = Math.min(Math.max(Math.floor(cw / 2), 2048), 16384);
+        setSettings((prev: Record<string, unknown>) => {
+            // Only auto-adjust if user hasn't manually changed from a previous default
+            // (i.e., the current value is one of the known static defaults)
+            const isDefault = prev.maxTokens === 1024 || prev.maxTokens === 512 || prev.maxTokens === 2048;
+            if (isDefault || (prev.maxTokens as number) > cw) {
+                return { ...prev, maxTokens: recommended };
+            }
+            return prev;
+        });
+    }, [activeModel?.context_window]);
 
     useEffect(() => {
         localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
@@ -103,13 +116,25 @@ export function ChatInterface() {
         }
     }
 
-    const handleSend = async (directPrompt?: string) => {
+    const handleSend = async (directPrompt?: string, displayContent?: string) => {
         const text = directPrompt ?? input;
         if (!text.trim() || !currentModelId || isGenerating) return
 
-        const userMsg: Message = { role: 'user', content: text }
-        const systemMsg: Message | null = settings.systemPrompt?.trim()
-            ? { role: 'system', content: settings.systemPrompt.trim() }
+        const userMsg: Message = { role: 'user', content: text, ...(displayContent && { displayContent }) }
+
+        // Build system prompt with optional reasoning instructions
+        let systemContent = settings.systemPrompt?.trim() || '';
+        const reasoningInstructions: Record<string, string> = {
+            off: '',
+            auto: '',
+            low: '\n\nBefore answering, briefly outline your reasoning in 2-3 sentences, then provide your response. Keep the reasoning concise.',
+            high: '\n\nBefore answering, think through the problem step by step. Consider multiple angles, edge cases, and potential issues. Show your full reasoning process, then provide a thorough response.',
+        };
+        const cotSuffix = reasoningInstructions[settings.reasoningMode] || '';
+        if (cotSuffix) systemContent += cotSuffix;
+
+        const systemMsg: Message | null = systemContent
+            ? { role: 'system', content: systemContent }
             : null
         const conversation = [
             ...(systemMsg ? [systemMsg] : []),
@@ -235,9 +260,48 @@ export function ChatInterface() {
             improve: `Improve the following code. Make it cleaner, more readable, and more idiomatic. Return only the improved code with brief comments explaining what changed.\n\n\`\`\`\n${code}\n\`\`\``,
             secure: `Review the following code for security vulnerabilities. Fix any issues you find (injection, XSS, unsafe operations, etc). Return the secured code with comments on what was fixed.\n\n\`\`\`\n${code}\n\`\`\``,
             faster: `Optimize the following code for performance. Reduce unnecessary allocations, improve algorithmic complexity, or use more efficient APIs. Return the optimized code with comments on what changed.\n\n\`\`\`\n${code}\n\`\`\``,
+            docs: `Add documentation to the following code. Add docstrings, type hints, and inline comments where helpful. Do NOT change any logic or behavior — only add documentation. Return the fully documented code.\n\n\`\`\`\n${code}\n\`\`\``,
+            tests: `Write tests for the following code. Do NOT modify the original code. Generate a complete test file with good coverage of edge cases, typical usage, and error conditions. Use the most appropriate testing framework for the language.\n\n\`\`\`\n${code}\n\`\`\``,
+        };
+        const labels: Record<string, string> = {
+            improve: 'Improve',
+            secure: 'Secure',
+            faster: 'Faster',
+            docs: 'Docs',
+            tests: 'Tests',
+        };
+        const lineCount = code.split('\n').length;
+        const prompt = prompts[action];
+        const display = `**${labels[action]}** — ${lineCount} lines`;
+        if (prompt) handleSend(prompt, display);
+    }
+
+    const sendResponseAction = (response: string, action: string) => {
+        if (isGenerating || !currentModelId) return;
+        const browserLang = navigator.language.split('-')[0];
+        const langName: Record<string, string> = { en: 'English', it: 'Italian', fr: 'French', de: 'German', es: 'Spanish', pt: 'Portuguese', ja: 'Japanese', zh: 'Chinese', ko: 'Korean' };
+        const targetLang = langName[browserLang] || browserLang;
+
+        const prompts: Record<string, string> = {
+            longer: `Expand and elaborate on the following response. Add more detail, examples, and depth while keeping the same structure and meaning.\n\n---\n${response}\n---`,
+            shorter: `Condense the following response to be much shorter and more concise. Keep only the essential points.\n\n---\n${response}\n---`,
+            formal: `Rewrite the following response in a formal, professional tone. Keep the same content and meaning.\n\n---\n${response}\n---`,
+            casual: `Rewrite the following response in a casual, friendly tone. Keep the same content and meaning.\n\n---\n${response}\n---`,
+            technical: `Rewrite the following response in a precise, technical tone with proper terminology. Keep the same meaning.\n\n---\n${response}\n---`,
+            translate: `Translate the following response to ${targetLang}. Preserve formatting, code blocks, and technical terms.\n\n---\n${response}\n---`,
+        };
+        const labels: Record<string, string> = {
+            longer: 'Longer',
+            shorter: 'Shorter',
+            formal: 'Formal',
+            casual: 'Casual',
+            technical: 'Technical',
+            translate: `Translate → ${targetLang}`,
         };
         const prompt = prompts[action];
-        if (prompt) handleSend(prompt);
+        const wordCount = response.split(/\s+/).length;
+        const display = `**${labels[action]}** — ${wordCount} words`;
+        if (prompt) handleSend(prompt, display);
     }
 
     return (
@@ -310,18 +374,30 @@ export function ChatInterface() {
                                                     <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center shrink-0 mt-0.5">
                                                         <span className="text-[10px] font-bold text-gray-400">U</span>
                                                     </div>
-                                                    <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-black/30 prose-pre:border prose-pre:border-white/5 prose-pre:rounded-lg prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 min-w-0">
-                                                        <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                                                            {msg.content}
-                                                        </ReactMarkdown>
-                                                    </div>
+                                                    {msg.displayContent ? (
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-gray-300">
+                                                            <Cpu className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                                            <ReactMarkdown
+                                                                remarkPlugins={[remarkGfm]}
+                                                                components={{ p: ({ children }) => <span>{children}</span> }}
+                                                            >
+                                                                {msg.displayContent}
+                                                            </ReactMarkdown>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-black/30 prose-pre:border prose-pre:border-white/5 prose-pre:rounded-lg prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 min-w-0">
+                                                            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                                                                {msg.content}
+                                                            </ReactMarkdown>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         )
                                     }
 
                                     return (
-                                        <div key={idx} className="mb-8 group">
+                                        <div key={idx} className="mb-6 group">
                                             <div className="flex items-start gap-3">
                                                 <div className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
                                                     <span className="text-[10px] font-bold text-blue-400">AI</span>
@@ -376,28 +452,49 @@ export function ChatInterface() {
                                                         </ReactMarkdown>
                                                     </div>
 
-                                                    {/* Footer: stats + copy, shown on hover */}
-                                                    {msg.stats && msg.stats.totalTokens > 0 && (
-                                                        <div className="flex items-center gap-3 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <span className="text-[10px] text-gray-600 font-mono tabular-nums">
-                                                                {msg.stats.tokensPerSecond} tok/s
-                                                            </span>
-                                                            <span className="text-[10px] text-gray-600 font-mono tabular-nums">
-                                                                {msg.stats.timeToFirstToken}s first token
-                                                            </span>
-                                                            <span className="text-[10px] text-gray-600 font-mono tabular-nums">
-                                                                {msg.stats.totalTokens} tokens
-                                                            </span>
+                                                    {/* Footer: actions + stats, single row on hover */}
+                                                    {visibleContent && (
+                                                        <div className="flex items-center gap-0.5 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            {/* Response actions — icon only */}
+                                                            {[
+                                                                { key: 'longer', label: 'Longer', icon: <Expand className="w-3 h-3" /> },
+                                                                { key: 'shorter', label: 'Shorter', icon: <Shrink className="w-3 h-3" /> },
+                                                                { key: 'formal', label: 'Formal', icon: <Briefcase className="w-3 h-3" /> },
+                                                                { key: 'casual', label: 'Casual', icon: <MessageCircle className="w-3 h-3" /> },
+                                                                { key: 'technical', label: 'Technical', icon: <GraduationCap className="w-3 h-3" /> },
+                                                                { key: 'translate', label: 'Translate', icon: <Languages className="w-3 h-3" /> },
+                                                            ].map(a => (
+                                                                <button
+                                                                    key={a.key}
+                                                                    onClick={() => sendResponseAction(visibleContent, a.key)}
+                                                                    className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
+                                                                    title={a.label}
+                                                                >
+                                                                    {a.icon}
+                                                                </button>
+                                                            ))}
+                                                            <div className="w-px h-3 bg-white/10 mx-1" />
                                                             <button
                                                                 onClick={() => copyToClipboard(visibleContent, idx)}
-                                                                className="ml-auto p-1 text-gray-600 hover:text-gray-400 transition-colors rounded"
+                                                                className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
                                                                 title="Copy response"
                                                             >
                                                                 {copiedIndex === idx
-                                                                    ? <Check className="w-3.5 h-3.5 text-green-500" />
-                                                                    : <Copy className="w-3.5 h-3.5" />
+                                                                    ? <Check className="w-3 h-3 text-green-500" />
+                                                                    : <Copy className="w-3 h-3" />
                                                                 }
                                                             </button>
+                                                            {/* Stats inline */}
+                                                            {msg.stats && msg.stats.totalTokens > 0 && (
+                                                                <div className="flex items-center gap-2 ml-auto">
+                                                                    <span className="text-[10px] text-gray-600 font-mono tabular-nums">
+                                                                        {msg.stats.tokensPerSecond} tok/s
+                                                                    </span>
+                                                                    <span className="text-[10px] text-gray-600 font-mono tabular-nums">
+                                                                        {msg.stats.totalTokens} tok
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
@@ -469,7 +566,7 @@ export function ChatInterface() {
                             <ParameterSlider
                                 label="Max Tokens"
                                 value={settings.maxTokens}
-                                min={64} max={8192} step={64}
+                                min={64} max={activeModel?.context_window || 32768} step={64}
                                 format={(v) => v.toString()}
                                 onChange={(v) => setSettings({ ...settings, maxTokens: v })}
                             />
@@ -490,6 +587,31 @@ export function ChatInterface() {
                                 format={(v) => v.toFixed(2)}
                                 onChange={(v) => setSettings({ ...settings, repetitionPenalty: v })}
                             />
+
+                            <div className="border-t border-white/5 pt-5">
+                                <label className="text-xs text-gray-500 block mb-2">Reasoning</label>
+                                <div className="flex gap-1">
+                                    {(['off', 'auto', 'low', 'high'] as const).map(mode => (
+                                        <button
+                                            key={mode}
+                                            onClick={() => setSettings({ ...settings, reasoningMode: mode })}
+                                            className={`flex-1 px-2 py-1.5 rounded text-[10px] font-medium transition-colors ${
+                                                settings.reasoningMode === mode
+                                                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                                    : 'bg-white/[0.03] text-gray-500 border border-white/5 hover:text-gray-400 hover:bg-white/5'
+                                            }`}
+                                        >
+                                            {mode === 'off' ? 'Off' : mode === 'auto' ? 'Auto' : mode === 'low' ? 'Low' : 'High'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] text-gray-600 mt-1.5">
+                                    {settings.reasoningMode === 'off' && 'No reasoning instructions added.'}
+                                    {settings.reasoningMode === 'auto' && 'Let the model decide. Best for reasoning models.'}
+                                    {settings.reasoningMode === 'low' && 'Brief reasoning before answering.'}
+                                    {settings.reasoningMode === 'high' && 'Deep step-by-step reasoning.'}
+                                </p>
+                            </div>
 
                             <div className="border-t border-white/5 pt-5">
                                 <label className="text-xs text-gray-500 block mb-2">System Prompt</label>
@@ -529,6 +651,8 @@ function CodeBlock({
         { key: 'improve', label: 'Improve', icon: <Wand2 className="w-3 h-3" /> },
         { key: 'secure', label: 'Secure', icon: <Shield className="w-3 h-3" /> },
         { key: 'faster', label: 'Faster', icon: <Zap className="w-3 h-3" /> },
+        { key: 'docs', label: 'Docs', icon: <FileText className="w-3 h-3" /> },
+        { key: 'tests', label: 'Tests', icon: <TestTube2 className="w-3 h-3" /> },
     ];
 
     return (
@@ -536,18 +660,18 @@ function CodeBlock({
             {/* Header bar */}
             <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.03] border-b border-white/5">
                 <span className="text-[10px] font-mono text-gray-500">{language || 'code'}</span>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5">
                     {actions.map(a => (
                         <button
                             key={a.key}
                             onClick={() => onAction(code, a.key)}
                             title={a.label}
-                            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors opacity-0 group-hover/code:opacity-100"
+                            className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors opacity-0 group-hover/code:opacity-100"
                         >
                             {a.icon}
-                            <span>{a.label}</span>
                         </button>
                     ))}
+                    <div className="w-px h-3 bg-white/10 mx-1 opacity-0 group-hover/code:opacity-100" />
                     <button
                         onClick={handleCopy}
                         title="Copy code"

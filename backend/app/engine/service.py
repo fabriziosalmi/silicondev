@@ -312,6 +312,32 @@ class MLXEngineService:
             logger.error(f"Failed to load model {model_id}: {e}")
             raise e
 
+    def get_active_model_metadata(self) -> Dict[str, Any]:
+        """Returns metadata for the currently loaded model, including numeric context_window."""
+        if not self.active_model_id:
+            return {}
+        # Find model in config
+        for m in self.models_config:
+            if m["id"] == self.active_model_id:
+                cw_str = m.get("context_window", "Unknown")
+                cw_num = None
+                if cw_str and cw_str != "Unknown":
+                    import re
+                    match = re.match(r"^(\d+)k$", cw_str, re.IGNORECASE)
+                    if match:
+                        cw_num = int(match.group(1)) * 1024
+                    else:
+                        try:
+                            cw_num = int(cw_str)
+                        except ValueError:
+                            pass
+                return {
+                    "context_window": cw_num,
+                    "architecture": m.get("architecture"),
+                    "quantization": m.get("quantization"),
+                }
+        return {}
+
     def unload_model(self):
         """Explicitly unload the active model and free VRAM."""
         if self.active_model:

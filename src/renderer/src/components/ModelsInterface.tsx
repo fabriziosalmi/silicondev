@@ -79,10 +79,25 @@ export function ModelsInterface() {
         }
     };
 
+    const parseContextWindow = (cw: string | undefined): number | undefined => {
+        if (!cw || cw === "Unknown") return undefined;
+        const match = cw.match(/^(\d+)k$/i);
+        if (match) return parseInt(match[1], 10) * 1024;
+        const num = parseInt(cw, 10);
+        return isNaN(num) ? undefined : num;
+    };
+
     const loadModelIntoMemory = async (model: any) => {
         try {
-            await apiClient.engine.loadModel(model.id);
-            setActiveModel({ id: model.id, name: model.name, size: model.size, path: model.path_local || model.id, architecture: model.architecture });
+            const result = await apiClient.engine.loadModel(model.id);
+            setActiveModel({
+                id: model.id,
+                name: model.name,
+                size: model.size,
+                path: model.path_local || model.id,
+                architecture: model.architecture,
+                context_window: result.context_window ?? parseContextWindow(model.context_window),
+            });
         } catch (e: any) {
             alert(`Failed to load model: ${e.message}`);
         }

@@ -220,7 +220,7 @@ export const apiClient = {
             if (!res.ok) throw new Error('Failed to export model');
             return res.json();
         },
-        loadModel: async (modelId: string): Promise<{ status: string; model_id: string }> => {
+        loadModel: async (modelId: string): Promise<{ status: string; model_id: string; context_window?: number; architecture?: string }> => {
             const res = await fetch(`${API_BASE}/api/engine/models/load`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

@@ -100,7 +100,8 @@ async def load_model(request: LoadModelRequest):
     """Load a model into active memory (Apple Silicon unified memory)."""
     try:
         await service.load_active_model(request.model_id)
-        return {"status": "loaded", "model_id": request.model_id}
+        metadata = service.get_active_model_metadata()
+        return {"status": "loaded", "model_id": request.model_id, **metadata}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
