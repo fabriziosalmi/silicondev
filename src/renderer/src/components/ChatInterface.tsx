@@ -66,6 +66,7 @@ export function ChatInterface() {
             enabledActions: defaultEnabledActions,
             memoryMapEnabled: false,
             memoryInterval: 5,
+            piiRedaction: false,
         };
         try {
             const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
@@ -300,6 +301,28 @@ export function ChatInterface() {
         a.download = `${safeName}.${format === 'md' ? 'md' : 'json'}`;
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    // PII redaction state
+    const [redactedCount, setRedactedCount] = useState<number | null>(null);
+
+    const handleRedactConversation = (scope: 'all' | 'outgoing') => {
+        let totalCount = 0;
+        const updated = messages.map(msg => {
+            if (scope === 'outgoing' && msg.role !== 'user') return msg;
+            const { text, count } = redactPII(msg.content);
+            if (count > 0) {
+                totalCount += count;
+                return { ...msg, content: text };
+            }
+            return msg;
+        });
+        if (totalCount > 0) {
+            setMessages(updated);
+            localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(updated));
+            setRedactedCount(totalCount);
+            setTimeout(() => setRedactedCount(null), 3000);
+        }
     };
 
     const handleBranch = async (messageIndex: number) => {
@@ -798,6 +821,35 @@ Return exactly this JSON structure (no other text):
                             </div>
                         </div>
                     )}
+                    {settings.piiRedaction && messages.length > 0 && (
+                        <div className="relative group/redact">
+                            <button
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                            >
+                                <Shield className="w-3.5 h-3.5" />
+                                Redact
+                                {redactedCount !== null && (
+                                    <span className="text-[10px] font-mono text-emerald-400 ml-1">{redactedCount}</span>
+                                )}
+                            </button>
+                            <div className="hidden group-hover/redact:block absolute top-full left-0 pt-1 z-50">
+                                <div className="bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 min-w-[140px]">
+                                    <button
+                                        onClick={() => handleRedactConversation('all')}
+                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                                    >
+                                        Redact all
+                                    </button>
+                                    <button
+                                        onClick={() => handleRedactConversation('outgoing')}
+                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                                    >
+                                        My messages only
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {settings.memoryMapEnabled && (
                         <button
                             type="button"
@@ -929,7 +981,7 @@ Return exactly this JSON structure (no other text):
                                                             </div>
                                                         </details>
                                                     ) : (
-                                                        <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-black/30 prose-pre:border prose-pre:border-white/5 prose-pre:rounded-lg prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 min-w-0">
+                                                        <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-black/30 prose-pre:border prose-pre:border-white/5 prose-pre:rounded-lg prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 prose-hr:border-white/[0.06] min-w-0">
                                                             <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                                                                 {msg.content}
                                                             </ReactMarkdown>
@@ -966,7 +1018,7 @@ Return exactly this JSON structure (no other text):
                                                     )}
 
                                                     {/* Response */}
-                                                    <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0 prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100">
+                                                    <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0 prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 prose-hr:border-white/[0.06]">
                                                         <ReactMarkdown
                                                             remarkPlugins={[remarkGfm, remarkBreaks]}
                                                             components={{
@@ -987,6 +1039,7 @@ Return exactly this JSON structure (no other text):
                                                                             enabledActions={settings.enabledActions}
                                                                             syntaxCheck={settings.syntaxCheck}
                                                                             autoFixSyntax={settings.autoFixSyntax}
+                                                                            piiRedaction={settings.piiRedaction}
                                                                         />
                                                                     );
                                                                 },
@@ -1015,6 +1068,7 @@ Return exactly this JSON structure (no other text):
                                                             onBranch={activeConversationId ? () => handleBranch(idx) : undefined}
                                                             assessment={assessments[idx]}
                                                             onAssess={settings.enabledActions?.selfAssess !== false ? () => assessResponse(visibleContent, idx) : undefined}
+                                                            disabled={isGenerating}
                                                         />
                                                     )}
                                                 </div>
@@ -1247,6 +1301,27 @@ Return exactly this JSON structure (no other text):
                             </div>
 
                             <div className="border-t border-white/5 pt-5">
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-xs text-gray-500">PII Redaction</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSettings({ ...settings, piiRedaction: !settings.piiRedaction })}
+                                        className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                                            settings.piiRedaction
+                                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                                : 'bg-white/[0.03] text-gray-500 border border-white/5 hover:text-gray-400 hover:bg-white/5'
+                                        }`}
+                                    >
+                                        <Shield className="w-3 h-3" />
+                                        {settings.piiRedaction ? 'On' : 'Off'}
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-gray-600">
+                                    Replace emails, phones, IPs, cards with tokens.
+                                </p>
+                            </div>
+
+                            <div className="border-t border-white/5 pt-5">
                                 <label className="text-xs text-gray-500 block mb-2">Visible Actions</label>
                                 <div className="flex flex-wrap gap-1.5">
                                     {[
@@ -1322,6 +1397,7 @@ function ResponseActions({
     onBranch,
     assessment,
     onAssess,
+    disabled,
 }: {
     content: string;
     idx: number;
@@ -1335,6 +1411,7 @@ function ResponseActions({
     onBranch?: () => void;
     assessment?: SelfAssessment | 'loading';
     onAssess?: () => void;
+    disabled?: boolean;
 }) {
     const isOn = (key: string) => enabledActions?.[key] !== false;
     const [showPerspectives, setShowPerspectives] = useState(false);
@@ -1406,8 +1483,9 @@ function ResponseActions({
                     <button
                         key={a.key}
                         onClick={() => onAction(content, a.key)}
-                        className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
-                        title={a.label}
+                        disabled={disabled}
+                        className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-gray-300 hover:bg-white/5'}`}
+                        title={disabled ? 'Wait for response...' : a.label}
                     >
                         {a.icon}
                     </button>
@@ -1417,8 +1495,9 @@ function ResponseActions({
                 {isOn('devil') && (
                     <button
                         onClick={() => onAction(content, 'devil')}
-                        className="p-1 rounded text-gray-600 hover:text-orange-400 hover:bg-orange-500/5 transition-colors"
-                        title="Devil's Advocate"
+                        disabled={disabled}
+                        className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-orange-400 hover:bg-orange-500/5'}`}
+                        title={disabled ? 'Wait for response...' : "Devil's Advocate"}
                     >
                         <Scale className="w-3 h-3" />
                     </button>
@@ -1427,9 +1506,10 @@ function ResponseActions({
                 {enabledPerspectives.length > 0 && (
                     <div className="relative" ref={perspRef}>
                         <button
-                            onClick={() => setShowPerspectives(!showPerspectives)}
-                            className={`p-1 rounded transition-colors ${showPerspectives ? 'text-purple-400 bg-purple-500/10' : 'text-gray-600 hover:text-purple-400 hover:bg-purple-500/5'}`}
-                            title="Change Perspective"
+                            onClick={() => !disabled && setShowPerspectives(!showPerspectives)}
+                            disabled={disabled}
+                            className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : showPerspectives ? 'text-purple-400 bg-purple-500/10' : 'text-gray-600 hover:text-purple-400 hover:bg-purple-500/5'}`}
+                            title={disabled ? 'Wait for response...' : "Change Perspective"}
                         >
                             <Eye className="w-3 h-3" />
                         </button>
@@ -1463,8 +1543,9 @@ function ResponseActions({
                 {onBranch && (
                     <button
                         onClick={onBranch}
-                        className="p-1 rounded text-gray-600 hover:text-purple-400 hover:bg-purple-500/5 transition-colors"
-                        title="Branch from here"
+                        disabled={disabled}
+                        className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-purple-400 hover:bg-purple-500/5'}`}
+                        title={disabled ? 'Wait for response...' : "Branch from here"}
                     >
                         <GitFork className="w-3 h-3" />
                     </button>
@@ -1671,6 +1752,25 @@ function MemoryMapPanel({ memory, building }: { memory: ConversationMemory | nul
 // Strip ANSI escape sequences from error output
 const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
 
+// Lightweight PII redaction — regex patterns for common PII types
+const PII_PATTERNS: [RegExp, string][] = [
+    [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '[EMAIL]'],
+    [/\b(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g, '[PHONE]'],
+    [/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[IP]'],
+    [/\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g, '[CARD]'],
+    [/\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/g, '[SSN]'],
+    [/\b(?:sk-|ghp_|gho_|glpat-|xoxb-|xoxp-)[A-Za-z0-9_-]{20,}\b/g, '[KEY]'],
+];
+
+function redactPII(text: string): { text: string; count: number } {
+    let count = 0;
+    let result = text;
+    for (const [pattern, replacement] of PII_PATTERNS) {
+        result = result.replace(new RegExp(pattern.source, pattern.flags), () => { count++; return replacement; });
+    }
+    return { text: result, count };
+}
+
 interface SnippetVersion {
     code: string;
     action: string;
@@ -1685,6 +1785,7 @@ function CodeBlock({
     enabledActions,
     syntaxCheck,
     autoFixSyntax,
+    piiRedaction,
 }: {
     code: string;
     language: string;
@@ -1693,6 +1794,7 @@ function CodeBlock({
     enabledActions?: Record<string, boolean>;
     syntaxCheck?: boolean;
     autoFixSyntax?: boolean;
+    piiRedaction?: boolean;
 }) {
     const [copied, setCopied] = useState(false);
     const [running, setRunning] = useState(false);
@@ -1795,6 +1897,18 @@ function CodeBlock({
         }
     };
 
+    const handleRedactCode = () => {
+        const { text, count } = redactPII(displayCode);
+        if (count === 0 || text === displayCode) return;
+        const current = versions.length === 0
+            ? [{ code, action: 'original', timestamp: Date.now() }]
+            : [...versions];
+        const base = versionIndex >= 0 ? current.slice(0, versionIndex + 1) : current;
+        const updated = [...base, { code: text, action: 'redact', timestamp: Date.now() }];
+        setVersions(updated);
+        setVersionIndex(updated.length - 1);
+    };
+
     const rewriteActions = [
         { key: 'improve', label: 'Improve', icon: <Wand2 className="w-3 h-3" /> },
         { key: 'secure', label: 'Secure', icon: <Shield className="w-3 h-3" /> },
@@ -1885,6 +1999,15 @@ function CodeBlock({
                             className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors opacity-0 group-hover/code:opacity-100"
                         >
                             <TestTube2 className="w-3 h-3" />
+                        </button>
+                    )}
+                    {piiRedaction && (
+                        <button
+                            onClick={handleRedactCode}
+                            title="Redact PII"
+                            className="p-1 rounded text-gray-600 hover:text-orange-400 hover:bg-orange-500/5 transition-colors opacity-0 group-hover/code:opacity-100"
+                        >
+                            <Shield className="w-3 h-3" />
                         </button>
                     )}
                     <div className="w-px h-3 bg-white/10 mx-1 opacity-0 group-hover/code:opacity-100" />
