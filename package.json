@@ -62,7 +62,7 @@
     },
     "devDependencies": {
         "concurrently": "^8.2.2",
-        "electron": "^29.1.0",
+        "electron": "^35.7.5",
         "electron-builder": "^26.8.1",
         "electron-updater": "^6.6.2",
         "typescript": "^5.3.3",
