@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { apiClient } from '../api/client'
 import { useGlobalState } from '../context/GlobalState'
 import { Card } from './ui/Card'
@@ -93,13 +93,20 @@ export function EngineInterface() {
         }
     }
 
+    const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+    // Clean up poll interval on unmount
+    useEffect(() => {
+        return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
+    }, []);
+
     const pollStatus = (jobId: string) => {
-        const interval = setInterval(async () => {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = setInterval(async () => {
             try {
                 const data = await apiClient.engine.getJobStatus(jobId)
                 setJobStatus(data)
 
-                // Use real loss data from backend if available
                 if (data.loss !== undefined) {
                     setChartData(prev => [...prev, {
                         step: prev.length + 1,
@@ -108,11 +115,13 @@ export function EngineInterface() {
                 }
 
                 if (data.status === 'completed' || data.status === 'failed') {
-                    clearInterval(interval)
+                    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                    pollIntervalRef.current = null;
                     setIsTraining(false)
                 }
-            } catch (e) {
-                clearInterval(interval)
+            } catch {
+                if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
                 setIsTraining(false)
             }
         }, 1000)
@@ -197,7 +206,7 @@ export function EngineInterface() {
                                         </div>
                                         <button
                                             onClick={async () => {
-                                                const path = await (window as any).electronAPI.selectFile();
+                                                const path = await (window as any).electronAPI?.selectFile?.();
                                                 if (path) setDatasetPath(path);
                                             }}
                                             className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl transition-colors text-sm font-medium"

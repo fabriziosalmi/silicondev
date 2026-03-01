@@ -225,9 +225,7 @@ export function RagKnowledge() {
                                         "Select Files"
                                     )}
                                 </button>
-                                <button className="px-6 py-3.5 bg-black/40 hover:bg-white/10 border border-white/10 text-gray-300 rounded-xl font-bold transition-colors">
-                                    Add URL
-                                </button>
+                                {/* URL ingestion reserved for future implementation */}
                             </div>
                         </Card>
 

@@ -87,6 +87,7 @@ export function ChatInterface() {
     const activeConversationIdRef = useRef<string | null>(null)
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const skipLoadRef = useRef(false)
+    const creatingConvRef = useRef(false)
 
     // Self-assessment scores per message index
     const [assessments, setAssessments] = useState<Record<number, SelfAssessment | 'loading'>>({})
@@ -210,12 +211,17 @@ export function ChatInterface() {
                     await apiClient.conversations.update(convId, {
                         messages, model_id: currentModelId || undefined,
                     });
-                } else {
-                    const conv = await apiClient.conversations.create(
-                        autoTitle(messages), messages, currentModelId || undefined
-                    );
-                    skipLoadRef.current = true;
-                    setActiveConversationId(conv.id);
+                } else if (!creatingConvRef.current) {
+                    creatingConvRef.current = true;
+                    try {
+                        const conv = await apiClient.conversations.create(
+                            autoTitle(messages), messages, currentModelId || undefined
+                        );
+                        skipLoadRef.current = true;
+                        setActiveConversationId(conv.id);
+                    } finally {
+                        creatingConvRef.current = false;
+                    }
                 }
                 fetchConversations();
             } catch (e) {
@@ -358,24 +364,28 @@ export function ChatInterface() {
             systemContent += '\n\n[CONVERSATION CONTEXT]\n' + memParts.join('\n');
         }
 
-        // Inject RAG knowledge context if enabled
-        if (settings.ragEnabled && settings.ragCollectionId) {
+        // Inject RAG/web search only for direct user messages (skip for action prompts)
+        const isDirectMessage = !actionType;
+        if (isDirectMessage && settings.ragEnabled && settings.ragCollectionId) {
             try {
                 const ragResults = await apiClient.rag.query(settings.ragCollectionId, text, 5);
                 if (ragResults.results.length > 0) {
                     systemContent += '\n\n[KNOWLEDGE BASE]\n' + ragResults.results.map(r => r.text).join('\n---\n');
                 }
-            } catch { /* ignore RAG failures */ }
+            } catch (e) {
+                console.warn('RAG query failed:', e);
+            }
         }
 
-        // Inject web search results if enabled
-        if (settings.webSearchEnabled) {
+        if (isDirectMessage && settings.webSearchEnabled) {
             try {
                 const searchResults = await apiClient.search.web(text, 3);
                 if (searchResults.length > 0) {
                     systemContent += '\n\n[WEB SEARCH]\n' + searchResults.map(r => `${r.title}\n${r.snippet}\nSource: ${r.url}`).join('\n---\n');
                 }
-            } catch { /* ignore search failures */ }
+            } catch (e) {
+                console.warn('Web search failed:', e);
+            }
         }
 
         const systemMsg: Message | null = systemContent
@@ -390,7 +400,7 @@ export function ChatInterface() {
         if (!directPrompt) setInput('')
         setIsGenerating(true)
 
-        const assistantMsgId = Date.now().toString()
+        const assistantMsgId = crypto.randomUUID()
         const initialAssistantMsg: Message = {
             role: 'assistant',
             content: '',

@@ -31,14 +31,11 @@ export function ModelsInterface() {
     const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
+        fetchModels();
         const interval = setInterval(() => {
             fetchModels(true)
         }, 5000)
         return () => clearInterval(interval)
-    }, [])
-
-    useEffect(() => {
-        fetchModels();
     }, []);
 
     const fetchModels = async (silent = false) => {

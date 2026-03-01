@@ -49,13 +49,18 @@ export function Deployment() {
     }, [])
 
     // Poll logs when server is running
+    const logSinceRef = useRef(logSince)
+    logSinceRef.current = logSince
     useEffect(() => {
         if (!serverRunning) return
         const fetchLogs = async () => {
             try {
-                const data = await apiClient.deployment.getLogs(logSince)
+                const data = await apiClient.deployment.getLogs(logSinceRef.current)
                 if (data.logs.length > 0) {
-                    setLogs(prev => [...prev, ...data.logs])
+                    setLogs(prev => {
+                        const merged = [...prev, ...data.logs];
+                        return merged.length > 500 ? merged.slice(-500) : merged;
+                    })
                     setLogSince(data.logs[data.logs.length - 1].timestamp)
                 }
             } catch {
@@ -65,7 +70,7 @@ export function Deployment() {
         fetchLogs()
         const interval = setInterval(fetchLogs, 1500)
         return () => clearInterval(interval)
-    }, [serverRunning, logSince])
+    }, [serverRunning])
 
     // Auto-scroll logs
     useEffect(() => {

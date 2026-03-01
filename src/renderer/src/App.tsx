@@ -37,7 +37,6 @@ function App() {
     });
   }
 
-  const displayedTab = activeTab
 
   // Switch to chat when a note sends content
   useEffect(() => {
@@ -282,15 +281,15 @@ function App() {
         <div className="flex-1 overflow-y-auto no-drag relative">
 
           <div className="w-full h-full p-4 md:p-8 overflow-x-hidden">
-            {displayedTab === 'studio' && <DataPreparation />}
-            {displayedTab === 'models' && <ModelsInterface />}
-            {displayedTab === 'engine' && <EngineInterface />}
-            {displayedTab === 'evaluations' && <Evaluations />}
-            {displayedTab === 'rag' && <RagKnowledge />}
-            {displayedTab === 'agents' && <AgentWorkflows />}
-            {displayedTab === 'deployment' && <Deployment />}
-            {displayedTab === 'chat' && <ChatInterface />}
-            {displayedTab === 'workspace' && <Workspace />}
+            {activeTab === 'studio' && <DataPreparation />}
+            {activeTab === 'models' && <ModelsInterface />}
+            {activeTab === 'engine' && <EngineInterface />}
+            {activeTab === 'evaluations' && <Evaluations />}
+            {activeTab === 'rag' && <RagKnowledge />}
+            {activeTab === 'agents' && <AgentWorkflows />}
+            {activeTab === 'deployment' && <Deployment />}
+            {activeTab === 'chat' && <ChatInterface />}
+            {activeTab === 'workspace' && <Workspace />}
           </div>
         </div>
 

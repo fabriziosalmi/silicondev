@@ -19,6 +19,8 @@ export function Workspace() {
     const [documentBody, setDocumentBody] = useState('')
     const [isGenerating, setIsGenerating] = useState(false)
     const [noteLoaded, setNoteLoaded] = useState(false)
+    const creatingNoteRef = useRef(false)
+    const lastSavedContentRef = useRef<string>('')
 
     // Load note when activeNoteId changes
     useEffect(() => {
@@ -67,22 +69,42 @@ export function Workspace() {
         placeholder: "Start writing... Markdown is supported.",
     }), [])
 
+    // Flush pending save on unmount or note switch
+    useEffect(() => {
+        return () => {
+            if (saveTimerRef.current) {
+                clearTimeout(saveTimerRef.current);
+                saveTimerRef.current = null;
+            }
+        };
+    }, [activeNoteId]);
+
     // Debounced save: immediate local state, delayed backend persist
     const handleChange = useCallback((value: string) => {
         setDocumentBody(value);
+        lastSavedContentRef.current = value;
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = setTimeout(async () => {
             if (activeNoteId) {
-                try { await apiClient.notes.update(activeNoteId, { content: value }); } catch { /* ignore */ }
-            } else if (value.trim()) {
-                // Auto-create a new note
+                try {
+                    await apiClient.notes.update(activeNoteId, { content: value });
+                } catch (e) {
+                    console.error('Note save failed:', e);
+                }
+            } else if (value.trim() && !creatingNoteRef.current) {
+                // Auto-create a new note (guarded against double-create)
+                creatingNoteRef.current = true;
                 try {
                     const title = value.split('\n')[0].replace(/^#+\s*/, '').slice(0, 60) || 'Untitled';
                     const note = await apiClient.notes.create(title, value);
                     skipLoadRef.current = true;
                     setActiveNoteId(note.id);
                     fetchNotes();
-                } catch { /* ignore */ }
+                } catch (e) {
+                    console.error('Note create failed:', e);
+                } finally {
+                    creatingNoteRef.current = false;
+                }
             }
         }, 800);
     }, [activeNoteId, setActiveNoteId, fetchNotes]);
@@ -98,7 +120,8 @@ export function Workspace() {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `notes.${format}`
+        const titleSlug = (documentBody.split('\n')[0]?.replace(/^#+\s*/, '').trim() || 'note').slice(0, 40).replace(/[^a-zA-Z0-9]+/g, '-').replace(/-+$/, '');
+        a.download = `${titleSlug}.${format}`
         a.click()
         URL.revokeObjectURL(url)
     }

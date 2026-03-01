@@ -85,9 +85,9 @@ export function AgentWorkflows() {
                     </div>
                     <button
                         onClick={() => setActiveAgent({ name: "New Agent Workflow", nodes: [], edges: [], config: {} })}
-                        className="flex items-center gap-2 px-4 py-2 bg-white text-black hover:bg-gray-200 rounded-lg text-sm font-semibold transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition-colors"
                     >
-                        <Plus className="w-4 h-4 text-black" />
+                        <Plus className="w-4 h-4" />
                         New Agent
                     </button>
                     {activeAgent && (
