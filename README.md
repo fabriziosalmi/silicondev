@@ -4,8 +4,6 @@
 
 **Local AI Development Environment for Apple Silicon**
 
-<p>Based on [Silicon-Studio](https://github.com/rileycleavenger/Silicon-Studio) by Riley Cleavenger. Licensed under MIT.</p>
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Platform: macOS](https://img.shields.io/badge/Platform-macOS_(Apple_Silicon)-black)
 ![Engine: MLX](https://img.shields.io/badge/Engine-MLX-blue)
@@ -15,6 +13,8 @@
 ---
 
 **SiliconDev** is an open-source desktop app for local LLM fine-tuning, inference, and tooling on Apple Silicon. Built on [MLX](https://github.com/ml-explore/mlx), it provides a unified interface for data preparation, model management, fine-tuning, chat, RAG, MCP integration, and more.
+
+**SiliconDev** is based on [Silicon-Studio](https://github.com/rileycleavenger/Silicon-Studio) by Riley Cleavenger. Licensed under MIT.
 
 ## Features
 
