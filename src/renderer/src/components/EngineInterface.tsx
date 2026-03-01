@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { apiClient } from '../api/client'
-import type { ModelEntry, JobStatus } from '../api/client'
+import type { ModelEntry, JobStatus, ModelFormatInfo } from '../api/client'
 import { useGlobalState } from '../context/GlobalState'
 import { useToast } from './ui/Toast'
 import { Card } from './ui/Card'
@@ -42,6 +42,7 @@ export function EngineInterface() {
     const [chartData, setChartData] = useState<{ step: number; loss: number }[]>([])
     const [exporting, setExporting] = useState(false)
     const [exportPath] = useState('~/Documents/Silicon-Studio/Exports')
+    const [modelFormat, setModelFormat] = useState<ModelFormatInfo | null>(null)
 
     useEffect(() => {
         apiClient.engine.getModels().then((data) => {
@@ -50,6 +51,14 @@ export function EngineInterface() {
             if (downloaded.length) setSelectedModel(downloaded[0].id)
         }).catch(() => {})
     }, [])
+
+    // Fetch model format info when selected model changes
+    useEffect(() => {
+        if (!selectedModel) { setModelFormat(null); return }
+        apiClient.engine.getModelFormat(selectedModel)
+            .then(setModelFormat)
+            .catch(() => setModelFormat(null))
+    }, [selectedModel])
 
     const handlePresetChange = (p: keyof typeof PRESETS) => {
         setPreset(p);
@@ -197,6 +206,25 @@ export function EngineInterface() {
                                         {models.map(m => <option key={m.id} value={m.id}>{m.name} ({m.size})</option>)}
                                     </select>
                                 </div>
+
+                                {/* Model Format Info */}
+                                {modelFormat && (
+                                    <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-black/20 border border-white/5 text-[11px] text-gray-500">
+                                        <span className="text-gray-400 font-medium">{modelFormat.model_type}</span>
+                                        <span className="w-px h-3 bg-white/10" />
+                                        {modelFormat.has_chat_template ? (
+                                            <span className="text-green-500/70">Chat template detected</span>
+                                        ) : (
+                                            <span className="text-yellow-500/70">No chat template</span>
+                                        )}
+                                        {modelFormat.eos_token && (
+                                            <>
+                                                <span className="w-px h-3 bg-white/10" />
+                                                <span>EOS: <code className="text-gray-400">{modelFormat.eos_token}</code></span>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Dataset Path */}
                                 <div className="space-y-3">

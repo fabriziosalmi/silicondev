@@ -173,6 +173,16 @@ export interface ChatMessage {
     content: string
 }
 
+export interface ModelFormatInfo {
+    model_id: string
+    model_type: string
+    has_chat_template: boolean
+    chat_template_preview: string | null
+    eos_token: string | null
+    bos_token: string | null
+    pad_token: string | null
+}
+
 export interface IndexerSource {
     id: string
     url: string
@@ -311,6 +321,11 @@ export const apiClient = {
         listAdapters: async (): Promise<ModelEntry[]> => {
             const res = await fetch(`${API_BASE}/api/engine/models/adapters`);
             if (!res.ok) throw new Error('Failed to fetch adapters');
+            return res.json();
+        },
+        getModelFormat: async (modelId: string): Promise<ModelFormatInfo> => {
+            const res = await fetch(`${API_BASE}/api/engine/models/${encodeURIComponent(modelId)}/format`);
+            if (!res.ok) throw new Error('Failed to fetch model format');
             return res.json();
         },
         exportModel: async (modelId: string, outputPath: string, qBits: number = 4): Promise<{ status: string; path: string }> => {

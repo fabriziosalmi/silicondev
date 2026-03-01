@@ -699,6 +699,96 @@ class MLXEngineService:
     def get_job_status(self, job_id: str):
         return self.active_jobs.get(job_id, {"status": "not_found"})
 
+    def get_model_format_info(self, model_id: str) -> Dict[str, Any]:
+        """Detect chat template format, EOS tokens, and model type for a model.
+
+        Returns info like model_type, chat_template presence, EOS token, etc.
+        so the UI can show users what format their training data will use.
+        """
+        model_entry = self._get_model_config_by_id(model_id)
+        if not model_entry:
+            return {"error": "Model not found"}
+
+        info: Dict[str, Any] = {
+            "model_id": model_id,
+            "model_type": "unknown",
+            "has_chat_template": False,
+            "chat_template_preview": None,
+            "eos_token": None,
+            "bos_token": None,
+            "pad_token": None,
+        }
+
+        # Find model path
+        model_path = None
+        if model_entry.get("is_finetuned") and model_entry.get("adapter_path"):
+            # For fine-tuned models, use base model
+            base_id = model_entry.get("base_model", "")
+            base_entry = self._get_model_config_by_id(base_id)
+            if base_entry:
+                model_entry = base_entry
+            else:
+                return info
+
+        if Path(model_entry["id"]).is_absolute():
+            p = Path(model_entry["id"])
+            if p.exists():
+                model_path = p
+        else:
+            sanitized = model_entry["id"].replace("/", "--")
+            p = self.models_dir / sanitized
+            if p.exists():
+                model_path = p
+
+        if not model_path:
+            return info
+
+        # Read config.json for model_type
+        config_path = model_path / "config.json"
+        if config_path.exists():
+            try:
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+                info["model_type"] = config.get("model_type", "unknown")
+            except Exception:
+                pass
+
+        # Read tokenizer_config.json for chat template and special tokens
+        tok_config_path = model_path / "tokenizer_config.json"
+        if tok_config_path.exists():
+            try:
+                with open(tok_config_path, "r") as f:
+                    tok_config = json.load(f)
+
+                # Chat template
+                if "chat_template" in tok_config:
+                    info["has_chat_template"] = True
+                    template = tok_config["chat_template"]
+                    # Preview: first 200 chars
+                    if isinstance(template, str):
+                        info["chat_template_preview"] = template[:200]
+
+                # Special tokens
+                eos = tok_config.get("eos_token")
+                if isinstance(eos, dict):
+                    eos = eos.get("content", str(eos))
+                info["eos_token"] = eos
+
+                bos = tok_config.get("bos_token")
+                if isinstance(bos, dict):
+                    bos = bos.get("content", str(bos))
+                info["bos_token"] = bos
+
+                pad = tok_config.get("pad_token")
+                if isinstance(pad, dict):
+                    pad = pad.get("content", str(pad))
+                info["pad_token"] = pad
+
+            except Exception:
+                pass
+
+        return info
+
     def _get_model_config_by_id(self, model_id: str):
         for m in self.models_config:
             if m["id"] == model_id:

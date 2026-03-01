@@ -20,7 +20,8 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "numpy>=1.26.0",
     "aiohttp>=3.9.0",
-    "trafilatura>=1.8.0"
+    "trafilatura>=1.8.0",
+    "duckduckgo-search>=6.0.0"
 ]
 
 [project.optional-dependencies]

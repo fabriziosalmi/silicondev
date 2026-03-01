@@ -164,3 +164,15 @@ async def list_adapters():
     all_models = service.get_models_status()
     adapters = [m for m in all_models if m.get("is_finetuned")]
     return adapters
+
+@router.get("/models/{model_id:path}/format")
+async def get_model_format(model_id: str):
+    """Get chat template and token format info for a model.
+
+    Returns model_type, has_chat_template, eos_token, etc. so the UI
+    can show users what format their training data will use.
+    """
+    info = service.get_model_format_info(model_id)
+    if "error" in info:
+        raise HTTPException(status_code=404, detail=info["error"])
+    return info

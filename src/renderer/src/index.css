@@ -14,9 +14,16 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  /* App-like feel */
+  /* App-like feel — buttons/nav are unselectable, content areas opt in */
   -webkit-user-select: none;
-  /* Disable text selection mostly */
+  user-select: none;
+}
+
+/* Allow text selection in content areas */
+.prose, .select-text, textarea, input, pre, code,
+.editor-container .CodeMirror {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Beautiful Selection Color */
