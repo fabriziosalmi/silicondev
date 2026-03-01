@@ -689,6 +689,30 @@ export const apiClient = {
             return res.json();
         },
     },
+    terminal: {
+        runUrl: (prompt: string, modelId: string, opts?: { maxIterations?: number; temperature?: number }) => {
+            return {
+                url: `${API_BASE}/api/terminal/run`,
+                body: { prompt, model_id: modelId, max_iterations: opts?.maxIterations ?? 10, temperature: opts?.temperature ?? 0.7 },
+            }
+        },
+        decideDiff: async (sessionId: string, callId: string, approved: boolean, reason: string = ''): Promise<void> => {
+            const res = await fetch(`${API_BASE}/api/terminal/diff/decide`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId, call_id: callId, approved, reason })
+            });
+            if (!res.ok) throw new Error('Failed to decide diff');
+        },
+        stop: async (sessionId: string): Promise<void> => {
+            const res = await fetch(`${API_BASE}/api/terminal/stop`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId })
+            });
+            if (!res.ok) throw new Error('Failed to stop terminal session');
+        },
+    },
     checkHealth: async (): Promise<boolean> => {
         try {
             const res = await fetch(`${API_BASE}/health`);

@@ -12,6 +12,7 @@ import { Deployment } from './components/Deployment'
 import { Workspace } from './components/Workspace'
 import { Settings } from './components/Settings'
 import { ModelExport } from './components/ModelExport'
+import { AgentTerminal } from './components/Terminal/AgentTerminal'
 import { TopBar } from './components/TopBar'
 import { ConversationListPanel } from './components/ConversationListPanel'
 import { NoteListPanel } from './components/NoteListPanel'
@@ -19,7 +20,7 @@ import { useGlobalState } from './context/GlobalState'
 import { useConversations } from './context/ConversationContext'
 import { useNotes } from './context/NotesContext'
 import { apiClient } from './api/client'
-import { Database, Cpu, MessageSquare, BarChart2, TestTube, Brain, Zap, Rocket, FileText, ChevronsLeft, ChevronsRight, Plus, ChevronDown, ChevronRight, Settings as SettingsIcon, Package } from 'lucide-react'
+import { Database, Cpu, MessageSquare, BarChart2, TestTube, Brain, Zap, Rocket, FileText, ChevronsLeft, ChevronsRight, Plus, ChevronDown, ChevronRight, Settings as SettingsIcon, Package, TerminalSquare } from 'lucide-react'
 
 function App() {
   const [activeTab, setActiveTab] = useState('models')
@@ -170,6 +171,13 @@ function App() {
                     </div>
                   )}
                 </div>
+                <SidebarItem
+                  label="Terminal"
+                  active={activeTab === 'terminal'}
+                  onClick={() => setActiveTab('terminal')}
+                  icon={<TerminalSquare size={18} />}
+                  collapsed={sidebarCollapsed}
+                />
                 <div>
                     <SidebarItem
                       label="Notes"
@@ -314,6 +322,7 @@ function App() {
             {activeTab === 'workspace' && <Workspace />}
             {activeTab === 'export' && <ModelExport />}
             {activeTab === 'settings' && <Settings />}
+            {activeTab === 'terminal' && <AgentTerminal />}
           </div>
         </div>
 
