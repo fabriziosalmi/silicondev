@@ -114,3 +114,83 @@ def test_recursive_split_character_fallback(rag_service):
     assert len(result) == 5
     for chunk in result:
         assert len(chunk) <= 100
+
+
+# ── Query / Search tests ────────────────────────────────
+
+
+def test_query_keyword_fallback(rag_service, temp_text_files):
+    """Query should return results using keyword search even without embeddings."""
+    col = rag_service.create_collection("Search")
+    rag_service.ingest_files(col["id"], temp_text_files, chunk_size=100, overlap=0)
+    results = rag_service.query(col["id"], "document", n_results=3)
+    assert len(results) > 0
+    assert "text" in results[0]
+    assert "score" in results[0]
+    assert "method" in results[0]
+
+
+def test_query_empty_collection(rag_service):
+    """Query on empty collection should return empty list."""
+    col = rag_service.create_collection("Empty")
+    results = rag_service.query(col["id"], "anything")
+    assert results == []
+
+
+def test_query_nonexistent_collection(rag_service):
+    """Query on non-existent collection should return empty list."""
+    results = rag_service.query("nonexistent-id", "anything")
+    assert results == []
+
+
+def test_bm25_search(rag_service):
+    """BM25 should rank chunks containing query terms higher."""
+    chunks = [
+        "The quick brown fox jumps over the lazy dog",
+        "Python is a great programming language",
+        "The fox is quick and brown",
+    ]
+    results = rag_service._bm25_search(chunks, "quick brown fox", n=3)
+    assert len(results) >= 2
+    # First result should be about fox
+    assert "fox" in results[0]["text"].lower()
+
+
+def test_keyword_search_fallback(rag_service):
+    """Keyword search should work as BM25 fallback."""
+    chunks = [
+        "Machine learning is fascinating",
+        "Deep learning uses neural networks",
+        "Cooking recipes for beginners",
+    ]
+    results = rag_service._keyword_search(chunks, "learning neural", n=3)
+    assert len(results) >= 1
+    assert any("learning" in r["text"].lower() for r in results)
+
+
+def test_reciprocal_rank_fusion(rag_service):
+    """RRF should combine results from multiple lists."""
+    list1 = [
+        {"text": "A", "score": 10, "index": 0, "method": "bm25"},
+        {"text": "B", "score": 5, "index": 1, "method": "bm25"},
+    ]
+    list2 = [
+        {"text": "B", "score": 0.9, "index": 1, "method": "vector"},
+        {"text": "C", "score": 0.8, "index": 2, "method": "vector"},
+    ]
+    fused = rag_service._reciprocal_rank_fusion(list1, list2)
+    # B appears in both lists, should have highest RRF score
+    assert fused[0]["index"] == 1
+    assert fused[0]["method"] == "hybrid"
+
+
+def test_delete_collection_cleans_up_files(rag_service, temp_text_files):
+    """Deleting a collection should also remove chunk and embedding files."""
+    col = rag_service.create_collection("Cleanup")
+    rag_service.ingest_files(col["id"], temp_text_files, chunk_size=100, overlap=0)
+
+    chunks_file = rag_service.rag_dir / f"{col['id']}_chunks.json"
+    assert chunks_file.exists()
+
+    rag_service.delete_collection(col["id"])
+    assert not chunks_file.exists()
