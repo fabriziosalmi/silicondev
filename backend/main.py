@@ -34,6 +34,10 @@ try:
     logger.info("Imported conversations router")
     from app.api.sandbox import router as sandbox_router
     logger.info("Imported sandbox router")
+    from app.api.notes import router as notes_router
+    logger.info("Imported notes router")
+    from app.api.search import router as search_router
+    logger.info("Imported search router")
 
 except Exception as e:
     logger.critical(f"Import error: {e}", exc_info=True)
@@ -66,6 +70,8 @@ app.include_router(rag_router, prefix="/api/rag", tags=["rag"])
 app.include_router(agents_router, prefix="/api/agents", tags=["agents"])
 app.include_router(conversations_router, prefix="/api/conversations", tags=["conversations"])
 app.include_router(sandbox_router, prefix="/api/sandbox", tags=["sandbox"])
+app.include_router(notes_router, prefix="/api/notes", tags=["notes"])
+app.include_router(search_router, prefix="/api/search", tags=["search"])
 
 
 @app.get("/health")

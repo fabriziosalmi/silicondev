@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { apiClient, cleanModelName } from '../api/client'
-import type { ConversationSummary, SandboxResult, SyntaxCheckResult, SelfAssessment, ConversationMemory } from '../api/client'
+import type { SandboxResult, SyntaxCheckResult, SelfAssessment, ConversationMemory } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
-import { Settings2, SlidersHorizontal, Cpu, Copy, Check, ChevronRight, ChevronLeft, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, Eye, EyeOff, User, Baby, FlaskConical, Feather, History, Plus, Download, GitFork, Play, Loader2, CircleCheck, CircleX, ShieldCheck, Brain } from 'lucide-react'
+import { Settings2, SlidersHorizontal, Cpu, Copy, Check, ChevronRight, ChevronLeft, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, Eye, EyeOff, User, Baby, FlaskConical, Feather, Plus, Download, GitFork, Play, Loader2, CircleCheck, CircleX, ShieldCheck, Brain, Globe, RefreshCcw, Database } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { useGlobalState } from '../context/GlobalState'
-import { ConversationListPanel } from './ConversationListPanel'
+import { useConversations } from '../context/ConversationContext'
 
 interface Message {
     id?: string
@@ -27,7 +27,7 @@ const SETTINGS_STORAGE_KEY = 'silicon-studio-chat-settings';
 const CONVERSATIONS_MIGRATED_KEY = 'silicon-studio-conversations-migrated';
 
 export function ChatInterface() {
-    const { activeModel } = useGlobalState()
+    const { activeModel, pendingChatInput, setPendingChatInput } = useGlobalState()
 
     const [messages, setMessages] = useState<Message[]>(() => {
         try {
@@ -47,7 +47,7 @@ export function ChatInterface() {
         const allActions = [
             'longer', 'shorter', 'formal', 'casual', 'technical', 'translate',
             'devil', 'perspective_ceo', 'perspective_child', 'perspective_scientist', 'perspective_poet',
-            'improve', 'secure', 'faster', 'docs', 'tests', 'selfAssess',
+            'improve', 'secure', 'faster', 'docs', 'tests', 'selfAssess', 'selfCritique',
         ];
         const defaultEnabledActions: Record<string, boolean> = {};
         allActions.forEach(a => { defaultEnabledActions[a] = true; });
@@ -67,6 +67,9 @@ export function ChatInterface() {
             memoryMapEnabled: false,
             memoryInterval: 5,
             piiRedaction: false,
+            ragEnabled: false,
+            ragCollectionId: '',
+            webSearchEnabled: false,
         };
         try {
             const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
@@ -79,19 +82,25 @@ export function ChatInterface() {
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const [isGenerating, setIsGenerating] = useState(false)
 
-    // Conversation management state
-    const [showHistory, setShowHistory] = useState(false)
-    const [conversationList, setConversationList] = useState<ConversationSummary[]>([])
-    const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
+    // Conversation context (list + active ID managed in sidebar)
+    const { activeConversationId, setActiveConversationId, fetchConversations, conversationList } = useConversations()
     const activeConversationIdRef = useRef<string | null>(null)
-    const [searchQuery, setSearchQuery] = useState('')
-    const [renamingId, setRenamingId] = useState<string | null>(null)
-    const [renameValue, setRenameValue] = useState('')
-    const [listLoading, setListLoading] = useState(false)
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const skipLoadRef = useRef(false)
 
     // Self-assessment scores per message index
     const [assessments, setAssessments] = useState<Record<number, SelfAssessment | 'loading'>>({})
+    // Self-critique loading state per message index
+    const [selfCritiqueLoading, setSelfCritiqueLoading] = useState<Record<number, boolean>>({})
+
+    // RAG collections cache
+    const [ragCollections, setRagCollections] = useState<{ id: string; name: string; chunks: number }[]>([])
+    const fetchRagCollections = useCallback(async () => {
+        try {
+            const cols = await apiClient.rag.getCollections();
+            setRagCollections(cols.map(c => ({ id: c.id, name: c.name, chunks: c.chunks })));
+        } catch { /* ignore */ }
+    }, []);
 
     // Semantic memory map
     const [memoryMap, setMemoryMap] = useState<ConversationMemory | null>(null)
@@ -119,22 +128,19 @@ export function ChatInterface() {
         });
     }, [activeModel?.context_window]);
 
+    // Consume pending chat input from Notes → Chat bridge
+    useEffect(() => {
+        if (pendingChatInput) {
+            setInput(pendingChatInput);
+            setPendingChatInput(null);
+            textareaRef.current?.focus();
+        }
+    }, [pendingChatInput, setPendingChatInput]);
+
     const currentModelId = activeModel?.id ?? '';
     const currentModelName = activeModel ? cleanModelName(activeModel.name) : '';
 
     // --- Conversation helpers ---
-    const fetchConversations = useCallback(async () => {
-        try {
-            setListLoading(true);
-            const list = await apiClient.conversations.list();
-            setConversationList(list);
-        } catch (e) {
-            console.error('Failed to fetch conversations', e);
-        } finally {
-            setListLoading(false);
-        }
-    }, []);
-
     const autoTitle = (msgs: Message[]) => {
         const first = msgs.find(m => m.role === 'user');
         if (!first) return 'New conversation';
@@ -155,6 +161,7 @@ export function ChatInterface() {
                         const conv = await apiClient.conversations.create(
                             autoTitle(parsed), parsed, currentModelId || undefined
                         );
+                        skipLoadRef.current = true;
                         setActiveConversationId(conv.id);
                     }
                 }
@@ -166,6 +173,30 @@ export function ChatInterface() {
         };
         migrate();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Load conversation when activeConversationId changes from sidebar
+    useEffect(() => {
+        if (skipLoadRef.current) { skipLoadRef.current = false; return; }
+        if (activeConversationId) {
+            (async () => {
+                try {
+                    const conv = await apiClient.conversations.get(activeConversationId);
+                    setMessages(conv.messages || []);
+                    setAssessments({});
+                    setMemoryMap(null);
+                    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(conv.messages || []));
+                } catch (e) {
+                    console.error('Failed to load conversation', e);
+                }
+            })();
+        } else {
+            // New conversation
+            setMessages([]);
+            setAssessments({});
+            setMemoryMap(null);
+            localStorage.removeItem(CHAT_STORAGE_KEY);
+        }
+    }, [activeConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Write-through: localStorage (immediate) + backend (debounced 800ms)
     useEffect(() => {
@@ -183,6 +214,7 @@ export function ChatInterface() {
                     const conv = await apiClient.conversations.create(
                         autoTitle(messages), messages, currentModelId || undefined
                     );
+                    skipLoadRef.current = true;
                     setActiveConversationId(conv.id);
                 }
                 fetchConversations();
@@ -221,65 +253,7 @@ export function ChatInterface() {
     }, [input])
 
     const handleNewConversation = () => {
-        setMessages([]);
         setActiveConversationId(null);
-        setAssessments({});
-        setMemoryMap(null);
-        localStorage.removeItem(CHAT_STORAGE_KEY);
-    };
-
-    const handleSelectConversation = async (id: string) => {
-        try {
-            const conv = await apiClient.conversations.get(id);
-            setMessages(conv.messages || []);
-            setActiveConversationId(id);
-            setAssessments({});
-            setMemoryMap(null);
-            localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(conv.messages || []));
-        } catch (e) {
-            console.error('Failed to load conversation', e);
-        }
-    };
-
-    const handleDeleteConversation = async (id: string) => {
-        if (!window.confirm('Delete this conversation?')) return;
-        try {
-            await apiClient.conversations.delete(id);
-            if (activeConversationId === id) handleNewConversation();
-            fetchConversations();
-        } catch (e) {
-            console.error('Failed to delete conversation', e);
-        }
-    };
-
-    const handleRenameConversation = async (id: string, newTitle: string) => {
-        try {
-            await apiClient.conversations.update(id, { title: newTitle });
-            setRenamingId(null);
-            fetchConversations();
-        } catch (e) {
-            console.error('Failed to rename conversation', e);
-        }
-    };
-
-    const handleTogglePin = async (id: string, currentPinned: boolean) => {
-        try {
-            await apiClient.conversations.update(id, { pinned: !currentPinned });
-            fetchConversations();
-        } catch (e) {
-            console.error('Failed to toggle pin', e);
-        }
-    };
-
-    const handleSearch = async (query: string) => {
-        setSearchQuery(query);
-        if (!query.trim()) { fetchConversations(); return; }
-        try {
-            const results = await apiClient.conversations.search(query);
-            setConversationList(results);
-        } catch (e) {
-            console.error('Search failed', e);
-        }
     };
 
     const handleExport = (format: 'md' | 'json') => {
@@ -330,7 +304,8 @@ export function ChatInterface() {
         try {
             const branch = await apiClient.conversations.branch(activeConversationId, messageIndex);
             await fetchConversations();
-            // Switch to the new branch
+            // Switch to the new branch — skip re-loading since we have the messages
+            skipLoadRef.current = true;
             setActiveConversationId(branch.id);
             setMessages(branch.messages);
             localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(branch.messages));
@@ -381,6 +356,26 @@ export function ChatInterface() {
                 memParts.push('Code context: ' + memoryMap.codeContext.map(c => `${c.language}: ${c.description}`).join('; '));
             }
             systemContent += '\n\n[CONVERSATION CONTEXT]\n' + memParts.join('\n');
+        }
+
+        // Inject RAG knowledge context if enabled
+        if (settings.ragEnabled && settings.ragCollectionId) {
+            try {
+                const ragResults = await apiClient.rag.query(settings.ragCollectionId, text, 5);
+                if (ragResults.results.length > 0) {
+                    systemContent += '\n\n[KNOWLEDGE BASE]\n' + ragResults.results.map(r => r.text).join('\n---\n');
+                }
+            } catch { /* ignore RAG failures */ }
+        }
+
+        // Inject web search results if enabled
+        if (settings.webSearchEnabled) {
+            try {
+                const searchResults = await apiClient.search.web(text, 3);
+                if (searchResults.length > 0) {
+                    systemContent += '\n\n[WEB SEARCH]\n' + searchResults.map(r => `${r.title}\n${r.snippet}\nSource: ${r.url}`).join('\n---\n');
+                }
+            } catch { /* ignore search failures */ }
         }
 
         const systemMsg: Message | null = systemContent
@@ -637,6 +632,119 @@ Return exactly: {"privacy":N,"fairness":N,"safety":N,"transparency":N,"ethics":N
         }
     };
 
+    // Self-Critique: iterative critique→improve loop
+    const handleSelfCritique = async (originalResponse: string, msgIndex: number) => {
+        if (!currentModelId || selfCritiqueLoading[msgIndex]) return;
+        setSelfCritiqueLoading(prev => ({ ...prev, [msgIndex]: true }));
+
+        // Find the user question that preceded this response
+        const userQuestion = messages.slice(0, msgIndex).reverse().find(m => m.role === 'user')?.content || '';
+        // Determine iterations based on context window size (smaller models get fewer)
+        const contextWindow = activeModel?.context_window || 4096;
+        const iterations = contextWindow >= 8192 ? 2 : 1;
+
+        try {
+            let currentResponse = originalResponse;
+            for (let i = 0; i < iterations; i++) {
+                // Step 1: Critique
+                const critiquePrompt = `You are a strict reviewer. Analyze this AI response to the user's question and generate 3-5 pointed, specific critiques. Focus on accuracy, completeness, clarity, and missed aspects. Be direct and honest.
+
+User question: ${userQuestion}
+
+AI response: ${currentResponse}
+
+Return ONLY the numbered critiques, nothing else.`;
+
+                const critiqueResponse = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model_id: currentModelId,
+                        messages: [{ role: 'user', content: critiquePrompt }],
+                        temperature: 0.4,
+                        max_tokens: Math.min(settings.maxTokens, 1024),
+                    })
+                });
+                if (!critiqueResponse.ok) throw new Error('Critique step failed');
+                let critique = '';
+                const reader1 = critiqueResponse.body?.getReader();
+                const decoder1 = new TextDecoder();
+                let buf1 = '';
+                if (reader1) {
+                    while (true) {
+                        const { done, value } = await reader1.read();
+                        if (done) break;
+                        buf1 += decoder1.decode(value, { stream: true });
+                        const lines = buf1.split('\n');
+                        buf1 = lines.pop() ?? '';
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try { const d = JSON.parse(line.slice(6)); if (d.text) critique += d.text; } catch { /* skip */ }
+                            }
+                        }
+                    }
+                }
+
+                // Step 2: Improve
+                const improvePrompt = `Rewrite and improve the following AI response, addressing ALL of these critiques. Return ONLY the improved response, nothing else.
+
+Original question: ${userQuestion}
+
+Original response: ${currentResponse}
+
+Critiques to address:
+${critique}
+
+Improved response:`;
+
+                const improveResponse = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model_id: currentModelId,
+                        messages: [{ role: 'user', content: improvePrompt }],
+                        temperature: 0.5,
+                        max_tokens: settings.maxTokens,
+                    })
+                });
+                if (!improveResponse.ok) throw new Error('Improve step failed');
+                let improved = '';
+                const reader2 = improveResponse.body?.getReader();
+                const decoder2 = new TextDecoder();
+                let buf2 = '';
+                if (reader2) {
+                    while (true) {
+                        const { done, value } = await reader2.read();
+                        if (done) break;
+                        buf2 += decoder2.decode(value, { stream: true });
+                        const lines = buf2.split('\n');
+                        buf2 = lines.pop() ?? '';
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try { const d = JSON.parse(line.slice(6)); if (d.text) improved += d.text; } catch { /* skip */ }
+                            }
+                        }
+                    }
+                }
+                currentResponse = improved.trim() || currentResponse;
+            }
+
+            // Append the improved response as a new assistant message
+            const label = `*Self-Critique — ${iterations} iteration${iterations > 1 ? 's' : ''}*\n\n`;
+            const improvedMsg: Message = {
+                role: 'assistant',
+                content: label + currentResponse,
+                id: Date.now().toString(),
+            };
+            setMessages(prev => [...prev, improvedMsg]);
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.error('Self-critique failed:', msg);
+        } finally {
+            setSelfCritiqueLoading(prev => ({ ...prev, [msgIndex]: false }));
+        }
+    };
+
     // Semantic memory map: summarize recent messages into structured context
     const buildMemoryMap = useCallback(async (msgs: Message[], existingMemory: ConversationMemory | null) => {
         if (!currentModelId || memoryBuildingRef.current) return null;
@@ -779,13 +887,6 @@ Return exactly this JSON structure (no other text):
         <div className="h-full flex flex-col text-white overflow-hidden pb-4">
             <PageHeader>
                 <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => { setShowHistory(!showHistory); if (!showHistory) fetchConversations(); }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showHistory ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-                    >
-                        <History className="w-3.5 h-3.5" />
-                        History
-                    </button>
                     {messages.length > 0 && (
                         <button
                             onClick={handleNewConversation}
@@ -871,26 +972,6 @@ Return exactly this JSON structure (no other text):
             </PageHeader>
 
             <div className="flex-1 flex gap-4 overflow-hidden min-h-0 pr-4">
-                {/* Conversation History Panel */}
-                {showHistory && (
-                    <ConversationListPanel
-                        conversations={conversationList}
-                        activeId={activeConversationId}
-                        searchQuery={searchQuery}
-                        onSearch={handleSearch}
-                        onSelect={handleSelectConversation}
-                        onDelete={handleDeleteConversation}
-                        onRename={handleRenameConversation}
-                        onTogglePin={handleTogglePin}
-                        renamingId={renamingId}
-                        renameValue={renameValue}
-                        onStartRename={(id: string, title: string) => { setRenamingId(id); setRenameValue(title); }}
-                        onCancelRename={() => setRenamingId(null)}
-                        onRenameValueChange={setRenameValue}
-                        loading={listLoading}
-                    />
-                )}
-
                 {/* Main Chat Area */}
                 <div className="flex-1 flex flex-col overflow-hidden relative">
 
@@ -995,7 +1076,7 @@ Return exactly this JSON structure (no other text):
                                     return (
                                         <div key={idx} className="mb-6 group">
                                             <div className="flex items-start gap-3">
-                                                <div className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                                                <div className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0 mt-1">
                                                     <span className="text-[10px] font-bold text-blue-400">AI</span>
                                                 </div>
                                                 <div className="min-w-0 flex-1">
@@ -1068,6 +1149,8 @@ Return exactly this JSON structure (no other text):
                                                             onBranch={activeConversationId ? () => handleBranch(idx) : undefined}
                                                             assessment={assessments[idx]}
                                                             onAssess={settings.enabledActions?.selfAssess !== false ? () => assessResponse(visibleContent, idx) : undefined}
+                                                            onSelfCritique={settings.enabledActions?.selfCritique !== false ? () => handleSelfCritique(visibleContent, idx) : undefined}
+                                                            selfCritiqueLoading={!!selfCritiqueLoading[idx]}
                                                             disabled={isGenerating}
                                                         />
                                                     )}
@@ -1128,7 +1211,7 @@ Return exactly this JSON structure (no other text):
 
                 {/* Parameters Sidebar */}
                 {showSettings && (
-                    <div className="w-72 border-l border-white/5 flex flex-col shrink-0 overflow-y-auto pl-4">
+                    <div className="w-72 border-l border-white/5 flex flex-col shrink-0 overflow-y-auto bg-black/40 px-4 pt-4">
                         <div className="flex items-center gap-2 mb-5 pt-1">
                             <SlidersHorizontal className="w-3.5 h-3.5 text-gray-500" />
                             <h3 className="text-xs font-medium text-gray-400">Parameters</h3>
@@ -1322,6 +1405,65 @@ Return exactly this JSON structure (no other text):
                             </div>
 
                             <div className="border-t border-white/5 pt-5">
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-xs text-gray-500">RAG Knowledge</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const next = !settings.ragEnabled;
+                                            setSettings({ ...settings, ragEnabled: next });
+                                            if (next && ragCollections.length === 0) fetchRagCollections();
+                                        }}
+                                        className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                                            settings.ragEnabled
+                                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                                : 'bg-white/[0.03] text-gray-500 border border-white/5 hover:text-gray-400 hover:bg-white/5'
+                                        }`}
+                                    >
+                                        <Database className="w-3 h-3" />
+                                        {settings.ragEnabled ? 'On' : 'Off'}
+                                    </button>
+                                </div>
+                                {settings.ragEnabled && (
+                                    <select
+                                        title="RAG collection"
+                                        value={settings.ragCollectionId}
+                                        onChange={(e) => setSettings({ ...settings, ragCollectionId: e.target.value })}
+                                        className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50 mt-1"
+                                    >
+                                        <option value="">Select collection...</option>
+                                        {ragCollections.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name} ({c.chunks} chunks)</option>
+                                        ))}
+                                    </select>
+                                )}
+                                <p className="text-[10px] text-gray-600 mt-1">
+                                    Inject relevant knowledge into context.
+                                </p>
+                            </div>
+
+                            <div className="border-t border-white/5 pt-5">
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-xs text-gray-500">Web Search</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSettings({ ...settings, webSearchEnabled: !settings.webSearchEnabled })}
+                                        className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                                            settings.webSearchEnabled
+                                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                                : 'bg-white/[0.03] text-gray-500 border border-white/5 hover:text-gray-400 hover:bg-white/5'
+                                        }`}
+                                    >
+                                        <Globe className="w-3 h-3" />
+                                        {settings.webSearchEnabled ? 'On' : 'Off'}
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-gray-600">
+                                    Search the web and inject results into context.
+                                </p>
+                            </div>
+
+                            <div className="border-t border-white/5 pt-5">
                                 <label className="text-xs text-gray-500 block mb-2">Visible Actions</label>
                                 <div className="flex flex-wrap gap-1.5">
                                     {[
@@ -1342,6 +1484,7 @@ Return exactly this JSON structure (no other text):
                                         { key: 'docs', label: 'Docs' },
                                         { key: 'tests', label: 'Tests' },
                                         { key: 'selfAssess', label: 'Ethical' },
+                                        { key: 'selfCritique', label: 'Self-Critique' },
                                     ].map(a => {
                                         const enabled = settings.enabledActions?.[a.key] !== false;
                                         return (
@@ -1397,6 +1540,8 @@ function ResponseActions({
     onBranch,
     assessment,
     onAssess,
+    onSelfCritique,
+    selfCritiqueLoading,
     disabled,
 }: {
     content: string;
@@ -1411,6 +1556,8 @@ function ResponseActions({
     onBranch?: () => void;
     assessment?: SelfAssessment | 'loading';
     onAssess?: () => void;
+    onSelfCritique?: () => void;
+    selfCritiqueLoading?: boolean;
     disabled?: boolean;
 }) {
     const isOn = (key: string) => enabledActions?.[key] !== false;
@@ -1597,6 +1744,27 @@ function ResponseActions({
                             <AssessmentPopover scores={assessment} />
                         )}
                     </div>
+                )}
+                {/* Self-Critique */}
+                {onSelfCritique && isOn('selfCritique') && (
+                    <button
+                        type="button"
+                        onClick={onSelfCritique}
+                        disabled={disabled || selfCritiqueLoading}
+                        className={`p-1 rounded transition-colors ${
+                            selfCritiqueLoading
+                                ? 'text-amber-400 cursor-wait'
+                                : disabled
+                                    ? 'text-gray-700 cursor-not-allowed'
+                                    : 'text-gray-600 hover:text-amber-400 hover:bg-amber-500/5'
+                        }`}
+                        title={selfCritiqueLoading ? 'Critiquing...' : disabled ? 'Wait for response...' : 'Self-Critique (iterative improvement)'}
+                    >
+                        {selfCritiqueLoading
+                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                            : <RefreshCcw className="w-3 h-3" />
+                        }
+                    </button>
                 )}
                 {/* Stats inline */}
                 {stats && stats.totalTokens > 0 && (
@@ -2109,11 +2277,31 @@ function ParameterSlider({
     format: (v: number) => string;
     onChange: (v: number) => void;
 }) {
+    const [editing, setEditing] = useState(false);
+    const [editValue, setEditValue] = useState('');
+
+    const applyValue = () => {
+        const parsed = parseFloat(editValue);
+        if (!isNaN(parsed)) {
+            onChange(Math.min(max, Math.max(min, parsed)));
+        }
+        setEditing(false);
+    };
+
     return (
         <div>
             <div className="flex justify-between items-center mb-1.5">
                 <label className="text-xs text-gray-500">{label}</label>
-                <span className="text-xs font-mono text-gray-400 tabular-nums">{format(value)}</span>
+                <input
+                    type="text"
+                    title={label}
+                    value={editing ? editValue : format(value)}
+                    onFocus={(e) => { setEditing(true); setEditValue(String(value)); e.target.select(); }}
+                    onBlur={applyValue}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { applyValue(); (e.target as HTMLInputElement).blur(); } if (e.key === 'Escape') { setEditing(false); } }}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="w-16 text-right text-xs font-mono text-gray-400 tabular-nums bg-transparent outline-none border-b border-transparent focus:border-white/20 transition-colors"
+                />
             </div>
             <input
                 type="range"

@@ -15,6 +15,11 @@ class IngestRequest(BaseModel):
     chunk_size: int = Field(default=512, ge=64, le=8192)
     overlap: int = Field(default=50, ge=0, le=4096)
 
+class QueryRequest(BaseModel):
+    collection_id: str
+    query: str = Field(min_length=1)
+    n_results: int = Field(default=5, ge=1, le=20)
+
 @router.get("/collections")
 async def get_collections():
     return service.get_collections()
@@ -35,3 +40,8 @@ async def ingest_files(req: IngestRequest):
         return service.ingest_files(req.collection_id, req.files, req.chunk_size, req.overlap)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/query")
+async def query_collection(req: QueryRequest):
+    results = service.query(req.collection_id, req.query, req.n_results)
+    return {"results": results}

@@ -1,26 +1,64 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { PageHeader } from './ui/PageHeader'
-import { Wand2, Copy, Loader2, Download, Upload, FileText } from 'lucide-react'
+import { Wand2, Copy, Loader2, Download, Upload, FileText, Table, List, Expand, ListTree, Send, Printer } from 'lucide-react'
 import { SimpleMdeReact } from "react-simplemde-editor";
 import "simplemde/dist/simplemde.min.css";
 import { useGlobalState } from '../context/GlobalState'
+import { useNotes } from '../context/NotesContext'
 import { apiClient, cleanModelName } from '../api/client'
 
-const NOTES_STORAGE_KEY = 'silicon-studio-notes';
+const LEGACY_STORAGE_KEY = 'silicon-studio-notes';
 
 export function Workspace() {
-    const { activeModel } = useGlobalState()
+    const { activeModel, setPendingChatInput } = useGlobalState()
+    const { activeNoteId, setActiveNoteId, fetchNotes } = useNotes()
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const skipLoadRef = useRef(false)
 
-    const [documentBody, setDocumentBody] = useState(() => {
-        try {
-            const saved = localStorage.getItem(NOTES_STORAGE_KEY);
-            return saved ?? '';
-        } catch {
-            return '';
-        }
-    })
+    const [documentBody, setDocumentBody] = useState('')
     const [isGenerating, setIsGenerating] = useState(false)
+    const [noteLoaded, setNoteLoaded] = useState(false)
+
+    // Load note when activeNoteId changes
+    useEffect(() => {
+        if (skipLoadRef.current) { skipLoadRef.current = false; return; }
+        if (activeNoteId) {
+            (async () => {
+                try {
+                    const note = await apiClient.notes.get(activeNoteId);
+                    setDocumentBody(note.content);
+                    setNoteLoaded(true);
+                } catch {
+                    setDocumentBody('');
+                    setNoteLoaded(true);
+                }
+            })();
+        } else {
+            setDocumentBody('');
+            setNoteLoaded(true);
+        }
+    }, [activeNoteId]);
+
+    // Migrate legacy localStorage note on first load
+    useEffect(() => {
+        if (!activeNoteId && noteLoaded) {
+            try {
+                const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+                if (legacy && legacy.trim()) {
+                    setDocumentBody(legacy);
+                    // Create a note from the legacy content
+                    (async () => {
+                        const note = await apiClient.notes.create('Migrated Note', legacy);
+                        skipLoadRef.current = true;
+                        setActiveNoteId(note.id);
+                        fetchNotes();
+                        localStorage.removeItem(LEGACY_STORAGE_KEY);
+                    })();
+                }
+            } catch { /* ignore */ }
+        }
+    }, [noteLoaded, activeNoteId]);
 
     const editorOptions = useMemo(() => ({
         toolbar: false as const,
@@ -29,10 +67,30 @@ export function Workspace() {
         placeholder: "Start writing... Markdown is supported.",
     }), [])
 
-    const handleChange = (value: string) => {
-        setDocumentBody(value)
-        try { localStorage.setItem(NOTES_STORAGE_KEY, value); } catch { /* ignore */ }
-    }
+    // Debounced save: immediate local state, delayed backend persist
+    const handleChange = useCallback((value: string) => {
+        setDocumentBody(value);
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(async () => {
+            if (activeNoteId) {
+                try { await apiClient.notes.update(activeNoteId, { content: value }); } catch { /* ignore */ }
+            } else if (value.trim()) {
+                // Auto-create a new note
+                try {
+                    const title = value.split('\n')[0].replace(/^#+\s*/, '').slice(0, 60) || 'Untitled';
+                    const note = await apiClient.notes.create(title, value);
+                    skipLoadRef.current = true;
+                    setActiveNoteId(note.id);
+                    fetchNotes();
+                } catch { /* ignore */ }
+            }
+        }, 800);
+    }, [activeNoteId, setActiveNoteId, fetchNotes]);
+
+    const handleNewNote = useCallback(() => {
+        setActiveNoteId(null);
+        setDocumentBody('');
+    }, [setActiveNoteId]);
 
     // Export as .md file
     const handleExport = (format: 'md' | 'txt') => {
@@ -45,6 +103,25 @@ export function Workspace() {
         URL.revokeObjectURL(url)
     }
 
+    // PDF export via print dialog
+    const handleExportPdf = () => {
+        const win = window.open('', '_blank');
+        if (!win) return;
+        // Convert markdown to basic HTML (simple approach)
+        const html = documentBody
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+            .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+            .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/`(.+?)`/g, '<code style="background:#f0f0f0;padding:2px 4px;border-radius:3px">$1</code>')
+            .replace(/\n/g, '<br>');
+        win.document.write(`<!DOCTYPE html><html><head><title>Note</title><style>body{font-family:system-ui,sans-serif;max-width:700px;margin:40px auto;line-height:1.6;color:#333}h1,h2,h3{margin-top:1.5em}code{font-family:monospace}</style></head><body>${html}</body></html>`);
+        win.document.close();
+        win.print();
+    };
+
     // Import from file
     const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -55,22 +132,34 @@ export function Workspace() {
             handleChange(text)
         }
         reader.readAsText(file)
-        // Reset input so the same file can be imported again
         e.target.value = ''
     }
 
-    // AI generation
+    // Send selection or full content to chat
+    const handleSendToChat = () => {
+        const text = documentBody.trim();
+        if (!text) return;
+        setPendingChatInput(text);
+    };
+
+    // AI generation with streaming
     const handleAiCommand = async (command: string) => {
         if (!activeModel) return
         setIsGenerating(true)
 
         const prompts: Record<string, string> = {
-            continue: `Continue writing the following document naturally:\n\n${documentBody}`,
-            summarize: `Provide a brief TL;DR summary of this document:\n\n${documentBody}`,
-            draft: `Write an introduction section for the following document:\n\n${documentBody}`,
+            continue: `Continue writing the following document naturally. Return only the continuation, no preamble:\n\n${documentBody}`,
+            summarize: `Provide a brief TL;DR summary of this document. Return only the summary:\n\n${documentBody}`,
+            draft: `Write an introduction section for the following document. Return only the introduction:\n\n${documentBody}`,
+            toTable: `Restructure the following content as a well-formatted markdown table. Return only the table:\n\n${documentBody}`,
+            keyPoints: `Extract the key points from this document as a concise bulleted list. Return only the bullet points:\n\n${documentBody}`,
+            expand: `Expand the last paragraph of this document with more detail and depth. Return only the expanded paragraph:\n\n${documentBody}`,
+            outline: `Generate a structured outline (with headings and sub-points) from this document. Return only the outline:\n\n${documentBody}`,
         }
 
         const prompt = prompts[command] || prompts.continue
+        const appendCommands = ['continue', 'expand'];
+        const shouldAppend = appendCommands.includes(command);
 
         try {
             const response = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
@@ -80,7 +169,7 @@ export function Workspace() {
                     model_id: activeModel.id,
                     messages: [{ role: 'user', content: prompt }],
                     temperature: 0.7,
-                    max_tokens: 256
+                    max_tokens: 512
                 })
             })
 
@@ -110,10 +199,15 @@ export function Workspace() {
             }
 
             if (generated.trim()) {
-                handleChange(documentBody + '\n\n' + generated.trim())
+                if (shouldAppend) {
+                    handleChange(documentBody + '\n\n' + generated.trim())
+                } else {
+                    handleChange(documentBody + '\n\n---\n\n' + generated.trim())
+                }
             }
-        } catch (e: any) {
-            alert(`AI generation failed: ${e.message}`)
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            alert(`AI generation failed: ${msg}`)
         } finally {
             setIsGenerating(false)
         }
@@ -133,6 +227,7 @@ export function Workspace() {
                         className="hidden"
                     />
                     <button
+                        type="button"
                         onClick={() => fileInputRef.current?.click()}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                         title="Import file"
@@ -143,6 +238,7 @@ export function Workspace() {
 
                     {/* Export */}
                     <button
+                        type="button"
                         onClick={() => handleExport('md')}
                         disabled={!documentBody.trim()}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-40"
@@ -152,6 +248,7 @@ export function Workspace() {
                         .md
                     </button>
                     <button
+                        type="button"
                         onClick={() => handleExport('txt')}
                         disabled={!documentBody.trim()}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-40"
@@ -159,6 +256,27 @@ export function Workspace() {
                     >
                         <FileText className="w-3.5 h-3.5" />
                         .txt
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleExportPdf}
+                        disabled={!documentBody.trim()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-40"
+                        title="Export as PDF (via print)"
+                    >
+                        <Printer className="w-3.5 h-3.5" />
+                        PDF
+                    </button>
+
+                    <div className="w-px h-5 bg-white/10 mx-1" />
+
+                    <button
+                        type="button"
+                        onClick={handleNewNote}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                        title="New note"
+                    >
+                        New Note
                     </button>
                 </div>
             </PageHeader>
@@ -218,6 +336,49 @@ export function Workspace() {
                             disabled={isGenerating || !activeModel}
                         />
                     </div>
+
+                    <div className="bg-[#18181B] border border-white/10 rounded-xl p-4 flex flex-col gap-2.5">
+                        <h3 className="text-xs font-medium text-gray-400 mb-1">Transform</h3>
+                        <AiButton
+                            label="To Table"
+                            description="Restructure as markdown table"
+                            icon={<Table className="w-4 h-4 text-gray-400 shrink-0" />}
+                            onClick={() => handleAiCommand('toTable')}
+                            disabled={isGenerating || !activeModel || !documentBody.trim()}
+                        />
+                        <AiButton
+                            label="Key Points"
+                            description="Extract bullet-point summary"
+                            icon={<List className="w-4 h-4 text-gray-400 shrink-0" />}
+                            onClick={() => handleAiCommand('keyPoints')}
+                            disabled={isGenerating || !activeModel || !documentBody.trim()}
+                        />
+                        <AiButton
+                            label="Expand Section"
+                            description="Expand last paragraph"
+                            icon={<Expand className="w-4 h-4 text-gray-400 shrink-0" />}
+                            onClick={() => handleAiCommand('expand')}
+                            disabled={isGenerating || !activeModel || !documentBody.trim()}
+                        />
+                        <AiButton
+                            label="Generate Outline"
+                            description="Structured outline from content"
+                            icon={<ListTree className="w-4 h-4 text-gray-400 shrink-0" />}
+                            onClick={() => handleAiCommand('outline')}
+                            disabled={isGenerating || !activeModel || !documentBody.trim()}
+                        />
+                    </div>
+
+                    <div className="bg-[#18181B] border border-white/10 rounded-xl p-4 flex flex-col gap-2.5">
+                        <h3 className="text-xs font-medium text-gray-400 mb-1">Actions</h3>
+                        <AiButton
+                            label="Send to Chat"
+                            description="Use note content as chat input"
+                            icon={<Send className="w-4 h-4 text-gray-400 shrink-0" />}
+                            onClick={handleSendToChat}
+                            disabled={!documentBody.trim()}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
@@ -234,6 +395,7 @@ function AiButton({ label, description, icon, onClick, disabled, loading }: {
 }) {
     return (
         <button
+            type="button"
             onClick={onClick}
             disabled={disabled}
             className="w-full flex items-center gap-3 px-3 py-2.5 bg-black/30 hover:bg-white/5 border border-white/5 rounded-lg transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"

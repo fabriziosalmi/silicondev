@@ -135,6 +135,19 @@ export interface ConversationMemory {
     lastProcessedIndex: number
 }
 
+export interface NoteSummary {
+    id: string
+    title: string
+    created_at: string
+    updated_at: string
+    pinned: boolean
+    char_count: number
+}
+
+export interface Note extends NoteSummary {
+    content: string
+}
+
 export interface DeploymentStatus {
     running: boolean
     pid: number | null
@@ -335,7 +348,16 @@ export const apiClient = {
             });
             if (!res.ok) throw new Error('Failed to ingest files');
             return res.json();
-        }
+        },
+        query: async (collectionId: string, query: string, nResults: number = 5): Promise<{ results: { text: string; score: number; index: number }[] }> => {
+            const res = await fetch(`${API_BASE}/api/rag/query`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ collection_id: collectionId, query, n_results: nResults })
+            });
+            if (!res.ok) throw new Error('Failed to query collection');
+            return res.json();
+        },
     },
     agents: {
         getAgents: async (): Promise<AgentDefinition[]> => {
@@ -480,6 +502,55 @@ export const apiClient = {
             if (!res.ok) throw new Error('Failed to fetch deployment logs');
             return res.json();
         }
+    },
+    notes: {
+        list: async (): Promise<NoteSummary[]> => {
+            const res = await fetch(`${API_BASE}/api/notes/`);
+            if (!res.ok) throw new Error('Failed to fetch notes');
+            return res.json();
+        },
+        get: async (id: string): Promise<Note> => {
+            const res = await fetch(`${API_BASE}/api/notes/${id}`);
+            if (!res.ok) throw new Error('Failed to fetch note');
+            return res.json();
+        },
+        create: async (title?: string, content?: string): Promise<Note> => {
+            const res = await fetch(`${API_BASE}/api/notes/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, content })
+            });
+            if (!res.ok) throw new Error('Failed to create note');
+            return res.json();
+        },
+        update: async (id: string, updates: { title?: string; content?: string; pinned?: boolean }): Promise<Note> => {
+            const res = await fetch(`${API_BASE}/api/notes/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates)
+            });
+            if (!res.ok) throw new Error('Failed to update note');
+            return res.json();
+        },
+        delete: async (id: string): Promise<{ status: string }> => {
+            const res = await fetch(`${API_BASE}/api/notes/${id}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) throw new Error('Failed to delete note');
+            return res.json();
+        },
+    },
+    search: {
+        web: async (query: string, maxResults: number = 3): Promise<{ title: string; snippet: string; url: string }[]> => {
+            const res = await fetch(`${API_BASE}/api/search/web`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query, max_results: maxResults })
+            });
+            if (!res.ok) return []; // Graceful fallback if search unavailable
+            const data = await res.json();
+            return data.results;
+        },
     },
     checkHealth: async (): Promise<boolean> => {
         try {

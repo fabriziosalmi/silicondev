@@ -42,6 +42,8 @@ interface GlobalStateContextType {
     setActiveModel: (model: LoadedModel | null) => void;
     isTraining: boolean;
     setIsTraining: (training: boolean) => void;
+    pendingChatInput: string | null;
+    setPendingChatInput: (input: string | null) => void;
 }
 
 const GlobalStateContext = createContext<GlobalStateContextType | undefined>(undefined);
@@ -51,6 +53,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
     const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
     const [activeModel, setActiveModel] = useState<LoadedModel | null>(null);
     const [isTraining, setIsTraining] = useState(false);
+    const [pendingChatInput, setPendingChatInput] = useState<string | null>(null);
 
     // Poll backend health + stats via HTTP instead of non-existent WebSocket
     useEffect(() => {
@@ -84,7 +87,9 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
             activeModel,
             setActiveModel,
             isTraining,
-            setIsTraining
+            setIsTraining,
+            pendingChatInput,
+            setPendingChatInput,
         }}>
             {children}
         </GlobalStateContext.Provider>

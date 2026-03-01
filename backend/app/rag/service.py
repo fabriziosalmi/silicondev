@@ -98,16 +98,57 @@ class RagService:
                 except Exception as e:
                     logger.warning(f"Error processing {file_to_process}: {e}")
 
-        # TODO: Embed chunks with a local model and store in a vector DB (FAISS/Chroma).
-        # Currently only text splitting is implemented; chunks are counted but not persisted.
-        col["chunks"] += len(all_chunks)
-        estimated_kb = sum(len(c.encode('utf-8')) for c in all_chunks) // 1024
-        col["size"] = f"{col.get('_total_kb', 0) + estimated_kb} KB"
-        col["_total_kb"] = col.get("_total_kb", 0) + estimated_kb
+        # Persist chunks to a JSON file per collection
+        chunks_file = self.rag_dir / f"{collection_id}_chunks.json"
+        existing_chunks: List[str] = []
+        if chunks_file.exists():
+            try:
+                with open(chunks_file, "r") as f:
+                    existing_chunks = json.load(f)
+            except Exception:
+                existing_chunks = []
+        existing_chunks.extend(all_chunks)
+        with open(chunks_file, "w") as f:
+            json.dump(existing_chunks, f)
+
+        col["chunks"] = len(existing_chunks)
+        estimated_kb = sum(len(c.encode('utf-8')) for c in existing_chunks) // 1024
+        col["size"] = f"{estimated_kb} KB"
+        col["_total_kb"] = estimated_kb
         col["lastUpdated"] = "Just now"
 
         self._save_collections(collections)
         return col
+
+    def query(self, collection_id: str, query_text: str, n_results: int = 5) -> List[Dict[str, Any]]:
+        """Retrieve the most relevant chunks for a query using keyword overlap scoring."""
+        chunks_file = self.rag_dir / f"{collection_id}_chunks.json"
+        if not chunks_file.exists():
+            return []
+        try:
+            with open(chunks_file, "r") as f:
+                chunks: List[str] = json.load(f)
+        except Exception:
+            return []
+
+        if not chunks:
+            return []
+
+        # Simple scoring: count how many query terms appear in each chunk
+        import re
+        query_terms = set(re.findall(r'\w+', query_text.lower()))
+        scored = []
+        for i, chunk in enumerate(chunks):
+            chunk_lower = chunk.lower()
+            # Score = number of unique query terms found + bonus for exact substring match
+            term_hits = sum(1 for t in query_terms if t in chunk_lower)
+            exact_bonus = 2 if query_text.lower() in chunk_lower else 0
+            score = term_hits + exact_bonus
+            if score > 0:
+                scored.append({"text": chunk, "score": score, "index": i})
+
+        scored.sort(key=lambda x: x["score"], reverse=True)
+        return scored[:n_results]
 
     def _recursive_split(self, text: str, chunk_size: int) -> List[str]:
         """
