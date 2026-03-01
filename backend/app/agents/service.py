@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 import uuid
 import logging
 from pathlib import Path
@@ -7,12 +9,13 @@ import time
 
 logger = logging.getLogger(__name__)
 
+
 class AgentService:
     def __init__(self):
         self.workspace_dir = Path.home() / ".silicon-studio"
         self.agents_file = self.workspace_dir / "agents" / "agents.json"
         self.agents_file.parent.mkdir(parents=True, exist_ok=True)
-        
+
         if not self.agents_file.exists():
             with open(self.agents_file, "w") as f:
                 json.dump([], f)
@@ -52,34 +55,143 @@ class AgentService:
         return False
 
     def _save(self, agents: List[Dict[str, Any]]):
-        with open(self.agents_file, "w") as f:
-            json.dump(agents, f, indent=2)
+        """Atomic write: temp file + os.replace to prevent corruption on crash."""
+        fd, tmp_path = tempfile.mkstemp(
+            dir=str(self.agents_file.parent), suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(agents, f, indent=2)
+            os.replace(tmp_path, self.agents_file)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     async def execute_agent(self, agent_id: str, input_data: str) -> Dict[str, Any]:
-        """
-        Execute an agent pipeline sequentially.
-        NOTE: Node logic is a placeholder — each node returns a summary string
-        rather than performing real computation. Extend with actual node handlers.
-        """
+        """Execute an agent pipeline sequentially through its nodes."""
         agents = self.get_agents()
         agent = next((a for a in agents if a["id"] == agent_id), None)
         if not agent:
             raise ValueError("Agent not found")
 
-        results = []
+        results: List[Dict[str, Any]] = []
         start = time.time()
-        for node in agent.get("nodes", []):
-            results.append({
-                "node_id": node.get("id"),
-                "node_name": node.get("data", {}).get("label") or node.get("name"),
-                "status": "completed",
-                "timestamp": time.time(),
-                "output": f"Processed {input_data} via {node.get('type', 'generic')} node."
-            })
+        current_input = input_data
 
+        for node in agent.get("nodes", []):
+            node_type = node.get("type", "generic")
+            node_data = node.get("data", {})
+            node_label = node_data.get("label") or node.get("name", node_type)
+
+            try:
+                output = await self._execute_node(node_type, node_data, current_input)
+                results.append({
+                    "node_id": node.get("id"),
+                    "node_name": node_label,
+                    "status": "completed",
+                    "timestamp": time.time(),
+                    "output": output,
+                })
+                # Feed output as input to next node
+                current_input = output
+            except Exception as e:
+                logger.error(f"Node {node_label} failed: {e}")
+                results.append({
+                    "node_id": node.get("id"),
+                    "node_name": node_label,
+                    "status": "failed",
+                    "timestamp": time.time(),
+                    "output": f"Error: {e}",
+                })
+                break
+
+        status = "success" if all(r["status"] == "completed" for r in results) else "failed"
         return {
             "agent_id": agent_id,
-            "status": "success",
+            "status": status,
             "execution_time": round(time.time() - start, 3),
-            "steps": results
+            "steps": results,
         }
+
+    async def _execute_node(self, node_type: str, node_data: Dict[str, Any], input_text: str) -> str:
+        """Dispatch to the correct handler based on node type."""
+        if node_type == "input":
+            return input_text
+
+        elif node_type == "output":
+            return input_text
+
+        elif node_type == "llm":
+            return await self._run_llm_node(node_data, input_text)
+
+        elif node_type == "tool":
+            return await self._run_tool_node(node_data, input_text)
+
+        elif node_type == "condition":
+            return self._run_condition_node(node_data, input_text)
+
+        else:
+            return input_text
+
+    async def _run_llm_node(self, node_data: Dict[str, Any], input_text: str) -> str:
+        """Run input through the MLX engine for inference."""
+        try:
+            from app.api.engine import service as engine_service
+        except ImportError:
+            return f"[LLM unavailable] {input_text}"
+
+        model_id = engine_service.active_model_id
+        if not model_id:
+            return "[No model loaded] " + input_text
+
+        system_prompt = node_data.get("systemPrompt", "You are a helpful assistant.")
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": input_text},
+        ]
+
+        full_text = ""
+        async for chunk in engine_service.generate_stream(model_id, messages, temperature=0.7, max_tokens=512):
+            if "text" in chunk:
+                full_text += chunk["text"]
+            elif "error" in chunk:
+                return f"[LLM error] {chunk['error']}"
+        return full_text
+
+    async def _run_tool_node(self, node_data: Dict[str, Any], input_text: str) -> str:
+        """Execute a shell command defined in the node, passing input as env var."""
+        import asyncio
+
+        command = node_data.get("command", "")
+        if not command:
+            return input_text
+
+        try:
+            env = {**os.environ, "NODE_INPUT": input_text}
+            proc = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+            output = stdout.decode("utf-8", errors="replace").strip()
+            if proc.returncode != 0:
+                err = stderr.decode("utf-8", errors="replace").strip()
+                return f"[exit {proc.returncode}] {err or output}"
+            return output or input_text
+        except asyncio.TimeoutError:
+            return "[Tool timed out after 30s]"
+        except Exception as e:
+            return f"[Tool error] {e}"
+
+    @staticmethod
+    def _run_condition_node(node_data: Dict[str, Any], input_text: str) -> str:
+        """Evaluate a simple condition against the input text."""
+        keyword = node_data.get("keyword", "")
+        if keyword and keyword.lower() in input_text.lower():
+            return node_data.get("ifTrue", input_text)
+        return node_data.get("ifFalse", input_text)

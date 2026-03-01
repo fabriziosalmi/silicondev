@@ -46,8 +46,8 @@ export function ModelsInterface() {
             if (!silent) setLoading(true);
             const data = await apiClient.engine.getModels();
             setModels(data);
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : String(err));
         } finally {
             if (!silent) setLoading(false);
         }
@@ -57,8 +57,8 @@ export function ModelsInterface() {
         try {
             setDownloading(prev => new Set(prev).add(modelId));
             await apiClient.engine.downloadModel(modelId);
-        } catch (err: any) {
-            toast(`Failed to start download: ${err.message}`, 'error');
+        } catch (err: unknown) {
+            toast(`Failed to start download: ${err instanceof Error ? err.message : String(err)}`, 'error');
             setDownloading(prev => {
                 const next = new Set(prev);
                 next.delete(modelId);
@@ -72,8 +72,8 @@ export function ModelsInterface() {
             setLoading(true);
             await apiClient.engine.deleteModel(modelId);
             await fetchModels();
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : String(e));
         } finally {
             setLoading(false);
         }
@@ -98,8 +98,8 @@ export function ModelsInterface() {
                 architecture: model.architecture,
                 context_window: result.context_window ?? parseContextWindow(model.context_window),
             });
-        } catch (e: any) {
-            toast(`Failed to load model: ${e.message}`, 'error');
+        } catch (e: unknown) {
+            toast(`Failed to load model: ${e instanceof Error ? e.message : String(e)}`, 'error');
         }
     };
 
@@ -137,8 +137,8 @@ export function ModelsInterface() {
             const found = await apiClient.engine.scanModels(path);
             setFoundModels(found);
             setSelectedPaths(new Set(found.map(m => m.path || m.local_path).filter((p): p is string => p !== null)));
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : String(e));
         } finally {
             setScanning(false);
         }
@@ -155,8 +155,8 @@ export function ModelsInterface() {
                 }
                 await fetchModels();
                 resetAddModal();
-            } catch (e: any) {
-                setError(e.message);
+            } catch (e: unknown) {
+                setError(e instanceof Error ? e.message : String(e));
             } finally {
                 setLoading(false);
             }
@@ -167,8 +167,8 @@ export function ModelsInterface() {
                 await apiClient.engine.registerModel(customName, customPath, "");
                 await fetchModels();
                 resetAddModal();
-            } catch (e: any) {
-                setError(e.message);
+            } catch (e: unknown) {
+                setError(e instanceof Error ? e.message : String(e));
             } finally {
                 setLoading(false);
             }

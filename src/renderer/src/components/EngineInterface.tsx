@@ -97,8 +97,8 @@ export function EngineInterface() {
             setJobStatus({ ...data, progress: 0, status: 'starting' })
             setIsTraining(true)
             pollStatus(data.job_id)
-        } catch (err: any) {
-            toast(`Fine-tuning failed to start: ${err.message}`, 'error')
+        } catch (err: unknown) {
+            toast(`Fine-tuning failed to start: ${err instanceof Error ? err.message : String(err)}`, 'error')
         } finally {
             setLoading(false)
         }
@@ -148,8 +148,8 @@ export function EngineInterface() {
                 : exportPath
             await apiClient.engine.exportModel(modelId, `${fullPath}/${jobStatus.job_name || 'model'}_q${qBits}`, qBits)
             toast(`Model exported successfully to ${fullPath}`, 'success')
-        } catch (err: any) {
-            toast(`Export failed: ${err.message}`, 'error')
+        } catch (err: unknown) {
+            toast(`Export failed: ${err instanceof Error ? err.message : String(err)}`, 'error')
         } finally {
             setExporting(false)
         }

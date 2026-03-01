@@ -131,8 +131,8 @@ export function Evaluations() {
             };
 
             setHistory(prev => [result, ...prev]);
-        } catch (e: any) {
-            toast(`Evaluation failed: ${e.message}`, 'error');
+        } catch (e: unknown) {
+            toast(`Evaluation failed: ${e instanceof Error ? e.message : String(e)}`, 'error');
         } finally {
             setRunningEval(null);
             setProgress(0);

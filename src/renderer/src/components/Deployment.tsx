@@ -94,8 +94,8 @@ export function Deployment() {
                 await apiClient.deployment.stop()
                 setServerRunning(false)
                 setPid(null)
-            } catch (e: any) {
-                setErrorMsg(e.message)
+            } catch (e: unknown) {
+                setErrorMsg(e instanceof Error ? e.message : String(e))
             } finally {
                 setLoading(false)
             }
@@ -115,8 +115,8 @@ export function Deployment() {
             try {
                 await apiClient.deployment.start(activeModel.path, host, parseInt(port))
                 setServerRunning(true)
-            } catch (e: any) {
-                setErrorMsg(e.message)
+            } catch (e: unknown) {
+                setErrorMsg(e instanceof Error ? e.message : String(e))
             } finally {
                 setLoading(false)
             }

@@ -615,9 +615,9 @@ export function ChatInterface() {
                     }
                 }
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             setMessages(prev => prev.map(m =>
-                m.id === assistantMsgId ? { ...m, content: `Error: ${err.message}` } : m
+                m.id === assistantMsgId ? { ...m, content: `Error: ${err instanceof Error ? err.message : String(err)}` } : m
             ))
         } finally {
             setIsGenerating(false)
@@ -2222,10 +2222,10 @@ function CodeBlock({
             const res = await apiClient.sandbox.run(displayCode, language);
             runIdRef.current = res.run_id;
             setResult(res);
-        } catch (e: any) {
+        } catch (e: unknown) {
             setResult({
                 stdout: '',
-                stderr: e.message || 'Execution failed',
+                stderr: e instanceof Error ? e.message : 'Execution failed',
                 exit_code: 1,
                 execution_time: 0,
                 language: language || 'unknown',

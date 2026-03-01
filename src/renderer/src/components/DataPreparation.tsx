@@ -63,8 +63,8 @@ export function DataPreparation() {
                     setOutputCol(cols.find(c => c.toLowerCase().includes('output') || c.toLowerCase().includes('response') || c.toLowerCase().includes('answer')) || cols[cols.length - 1] || "");
                 }
             }
-        } catch (err: any) {
-            setError("Failed to load file: " + err.message);
+        } catch (err: unknown) {
+            setError("Failed to load file: " + (err instanceof Error ? err.message : String(err)));
         } finally {
             setLoading(false);
         }
@@ -85,8 +85,8 @@ export function DataPreparation() {
             setPreview([])
             setFilePath("")
             setFileName("")
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : String(err))
         } finally {
             setLoading(false)
         }
@@ -119,8 +119,8 @@ export function DataPreparation() {
             setOutputCol("output");
             setInputCol("");
             toast(`Generated ${res.rows} rows via ${mcpServer} and saved to ${outputPath}`, 'success');
-        } catch (err: any) {
-            setError("Generation failed: " + err.message);
+        } catch (err: unknown) {
+            setError("Generation failed: " + (err instanceof Error ? err.message : String(err)));
         } finally {
             setMcpGenerating(false);
         }

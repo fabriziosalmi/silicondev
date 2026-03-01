@@ -6,6 +6,7 @@ export interface SystemStats {
     memory: { total: number; available: number; used: number; percent: number }
     disk: { total: number; free: number; used: number; percent: number }
     cpu: { percent: number; cores: number }
+    gpu?: { available: boolean; model?: string; cores?: number; utilization?: number; memory_in_use?: number; memory_allocated?: number }
     platform: { system: string; processor: string; release: string }
 }
 
@@ -242,7 +243,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId, server_id: serverId, prompt, output_path: outputPath })
             });
-            if (!res.ok) throw new Error('MCP generation is not yet implemented');
+            if (!res.ok) throw new Error(`MCP generation failed (${res.status})`);
             return res.json();
         }
     },
@@ -620,7 +621,10 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query, max_results: maxResults, extract_content: extractContent })
             });
-            if (!res.ok) return [];
+            if (!res.ok) {
+                if (res.status === 501) console.warn('Web search unavailable: duckduckgo-search not installed');
+                return [];
+            }
             const data = await res.json();
             return data.results;
         },
@@ -630,7 +634,10 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query, max_pages: maxPages })
             });
-            if (!res.ok) return { results: [], queries_used: [], pages_fetched: 0 };
+            if (!res.ok) {
+                if (res.status === 501) console.warn('Deep search unavailable: duckduckgo-search not installed');
+                return { results: [], queries_used: [], pages_fetched: 0 };
+            }
             return res.json();
         },
     },
