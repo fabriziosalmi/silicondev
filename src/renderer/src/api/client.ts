@@ -354,7 +354,7 @@ export const apiClient = {
             if (!res.ok) throw new Error('Failed to ingest files');
             return res.json();
         },
-        query: async (collectionId: string, query: string, nResults: number = 5): Promise<{ results: { text: string; score: number; index: number }[] }> => {
+        query: async (collectionId: string, query: string, nResults: number = 5): Promise<{ results: { text: string; score: number; index: number; method?: string }[] }> => {
             const res = await fetch(`${API_BASE}/api/rag/query`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

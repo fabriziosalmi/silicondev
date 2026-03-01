@@ -9,12 +9,20 @@ import remarkBreaks from 'remark-breaks';
 import { useGlobalState } from '../context/GlobalState'
 import { useConversations } from '../context/ConversationContext'
 
+interface SourceRef {
+    index: number
+    title: string
+    url?: string
+    method: string
+}
+
 interface Message {
     id?: string
     role: 'system' | 'user' | 'assistant'
     content: string
     displayContent?: string
     actionType?: string
+    sources?: SourceRef[]
     stats?: {
         tokensPerSecond: number;
         timeToFirstToken: number;
@@ -468,11 +476,18 @@ export function ChatInterface() {
 
         // Inject RAG/web search only for direct user messages (skip for action prompts)
         const isDirectMessage = !actionType;
+        let sourceIndex = 1;
+        const collectedSources: SourceRef[] = [];
+
         if (isDirectMessage && settings.ragEnabled && settings.ragCollectionId) {
             try {
                 const ragResults = await apiClient.rag.query(settings.ragCollectionId, text, 5);
                 if (ragResults.results.length > 0) {
-                    systemContent += '\n\n[KNOWLEDGE BASE]\n' + ragResults.results.map(r => r.text).join('\n---\n');
+                    systemContent += '\n\n[KNOWLEDGE BASE]\n' + ragResults.results.map(r => {
+                        const idx = sourceIndex++;
+                        collectedSources.push({ index: idx, title: r.text.slice(0, 80) + (r.text.length > 80 ? '...' : ''), method: r.method || 'rag' });
+                        return `[${idx}] ${r.text}`;
+                    }).join('\n---\n');
                 }
             } catch {
                 // RAG query failed silently
@@ -483,15 +498,21 @@ export function ChatInterface() {
             try {
                 const searchResults = await apiClient.search.web(text, 3, true);
                 if (searchResults.length > 0) {
-                    systemContent += '\n\n[WEB SEARCH]\n' + searchResults.map((r, i) => {
-                        const num = `[${i + 1}]`;
+                    systemContent += '\n\n[WEB SEARCH]\n' + searchResults.map(r => {
+                        const idx = sourceIndex++;
+                        collectedSources.push({ index: idx, title: r.title, url: r.url, method: 'web' });
                         const body = r.content || r.snippet;
-                        return `${num} ${r.title}\n${body}\nSource: ${r.url}`;
+                        return `[${idx}] ${r.title}\n${body}\nSource: ${r.url}`;
                     }).join('\n---\n');
                 }
             } catch {
                 // web search failed silently
             }
+        }
+
+        // Add grounding instructions when context sources are present
+        if (collectedSources.length > 0) {
+            systemContent += '\n\nIMPORTANT: Base your answer on the provided sources above. Add inline citations like [1], [2] etc. referring to the numbered sources. If the sources don\'t contain enough information, say so.';
         }
 
         const systemMsg: Message | null = systemContent
@@ -511,6 +532,7 @@ export function ChatInterface() {
             role: 'assistant',
             content: '',
             id: assistantMsgId,
+            sources: collectedSources.length > 0 ? collectedSources : undefined,
             stats: { tokensPerSecond: 0, timeToFirstToken: 0, totalTokens: 0 }
         }
         setMessages(prev => [...prev, initialAssistantMsg])
@@ -1382,6 +1404,34 @@ Return exactly this JSON structure (no other text):
                                                             {visibleContent}
                                                         </ReactMarkdown>
                                                     </div>
+
+                                                    {/* Sources citations */}
+                                                    {msg.sources && msg.sources.length > 0 && visibleContent && (
+                                                        <details className="group mt-2 border border-white/5 rounded-lg overflow-hidden">
+                                                            <summary className="flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-500 hover:text-gray-400 cursor-pointer select-none bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+                                                                <Database size={12} className="shrink-0" />
+                                                                <span>{msg.sources.length} source{msg.sources.length !== 1 ? 's' : ''}</span>
+                                                                <ChevronDown size={12} className="ml-auto group-open:rotate-180 transition-transform" />
+                                                            </summary>
+                                                            <div className="px-3 py-2 space-y-1.5 bg-white/[0.01]">
+                                                                {msg.sources.map(src => (
+                                                                    <div key={src.index} className="flex items-start gap-2 text-[11px]">
+                                                                        <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded bg-white/5 text-gray-500 font-mono text-[10px]">{src.index}</span>
+                                                                        <div className="min-w-0 flex-1">
+                                                                            {src.url ? (
+                                                                                <a href={src.url} target="_blank" rel="noopener noreferrer" className="text-blue-400/80 hover:text-blue-300 truncate block" title={src.url}>{src.title}</a>
+                                                                            ) : (
+                                                                                <span className="text-gray-400 truncate block">{src.title}</span>
+                                                                            )}
+                                                                        </div>
+                                                                        <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-medium ${src.method === 'web' ? 'bg-green-500/10 text-green-500/70' : 'bg-blue-500/10 text-blue-500/70'}`}>
+                                                                            {src.method === 'web' ? 'web' : 'rag'}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </details>
+                                                    )}
 
                                                     {/* Footer: actions + stats, single row on hover */}
                                                     {visibleContent && (
