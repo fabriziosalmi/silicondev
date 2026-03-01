@@ -4,6 +4,9 @@ hero:
   name: SiliconDev
   text: Local AI for Apple Silicon
   tagline: Fine-tune, chat, and deploy LLMs entirely on your Mac. No cloud, no API keys, no data leaving your machine.
+  image:
+    src: /logo.png
+    alt: SiliconDev
   actions:
     - theme: brand
       text: Get Started

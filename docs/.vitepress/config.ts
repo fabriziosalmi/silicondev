@@ -10,6 +10,8 @@ export default defineConfig({
   ],
 
   themeConfig: {
+    logo: '/logo.png',
+
     nav: [
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'Features', link: '/features/chat' },
