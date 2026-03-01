@@ -481,18 +481,19 @@ export function ChatInterface() {
         setTimeout(() => setCopiedIndex(null), 2000);
     }
 
-    const codeActionPrompts: Record<string, (code: string) => string> = {
+    const codeActionPrompts: Record<string, (code: string, ctx?: string) => string> = {
         improve: (c) => `Improve the following code. Make it cleaner, more readable, and more idiomatic. Return ONLY the improved code inside a single code block, no explanation.\n\n\`\`\`\n${c}\n\`\`\``,
         secure: (c) => `Review the following code for security vulnerabilities. Fix any issues you find. Return ONLY the secured code inside a single code block, no explanation.\n\n\`\`\`\n${c}\n\`\`\``,
         faster: (c) => `Optimize the following code for performance. Return ONLY the optimized code inside a single code block, no explanation.\n\n\`\`\`\n${c}\n\`\`\``,
         docs: (c) => `Add documentation to the following code. Add docstrings, type hints, and inline comments where helpful. Do NOT change any logic. Return ONLY the documented code inside a single code block, no explanation.\n\n\`\`\`\n${c}\n\`\`\``,
+        fix: (c, errors) => `Fix the syntax errors in the following code. The syntax checker reported:\n\n${errors}\n\nCode:\n\`\`\`\n${c}\n\`\`\`\n\nReturn ONLY the fixed code inside a single code block, no explanation.`,
     };
 
     // Inline rewrite: calls the model API directly, returns the rewritten code
-    const rewriteSnippet = async (code: string, action: string): Promise<string> => {
+    const rewriteSnippet = async (code: string, action: string, context?: string): Promise<string> => {
         const buildPrompt = codeActionPrompts[action];
         if (!buildPrompt || !currentModelId) throw new Error('Cannot rewrite');
-        const prompt = buildPrompt(code);
+        const prompt = buildPrompt(code, context);
         const response = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -986,14 +987,6 @@ Return exactly this JSON structure (no other text):
                                                                             enabledActions={settings.enabledActions}
                                                                             syntaxCheck={settings.syntaxCheck}
                                                                             autoFixSyntax={settings.autoFixSyntax}
-                                                                            onFixSyntax={(c, lang, errors) => {
-                                                                                if (isGenerating || !currentModelId) return;
-                                                                                handleSend(
-                                                                                    `Fix the syntax errors in the following ${lang} code. The syntax checker reported:\n\n${errors}\n\nCode:\n\`\`\`${lang}\n${c}\n\`\`\`\n\nReturn only the fixed code.`,
-                                                                                    `**Fix syntax** — ${lang}`,
-                                                                                    'improve'
-                                                                                );
-                                                                            }}
                                                                         />
                                                                     );
                                                                 },
@@ -1643,6 +1636,9 @@ function MemoryMapPanel({ memory, building }: { memory: ConversationMemory | nul
     );
 }
 
+// Strip ANSI escape sequences from error output
+const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+
 interface SnippetVersion {
     code: string;
     action: string;
@@ -1657,16 +1653,14 @@ function CodeBlock({
     enabledActions,
     syntaxCheck,
     autoFixSyntax,
-    onFixSyntax,
 }: {
     code: string;
     language: string;
     onTestAction: (code: string, action: string) => void;
-    onRewrite: (code: string, action: string) => Promise<string>;
+    onRewrite: (code: string, action: string, context?: string) => Promise<string>;
     enabledActions?: Record<string, boolean>;
     syntaxCheck?: boolean;
     autoFixSyntax?: boolean;
-    onFixSyntax?: (code: string, language: string, errors: string) => void;
 }) {
     const [copied, setCopied] = useState(false);
     const [running, setRunning] = useState(false);
@@ -1687,9 +1681,12 @@ function CodeBlock({
     const totalVersions = versions.length;
     const displayVersionNum = versionIndex >= 0 ? versionIndex + 1 : (totalVersions > 0 ? 0 : -1);
 
-    // Auto-run syntax check on mount (only for blocks > 2 lines)
+    // Languages too vague for meaningful syntax checking
+    const skipLangs = new Set(['', 'code', 'text', 'txt', 'output', 'plaintext', 'log', 'console', 'terminal', 'stdout', 'stderr']);
+
+    // Auto-run syntax check on mount (only for blocks > 2 lines with a real language)
     useEffect(() => {
-        if (!syntaxCheck || checkRanRef.current || code.split('\n').length <= 2) return;
+        if (!syntaxCheck || checkRanRef.current || code.split('\n').length <= 2 || skipLangs.has(language.toLowerCase())) return;
         checkRanRef.current = true;
         setChecking(true);
         apiClient.sandbox.check(code, language)
@@ -1700,7 +1697,7 @@ function CodeBlock({
 
     // Re-check syntax when version changes
     useEffect(() => {
-        if (!syntaxCheck || versionIndex < 0 || displayCode.split('\n').length <= 2) return;
+        if (!syntaxCheck || versionIndex < 0 || displayCode.split('\n').length <= 2 || skipLangs.has(language.toLowerCase())) return;
         setChecking(true);
         setCheckResult(null);
         apiClient.sandbox.check(displayCode, language)
@@ -1744,12 +1741,12 @@ function CodeBlock({
         }
     };
 
-    const handleInlineRewrite = async (action: string) => {
+    const handleInlineRewrite = async (action: string, context?: string) => {
         if (rewriting) return;
         setRewriting(true);
         try {
             const sourceCode = displayCode;
-            const result = await onRewrite(sourceCode, action);
+            const result = await onRewrite(sourceCode, action, context);
             // Initialize with original if first rewrite
             const current = versions.length === 0
                 ? [{ code, action: 'original', timestamp: Date.now() }]
@@ -1786,7 +1783,7 @@ function CodeBlock({
                     {!checking && checkResult && !checkResult.skipped && (
                         checkResult.valid
                             ? <span title="Syntax valid"><CircleCheck className="w-3 h-3 text-green-500" /></span>
-                            : <span title={checkResult.errors || 'Syntax error'}><CircleX className="w-3 h-3 text-red-400" /></span>
+                            : <span title={stripAnsi(checkResult.errors) || 'Syntax error'}><CircleX className="w-3 h-3 text-red-400" /></span>
                     )}
                     {rewriting && <Loader2 className="w-3 h-3 animate-spin text-blue-400" />}
                     {/* Version navigation */}
@@ -1886,18 +1883,19 @@ function CodeBlock({
                 <div className="border-t border-red-500/10 bg-red-500/[0.03] px-3 py-2">
                     <div className="flex items-center justify-between">
                         <span className="text-[10px] font-medium text-red-400">Syntax error</span>
-                        {autoFixSyntax && onFixSyntax && (
+                        {autoFixSyntax && (
                             <button
-                                onClick={() => onFixSyntax(displayCode, checkResult.language || language, checkResult.errors)}
-                                className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                                onClick={() => handleInlineRewrite('fix', stripAnsi(checkResult.errors))}
+                                disabled={rewriting}
+                                className={`text-[10px] px-2 py-0.5 rounded transition-colors ${rewriting ? 'bg-red-500/5 text-red-400/50 cursor-wait' : 'bg-red-500/10 text-red-400 hover:bg-red-500/20'}`}
                             >
-                                Fix syntax
+                                {rewriting ? 'Fixing...' : 'Fix syntax'}
                             </button>
                         )}
                     </div>
                     {checkResult.errors && (
                         <pre className="text-[10px] font-mono text-red-400/70 mt-1 whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto">
-                            {checkResult.errors}
+                            {stripAnsi(checkResult.errors)}
                         </pre>
                     )}
                 </div>

@@ -1,4 +1,5 @@
 import asyncio
+import re
 import shutil
 import tempfile
 import time
@@ -7,6 +8,9 @@ from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+# Strip ANSI escape sequences (colors, cursor movement, etc.)
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
 # Language configs: (file extension, command builder)
 LANGUAGE_CONFIG: dict[str, tuple[str, object]] = {
@@ -197,10 +201,10 @@ class SandboxService:
                 await process.communicate()
                 return {"valid": True, "errors": "", "language": lang, "skipped": True}
 
-            errors = stderr_bytes[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace").strip()
+            errors = _ANSI_RE.sub("", stderr_bytes[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")).strip()
             # Some tools (ruby -c, php -l) output success info to stdout — only report stderr on failure
             if process.returncode != 0 and not errors:
-                errors = stdout_bytes[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace").strip()
+                errors = _ANSI_RE.sub("", stdout_bytes[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")).strip()
 
             return {
                 "valid": process.returncode == 0,
