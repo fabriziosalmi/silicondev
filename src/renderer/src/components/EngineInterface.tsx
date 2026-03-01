@@ -85,7 +85,7 @@ export function EngineInterface() {
                 lora_layers: loraLayers,
                 job_name: jobName
             })
-            setJobStatus(data)
+            setJobStatus({ ...data, progress: 0, status: 'starting' })
             setIsTraining(true)
             pollStatus(data.job_id)
         } catch (err: any) {
@@ -283,7 +283,7 @@ export function EngineInterface() {
 
                                 <button
                                     onClick={startTraining}
-                                    disabled={loading || (jobStatus && jobStatus.status === 'training')}
+                                    disabled={loading || (jobStatus?.status === 'training')}
                                     className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
                                 >
                                     {loading ? (
@@ -291,7 +291,7 @@ export function EngineInterface() {
                                     ) : (
                                         <Play className="w-4 h-4 fill-current" />
                                     )}
-                                    {jobStatus && jobStatus.status === 'training' ? 'Training in Progress...' : 'Start Training Job'}
+                                    {jobStatus?.status === 'training' ? 'Training in Progress...' : 'Start Training Job'}
                                 </button>
                             </div>
                         </Card>

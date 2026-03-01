@@ -24,7 +24,7 @@ jobs:
       - name: Cache pip
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
+          path: ~/Library/Caches/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('backend/pyproject.toml') }}
           restore-keys: ${{ runner.os }}-pip-
 
@@ -36,11 +36,8 @@ jobs:
       - name: Run tests
         run: python -m pytest tests/ -v --ignore=tests/test_shield.py
 
-  frontend-lint:
+  frontend-check:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: src/renderer
 
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +50,13 @@ jobs:
           cache-dependency-path: src/renderer/package-lock.json
 
       - name: Install dependencies
+        working-directory: src/renderer
         run: npm ci
 
       - name: TypeScript check
+        working-directory: src/renderer
         run: npx tsc --noEmit
+
+      - name: Build
+        working-directory: src/renderer
+        run: npm run build

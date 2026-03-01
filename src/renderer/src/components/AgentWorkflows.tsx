@@ -134,7 +134,7 @@ export function AgentWorkflows() {
                                         </div>
                                     </div>
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent.id); }}
+                                        onClick={(e) => { e.stopPropagation(); if (agent.id) handleDeleteAgent(agent.id); }}
                                         className="p-2 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
                                     >
                                         <Trash2 className="w-4 h-4" />
