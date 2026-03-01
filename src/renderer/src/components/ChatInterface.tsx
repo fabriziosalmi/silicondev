@@ -12,6 +12,7 @@ interface Message {
     role: 'system' | 'user' | 'assistant'
     content: string
     displayContent?: string
+    actionType?: string
     stats?: {
         tokensPerSecond: number;
         timeToFirstToken: number;
@@ -116,11 +117,11 @@ export function ChatInterface() {
         }
     }
 
-    const handleSend = async (directPrompt?: string, displayContent?: string) => {
+    const handleSend = async (directPrompt?: string, displayContent?: string, actionType?: string) => {
         const text = directPrompt ?? input;
         if (!text.trim() || !currentModelId || isGenerating) return
 
-        const userMsg: Message = { role: 'user', content: text, ...(displayContent && { displayContent }) }
+        const userMsg: Message = { role: 'user', content: text, ...(displayContent && { displayContent }), ...(actionType && { actionType }) }
 
         // Build system prompt with optional reasoning instructions
         let systemContent = settings.systemPrompt?.trim() || '';
@@ -273,7 +274,7 @@ export function ChatInterface() {
         const lineCount = code.split('\n').length;
         const prompt = prompts[action];
         const display = `**${labels[action]}** — ${lineCount} lines`;
-        if (prompt) handleSend(prompt, display);
+        if (prompt) handleSend(prompt, display, action);
     }
 
     const sendResponseAction = (response: string, action: string) => {
@@ -301,7 +302,7 @@ export function ChatInterface() {
         const prompt = prompts[action];
         const wordCount = response.split(/\s+/).length;
         const display = `**${labels[action]}** — ${wordCount} words`;
-        if (prompt) handleSend(prompt, display);
+        if (prompt) handleSend(prompt, display, action);
     }
 
     return (
@@ -368,6 +369,23 @@ export function ChatInterface() {
                                     }
 
                                     if (msg.role === 'user') {
+                                        // Icon map for action types
+                                        const actionIcons: Record<string, React.ReactNode> = {
+                                            improve: <Wand2 className="w-3.5 h-3.5" />,
+                                            secure: <Shield className="w-3.5 h-3.5" />,
+                                            faster: <Zap className="w-3.5 h-3.5" />,
+                                            docs: <FileText className="w-3.5 h-3.5" />,
+                                            tests: <TestTube2 className="w-3.5 h-3.5" />,
+                                            longer: <Expand className="w-3.5 h-3.5" />,
+                                            shorter: <Shrink className="w-3.5 h-3.5" />,
+                                            formal: <Briefcase className="w-3.5 h-3.5" />,
+                                            casual: <MessageCircle className="w-3.5 h-3.5" />,
+                                            technical: <GraduationCap className="w-3.5 h-3.5" />,
+                                            translate: <Languages className="w-3.5 h-3.5" />,
+                                        };
+                                        const isLastMsg = idx === messages.length - 1 || (idx === messages.length - 2 && messages[messages.length - 1]?.role === 'assistant');
+                                        const showSpinner = isLastMsg && isGenerating;
+
                                         return (
                                             <div key={idx} className="mb-6">
                                                 <div className="flex items-start gap-3">
@@ -375,15 +393,26 @@ export function ChatInterface() {
                                                         <span className="text-[10px] font-bold text-gray-400">U</span>
                                                     </div>
                                                     {msg.displayContent ? (
-                                                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-gray-300">
-                                                            <Cpu className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                                                            <ReactMarkdown
-                                                                remarkPlugins={[remarkGfm]}
-                                                                components={{ p: ({ children }) => <span>{children}</span> }}
-                                                            >
-                                                                {msg.displayContent}
-                                                            </ReactMarkdown>
-                                                        </div>
+                                                        <details className="min-w-0 group/action">
+                                                            <summary className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-gray-300 cursor-pointer select-none list-none hover:bg-white/[0.06] transition-colors">
+                                                                <span className="text-blue-400 shrink-0">
+                                                                    {(msg.actionType && actionIcons[msg.actionType]) || <Settings2 className="w-3.5 h-3.5" />}
+                                                                </span>
+                                                                <ReactMarkdown
+                                                                    remarkPlugins={[remarkGfm]}
+                                                                    components={{ p: ({ children }) => <span>{children}</span> }}
+                                                                >
+                                                                    {msg.displayContent}
+                                                                </ReactMarkdown>
+                                                                {showSpinner && (
+                                                                    <div className="w-3 h-3 border border-blue-400/40 border-t-blue-400 rounded-full animate-spin shrink-0 ml-1" />
+                                                                )}
+                                                                <ChevronRight className="w-3 h-3 text-gray-600 shrink-0 ml-auto transition-transform chevron-rotate" />
+                                                            </summary>
+                                                            <div className="mt-2 ml-1 pl-3 border-l border-white/5 text-xs text-gray-500 max-h-48 overflow-y-auto">
+                                                                <pre className="whitespace-pre-wrap font-mono leading-relaxed">{msg.content}</pre>
+                                                            </div>
+                                                        </details>
                                                     ) : (
                                                         <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-black/30 prose-pre:border prose-pre:border-white/5 prose-pre:rounded-lg prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 min-w-0">
                                                             <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>

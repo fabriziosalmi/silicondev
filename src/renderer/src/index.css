@@ -49,6 +49,12 @@ body {
   background-clip: padding-box;
 }
 
+/* Hide default summary marker for custom details */
+summary.list-none::-webkit-details-marker { display: none; }
+
+/* Rotate chevron when details is open */
+details[open] > summary .chevron-rotate { transform: rotate(90deg); }
+
 /* Drag Region for Titlebar */
 .drag-region {
   -webkit-app-region: drag;
