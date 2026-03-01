@@ -1,10 +1,10 @@
 # SiliconDev
 
-> Based on [Silicon-Studio](https://github.com/rileycleavenger/Silicon-Studio) by Riley Cleavenger. Licensed under MIT.
-
 <div align="center">
 
 **Local AI Development Environment for Apple Silicon**
+
+<p>Based on [Silicon-Studio](https://github.com/rileycleavenger/Silicon-Studio) by Riley Cleavenger. Licensed under MIT.</p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Platform: macOS](https://img.shields.io/badge/Platform-macOS_(Apple_Silicon)-black)
