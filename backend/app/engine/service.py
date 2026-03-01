@@ -874,19 +874,21 @@ class MLXEngineService:
         adapter_path = config.get("adapter_path")
         
         logger.info(f"Exporting model {model_id} to {output_path} (Quant: {q_bits} bits)...")
-        
+
         from mlx_lm import fuse
-        
+
         # fuse() handles quantization if q_bits is provided
-        # We run this in an executor to avoid blocking the event loop
+        # q_bits=0 means full precision (no quantization)
         loop = asyncio.get_running_loop()
         try:
-            await loop.run_in_executor(None, lambda: fuse(
-                model=base_model,
-                adapter_path=adapter_path,
-                save_path=output_path,
-                q_bits=q_bits
-            ))
+            fuse_kwargs = {
+                "model": base_model,
+                "adapter_path": adapter_path,
+                "save_path": output_path,
+            }
+            if q_bits and q_bits > 0:
+                fuse_kwargs["q_bits"] = q_bits
+            await loop.run_in_executor(None, lambda: fuse(**fuse_kwargs))
             logger.info(f"Model exported successfully to {output_path}")
             return {"status": "success", "path": output_path}
         except Exception as e:

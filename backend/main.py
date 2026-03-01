@@ -38,6 +38,8 @@ try:
     logger.info("Imported notes router")
     from app.api.search import router as search_router
     logger.info("Imported search router")
+    from app.api.mcp import router as mcp_router
+    logger.info("Imported mcp router")
 
 except Exception as e:
     logger.critical(f"Import error: {e}", exc_info=True)
@@ -72,6 +74,7 @@ app.include_router(conversations_router, prefix="/api/conversations", tags=["con
 app.include_router(sandbox_router, prefix="/api/sandbox", tags=["sandbox"])
 app.include_router(notes_router, prefix="/api/notes", tags=["notes"])
 app.include_router(search_router, prefix="/api/search", tags=["search"])
+app.include_router(mcp_router, prefix="/api/mcp", tags=["mcp"])
 
 
 @app.get("/health")

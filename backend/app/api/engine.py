@@ -147,7 +147,7 @@ async def stop_generation():
 class ExportRequest(BaseModel):
     model_id: str
     output_path: str
-    q_bits: int = Field(default=4, ge=2, le=16)
+    q_bits: int = Field(default=4, ge=0, le=16)
 
 @router.post("/models/export")
 async def export_model(request: ExportRequest):
@@ -157,3 +157,10 @@ async def export_model(request: ExportRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/models/adapters")
+async def list_adapters():
+    """List fine-tuned models available for export."""
+    all_models = service.get_models_status()
+    adapters = [m for m in all_models if m.get("is_finetuned")]
+    return adapters

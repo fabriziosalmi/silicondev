@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { apiClient, cleanModelName, type PreviewRow } from '../api/client'
 import { Card } from './ui/Card'
 import { useGlobalState } from '../context/GlobalState'
@@ -21,9 +21,22 @@ export function DataPreparation() {
 
     // MCP Mode State
     const { activeModel } = useGlobalState()
-    const [mcpServer, setMcpServer] = useState("local-postgres")
-    const [mcpPrompt, setMcpPrompt] = useState("Generate 50 question-answer pairs explaining the structure and logic of the core tables.")
+    const [mcpServer, setMcpServer] = useState("")
+    const [mcpServers, setMcpServers] = useState<{ id: string; name: string }[]>([])
+    const [mcpPrompt, setMcpPrompt] = useState("Generate question-answer pairs explaining how to use each tool exposed by this MCP server.")
     const [mcpGenerating, setMcpGenerating] = useState(false)
+
+    // Fetch MCP servers when switching to MCP mode
+    useEffect(() => {
+        if (dataMode === 'mcp') {
+            apiClient.mcp.listServers().then(servers => {
+                setMcpServers(servers)
+                if (servers.length > 0 && !mcpServer) {
+                    setMcpServer(servers[0].id)
+                }
+            }).catch(() => setMcpServers([]))
+        }
+    }, [dataMode])
 
     const handleFileSelect = async () => {
         try {
@@ -131,12 +144,11 @@ export function DataPreparation() {
                     {dataMode === 'file' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>}
                 </button>
                 <button
-                    disabled
-                    className="pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 text-gray-600 cursor-not-allowed"
-                    title="MCP-based generation is not yet implemented"
+                    onClick={() => { setDataMode('mcp'); setPreview([]); }}
+                    className={`pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 ${dataMode === 'mcp' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
                 >
                     <Server className="w-4 h-4" /> Generate via MCP
-                    <span className="text-[10px] bg-white/5 text-gray-600 px-1.5 py-0.5 rounded border border-white/5">Soon</span>
+                    {dataMode === 'mcp' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>}
                 </button>
             </div>
 
@@ -188,9 +200,12 @@ export function DataPreparation() {
                                         onChange={(e) => setMcpServer(e.target.value)}
                                         className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-white text-sm outline-none focus:border-blue-500"
                                     >
-                                        <option value="local-postgres">local-postgres (Database)</option>
-                                        <option value="github-repo">github-repo (Source Code)</option>
-                                        <option value="website-scraper">website-scraper (Web Data)</option>
+                                        {mcpServers.length === 0 && (
+                                            <option value="">No servers configured — add in Settings</option>
+                                        )}
+                                        {mcpServers.map(s => (
+                                            <option key={s.id} value={s.id}>{s.name}</option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>

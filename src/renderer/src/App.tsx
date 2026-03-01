@@ -10,6 +10,8 @@ import { RagKnowledge } from './components/RagKnowledge'
 import { AgentWorkflows } from './components/AgentWorkflows'
 import { Deployment } from './components/Deployment'
 import { Workspace } from './components/Workspace'
+import { Settings } from './components/Settings'
+import { ModelExport } from './components/ModelExport'
 import { TopBar } from './components/TopBar'
 import { ConversationListPanel } from './components/ConversationListPanel'
 import { NoteListPanel } from './components/NoteListPanel'
@@ -17,7 +19,7 @@ import { useGlobalState } from './context/GlobalState'
 import { useConversations } from './context/ConversationContext'
 import { useNotes } from './context/NotesContext'
 import { apiClient } from './api/client'
-import { Database, Cpu, MessageSquare, BarChart2, TestTube, Brain, Zap, Rocket, FileText, ChevronsLeft, ChevronsRight, Plus, ChevronDown, ChevronRight } from 'lucide-react'
+import { Database, Cpu, MessageSquare, BarChart2, TestTube, Brain, Zap, Rocket, FileText, ChevronsLeft, ChevronsRight, Plus, ChevronDown, ChevronRight, Settings as SettingsIcon, Package } from 'lucide-react'
 
 function App() {
   const [activeTab, setActiveTab] = useState('models')
@@ -236,6 +238,13 @@ function App() {
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
+                  label="Model Export"
+                  active={activeTab === 'export'}
+                  onClick={() => setActiveTab('export')}
+                  icon={<Package size={18} />}
+                  collapsed={sidebarCollapsed}
+                />
+                <SidebarItem
                   label="Model Evaluations"
                   active={activeTab === 'evaluations'}
                   onClick={() => setActiveTab('evaluations')}
@@ -268,6 +277,19 @@ function App() {
 
           </nav>
 
+          {/* Settings — bottom of sidebar */}
+          <div className={`${sidebarCollapsed ? 'px-1.5' : 'px-4'} mb-2`}>
+            <div className="border-t border-white/5 pt-2">
+              <SidebarItem
+                label="Settings"
+                active={activeTab === 'settings'}
+                onClick={() => setActiveTab('settings')}
+                icon={<SettingsIcon size={18} />}
+                collapsed={sidebarCollapsed}
+              />
+            </div>
+          </div>
+
           {/* Collapse toggle */}
           <button
             onClick={toggleSidebar}
@@ -290,6 +312,8 @@ function App() {
             {activeTab === 'deployment' && <Deployment />}
             {activeTab === 'chat' && <ChatInterface />}
             {activeTab === 'workspace' && <Workspace />}
+            {activeTab === 'export' && <ModelExport />}
+            {activeTab === 'settings' && <Settings />}
           </div>
         </div>
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { apiClient, cleanModelName } from '../api/client'
 import type { SandboxResult, SyntaxCheckResult, SelfAssessment, ConversationMemory } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
-import { Settings2, SlidersHorizontal, Cpu, Copy, Check, ChevronRight, ChevronLeft, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, Eye, EyeOff, User, Baby, FlaskConical, Feather, Plus, Download, GitFork, Play, Loader2, CircleCheck, CircleX, ShieldCheck, Brain, Globe, RefreshCcw, Database } from 'lucide-react'
+import { Settings2, SlidersHorizontal, Cpu, Copy, Check, ChevronRight, ChevronLeft, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, Eye, EyeOff, User, Baby, FlaskConical, Feather, Plus, Download, GitFork, Play, Loader2, CircleCheck, CircleX, ShieldCheck, Brain, Globe, RefreshCcw, Database, Bot } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -1048,7 +1048,7 @@ Return exactly this JSON structure (no other text):
                                             <div key={idx} className="mb-6">
                                                 <div className="flex items-start gap-3">
                                                     <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center shrink-0 mt-0.5">
-                                                        <span className="text-[10px] font-bold text-gray-400">U</span>
+                                                        <User size={14} className="text-gray-400" />
                                                     </div>
                                                     {msg.displayContent ? (
                                                         <details className="min-w-0 group/action">
@@ -1089,7 +1089,7 @@ Return exactly this JSON structure (no other text):
                                         <div key={idx} className="mb-6 group">
                                             <div className="flex items-start gap-3">
                                                 <div className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0 mt-1">
-                                                    <span className="text-[10px] font-bold text-blue-400">AI</span>
+                                                    <Bot size={14} className="text-blue-400" />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
                                                     {/* Reasoning trace */}

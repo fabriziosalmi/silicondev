@@ -292,6 +292,11 @@ export const apiClient = {
             if (!res.ok) throw new Error('Failed to stop chat generation');
             return res.json();
         },
+        listAdapters: async (): Promise<ModelEntry[]> => {
+            const res = await fetch(`${API_BASE}/api/engine/models/adapters`);
+            if (!res.ok) throw new Error('Failed to fetch adapters');
+            return res.json();
+        },
         exportModel: async (modelId: string, outputPath: string, qBits: number = 4): Promise<{ status: string; path: string }> => {
             const res = await fetch(`${API_BASE}/api/engine/models/export`, {
                 method: 'POST',
@@ -537,6 +542,43 @@ export const apiClient = {
                 method: 'DELETE'
             });
             if (!res.ok) throw new Error('Failed to delete note');
+            return res.json();
+        },
+    },
+    mcp: {
+        listServers: async (): Promise<{ id: string; name: string; command: string; args: string[]; env: Record<string, string>; transport: string }[]> => {
+            const res = await fetch(`${API_BASE}/api/mcp/servers`);
+            if (!res.ok) throw new Error('Failed to fetch MCP servers');
+            return res.json();
+        },
+        addServer: async (server: { name: string; command: string; args?: string[]; env?: Record<string, string>; transport?: string }): Promise<{ id: string; name: string; command: string }> => {
+            const res = await fetch(`${API_BASE}/api/mcp/servers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(server)
+            });
+            if (!res.ok) throw new Error('Failed to add MCP server');
+            return res.json();
+        },
+        removeServer: async (serverId: string): Promise<{ status: string }> => {
+            const res = await fetch(`${API_BASE}/api/mcp/servers/${serverId}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) throw new Error('Failed to remove MCP server');
+            return res.json();
+        },
+        listTools: async (serverId: string): Promise<{ tools: { name: string; description: string; inputSchema: Record<string, unknown> }[] }> => {
+            const res = await fetch(`${API_BASE}/api/mcp/servers/${serverId}/tools`);
+            if (!res.ok) throw new Error('Failed to list MCP tools');
+            return res.json();
+        },
+        executeTool: async (serverId: string, toolName: string, toolArgs: Record<string, unknown> = {}): Promise<{ result: string }> => {
+            const res = await fetch(`${API_BASE}/api/mcp/execute`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ server_id: serverId, tool_name: toolName, tool_args: toolArgs })
+            });
+            if (!res.ok) throw new Error('Failed to execute MCP tool');
             return res.json();
         },
     },
