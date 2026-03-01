@@ -100,6 +100,62 @@ export async function mockBackendAPIs(page: Page) {
     }
     return route.continue()
   })
+
+  // Conversations
+  await page.route('**/api/conversations/', (route) => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 'conv-1',
+            title: 'Test Conversation',
+            model_id: 'test-model',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T01:00:00Z',
+            message_count: 3,
+            pinned: false,
+          },
+          {
+            id: 'conv-2',
+            title: 'Pinned Chat',
+            model_id: 'test-model',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T02:00:00Z',
+            message_count: 5,
+            pinned: true,
+          },
+        ]),
+      })
+    }
+    if (route.request().method() === 'POST') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'conv-new',
+          title: 'New conversation',
+          messages: [],
+          model_id: null,
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+          message_count: 0,
+          pinned: false,
+        }),
+      })
+    }
+    return route.continue()
+  })
+
+  // Conversations search
+  await page.route('**/api/conversations/search', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
+    })
+  )
 }
 
 /** Click a sidebar navigation item by label text. */

@@ -100,7 +100,7 @@ export function EngineInterface() {
                 if (data.loss !== undefined) {
                     setChartData(prev => [...prev, {
                         step: prev.length + 1,
-                        loss: parseFloat(data.loss.toFixed(4))
+                        loss: parseFloat((data.loss as number).toFixed(4))
                     }])
                 }
 

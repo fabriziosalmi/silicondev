@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Server, Copy, Check, Globe, ChevronRight, Terminal } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
-import { apiClient } from '../api/client'
+import { apiClient, cleanModelName } from '../api/client'
 
 interface LogEntry {
     timestamp: number
@@ -251,7 +251,7 @@ print(response.choices[0].message.content)`
                             <div className="w-px h-4 bg-white/5 mx-1" />
                             <span className="text-xs text-gray-500">Model</span>
                             <span className="text-xs text-gray-400 font-mono truncate max-w-48">
-                                {activeModel?.name ?? 'none'}
+                                {activeModel ? cleanModelName(activeModel.name) : 'none'}
                             </span>
                         </div>
                     )}

@@ -1,5 +1,5 @@
-import { Search, Pin, PinOff, Trash2, Edit3, Check, X, MessageSquare } from 'lucide-react'
-import { ConversationSummary } from '../api/client'
+import { Search, Pin, PinOff, Trash2, Edit3, Check, X, MessageSquare, GitFork } from 'lucide-react'
+import type { ConversationSummary } from '../api/client'
 
 interface ConversationListPanelProps {
     conversations: ConversationSummary[]
@@ -98,6 +98,7 @@ export function ConversationListPanel({
                                 <>
                                     <div className="flex items-center gap-1.5">
                                         {conv.pinned && <Pin className="w-3 h-3 text-blue-400 shrink-0" />}
+                                        {conv.branched_from && <GitFork className="w-3 h-3 text-purple-400 shrink-0" />}
                                         <span className="text-xs font-medium text-gray-200 truncate">{conv.title}</span>
                                     </div>
                                     <div className="text-[10px] text-gray-600 mt-0.5 flex items-center gap-2">

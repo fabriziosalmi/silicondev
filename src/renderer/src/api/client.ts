@@ -28,6 +28,7 @@ export interface ModelEntry {
     downloaded: boolean
     downloading: boolean
     local_path: string | null
+    path?: string
     base_model?: string
     adapter_path?: string
     params?: Record<string, unknown>
@@ -40,6 +41,7 @@ export interface JobStatus {
     job_id?: string
     model_path?: string
     error?: string
+    loss?: number
 }
 
 export interface ConvertResult {
@@ -92,10 +94,45 @@ export interface ConversationSummary {
     message_count: number
     pinned: boolean
     match_context?: string
+    branched_from?: { conversation_id: string; message_index: number }
 }
 
 export interface Conversation extends ConversationSummary {
     messages: ConversationMessage[]
+}
+
+export interface SandboxResult {
+    stdout: string
+    stderr: string
+    exit_code: number
+    execution_time: number
+    language: string
+    timed_out: boolean
+    run_id: string
+}
+
+export interface SyntaxCheckResult {
+    valid: boolean
+    errors: string
+    language: string
+    skipped: boolean
+}
+
+export interface SelfAssessment {
+    privacy: number
+    fairness: number
+    safety: number
+    transparency: number
+    ethics: number
+    reliability: number
+}
+
+export interface ConversationMemory {
+    topics: { name: string; summary: string; messageRange: [number, number] }[]
+    codeContext: { language: string; description: string; lastVersion: string }[]
+    decisions: { what: string; why: string }[]
+    keyFacts: string[]
+    lastProcessedIndex: number
 }
 
 export interface DeploymentStatus {
@@ -121,6 +158,13 @@ export interface FineTuneParams {
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant'
     content: string
+}
+
+// --- Utilities ---
+
+/** Strip path prefixes like "Local / Models / " from model display names */
+export function cleanModelName(name: string): string {
+    return name.replace(/^.*\s*\/\s*(?:Models|models)\s*\/\s*/, '')
 }
 
 // --- API Client ---
@@ -153,7 +197,7 @@ export const apiClient = {
             if (!res.ok) throw new Error('Failed to convert CSV');
             return res.json();
         },
-        generateMcp: async (modelId: string, serverId: string, prompt: string, outputPath: string): Promise<never> => {
+        generateMcp: async (modelId: string, serverId: string, prompt: string, outputPath: string): Promise<{ data: PreviewRow[]; rows: number }> => {
             const res = await fetch(`${API_BASE}/api/preparation/generate-mcp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -368,6 +412,44 @@ export const apiClient = {
                 body: JSON.stringify({ q: query })
             });
             if (!res.ok) throw new Error('Failed to search conversations');
+            return res.json();
+        },
+        branch: async (id: string, messageIndex: number): Promise<Conversation> => {
+            const res = await fetch(`${API_BASE}/api/conversations/${id}/branch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message_index: messageIndex })
+            });
+            if (!res.ok) throw new Error('Failed to branch conversation');
+            return res.json();
+        },
+    },
+    sandbox: {
+        check: async (code: string, language: string = ''): Promise<SyntaxCheckResult> => {
+            const res = await fetch(`${API_BASE}/api/sandbox/check`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, language })
+            });
+            if (!res.ok) throw new Error('Syntax check failed');
+            return res.json();
+        },
+        run: async (code: string, language: string = '', timeout?: number): Promise<SandboxResult> => {
+            const res = await fetch(`${API_BASE}/api/sandbox/run`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, language, timeout })
+            });
+            if (!res.ok) throw new Error('Sandbox execution failed');
+            return res.json();
+        },
+        kill: async (runId: string): Promise<{ killed: boolean }> => {
+            const res = await fetch(`${API_BASE}/api/sandbox/kill`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ run_id: runId })
+            });
+            if (!res.ok) throw new Error('Failed to kill process');
             return res.json();
         },
     },

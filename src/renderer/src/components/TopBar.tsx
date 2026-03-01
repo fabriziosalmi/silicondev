@@ -1,5 +1,5 @@
 import { useGlobalState } from '../context/GlobalState';
-import { apiClient } from '../api/client';
+import { apiClient, cleanModelName } from '../api/client';
 import { DatabaseZap, LogOut } from 'lucide-react';
 
 export function TopBar() {
@@ -36,7 +36,7 @@ export function TopBar() {
                 {activeModel ? (
                     <div className="flex items-center space-x-2 bg-blue-500/10 h-7 px-2.5 rounded border border-blue-500/20">
                         <DatabaseZap size={13} className="text-blue-400" />
-                        <span className="text-[11px] font-medium text-blue-300">{activeModel.name}</span>
+                        <span className="text-[11px] font-medium text-blue-300">{cleanModelName(activeModel.name)}</span>
                         <div className="w-px h-3.5 bg-blue-500/20 mx-1"></div>
                         <button
                             onClick={handleEject}

@@ -4,7 +4,7 @@ import { Wand2, Copy, Loader2, Download, Upload, FileText } from 'lucide-react'
 import { SimpleMdeReact } from "react-simplemde-editor";
 import "simplemde/dist/simplemde.min.css";
 import { useGlobalState } from '../context/GlobalState'
-import { apiClient } from '../api/client'
+import { apiClient, cleanModelName } from '../api/client'
 
 const NOTES_STORAGE_KEY = 'silicon-studio-notes';
 
@@ -174,7 +174,7 @@ export function Workspace() {
                         {activeModel && (
                             <span className="text-[10px] text-gray-500 font-mono flex items-center gap-1.5">
                                 <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                {activeModel.name.split('/').pop()}
+                                {cleanModelName(activeModel.name)}
                             </span>
                         )}
                     </div>
@@ -193,7 +193,7 @@ export function Workspace() {
                     <div className="bg-[#18181B] border border-white/10 rounded-xl p-4 flex flex-col gap-2.5">
                         <h3 className="text-xs font-medium text-gray-400 mb-1">AI Commands</h3>
                         <p className="text-[10px] text-gray-600 mb-1">
-                            {activeModel ? `Using ${activeModel.name.split('/').pop()}` : 'Load a model to enable'}
+                            {activeModel ? `Using ${cleanModelName(activeModel.name)}` : 'Load a model to enable'}
                         </p>
                         <AiButton
                             label="Continue Writing"

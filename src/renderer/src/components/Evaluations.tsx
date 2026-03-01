@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card } from './ui/Card'
 import { TestTube, Play, BarChart2, Loader2 } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
-import { apiClient } from '../api/client'
+import { apiClient, cleanModelName } from '../api/client'
 
 const EVAL_HISTORY_KEY = 'silicon-studio-eval-history';
 
@@ -122,7 +122,7 @@ export function Evaluations() {
 
             const result: EvalResult = {
                 date: new Date().toISOString().split('T')[0],
-                model: activeModel.name,
+                model: cleanModelName(activeModel.name),
                 bench: bench?.name.split(' ')[0] || benchId,
                 score: parseFloat(finalScore.toFixed(1)),
                 status: 'completed'
@@ -149,7 +149,7 @@ export function Evaluations() {
                         {activeModel ? (
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-green-500" />
-                                <span className="text-lg font-bold">{activeModel.name}</span>
+                                <span className="text-lg font-bold">{cleanModelName(activeModel.name)}</span>
                                 <span className="text-xs text-gray-500 font-mono ml-2">({activeModel.id.split('/').pop()})</span>
                             </div>
                         ) : (

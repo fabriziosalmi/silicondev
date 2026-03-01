@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiClient } from '../api/client';
+import { apiClient, cleanModelName } from '../api/client';
 import { PageHeader } from './ui/PageHeader';
 import { Search, Download, Trash2, Database, HardDrive, FileText, Play, LogOut } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -92,7 +92,7 @@ export function ModelsInterface() {
             const result = await apiClient.engine.loadModel(model.id);
             setActiveModel({
                 id: model.id,
-                name: model.name,
+                name: cleanModelName(model.name),
                 size: model.size,
                 path: model.path_local || model.id,
                 architecture: model.architecture,
@@ -136,7 +136,7 @@ export function ModelsInterface() {
         try {
             const found = await apiClient.engine.scanModels(path);
             setFoundModels(found);
-            setSelectedPaths(new Set(found.map(m => m.path)));
+            setSelectedPaths(new Set(found.map(m => m.path || m.local_path).filter((p): p is string => p !== null)));
         } catch (e: any) {
             setError(e.message);
         } finally {
@@ -300,7 +300,7 @@ export function ModelsInterface() {
                                                         </div>
                                                         <div className="flex flex-col justify-center">
                                                             <div className="font-semibold text-white/90 flex items-center gap-2 text-[13px] leading-tight">
-                                                                {model.name}
+                                                                {cleanModelName(model.name)}
                                                                 {model.is_finetuned && <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/20 uppercase tracking-wide font-bold">Fine-Tuned</span>}
                                                             </div>
                                                             <div className="text-[11px] text-gray-500 font-mono mt-0.5 truncate max-w-[220px]" title={model.id}>{model.id}</div>
@@ -392,7 +392,7 @@ export function ModelsInterface() {
                                         onClick={() => selectModelForDetails(model)}
                                         className={`w-full text-left p-4 border-b border-white/5 hover:bg-white/5 transition-colors ${selectedModel?.id === model.id ? 'bg-blue-500/10 border-l-2 border-l-blue-500' : ''}`}
                                     >
-                                        <div className="font-semibold text-white truncate text-sm mb-1">{model.name}</div>
+                                        <div className="font-semibold text-white truncate text-sm mb-1">{cleanModelName(model.name)}</div>
                                         <div className="text-[11px] text-gray-500 font-mono truncate">{model.id}</div>
                                         <div className="flex items-center gap-2 mt-2">
                                             <span className="text-[10px] px-1.5 py-0.5 bg-white/5 rounded text-gray-400 border border-white/5">{guessPublisher(model.id)}</span>

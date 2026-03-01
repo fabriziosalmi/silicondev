@@ -24,6 +24,10 @@ class SearchQuery(BaseModel):
     q: str = Field(min_length=1, max_length=500)
 
 
+class BranchRequest(BaseModel):
+    message_index: int = Field(ge=0)
+
+
 @router.get("/")
 async def list_conversations():
     return service.list_conversations()
@@ -60,6 +64,14 @@ async def delete_conversation(conversation_id: str):
     if service.delete_conversation(conversation_id):
         return {"status": "deleted"}
     raise HTTPException(status_code=404, detail="Conversation not found")
+
+
+@router.post("/{conversation_id}/branch")
+async def branch_conversation(conversation_id: str, req: BranchRequest):
+    conv = service.branch_conversation(conversation_id, req.message_index)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found or invalid message index")
+    return conv
 
 
 @router.post("/search")

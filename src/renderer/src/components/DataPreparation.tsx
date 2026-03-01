@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { apiClient, type PreviewRow } from '../api/client'
+import { apiClient, cleanModelName, type PreviewRow } from '../api/client'
 import { Card } from './ui/Card'
 import { useGlobalState } from '../context/GlobalState'
 import { Database, FileText, Server, Sparkles, MessageSquare, FolderOpen, Save } from 'lucide-react'
@@ -201,7 +201,7 @@ export function DataPreparation() {
                                     {activeModel ? (
                                         <>
                                             <Sparkles className="w-4 h-4 mr-2" />
-                                            <span className="truncate">{activeModel.name}</span>
+                                            <span className="truncate">{cleanModelName(activeModel.name)}</span>
                                         </>
                                     ) : (
                                         "No Model Loaded in Memory (Go to Models)"

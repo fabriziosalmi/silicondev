@@ -78,6 +78,56 @@ test.describe('Chat Page', () => {
     // The send button has an ArrowUp icon
     await expect(page.locator('textarea')).toBeVisible({ timeout: 5000 })
   })
+
+  test('shows History button', async ({ page }) => {
+    await navigateTo(page, 'Chat')
+    await expect(page.locator('button:has-text("History")')).toBeVisible({ timeout: 5000 })
+  })
+
+  test('shows Parameters button', async ({ page }) => {
+    await navigateTo(page, 'Chat')
+    await expect(page.locator('button:has-text("Parameters")')).toBeVisible({ timeout: 5000 })
+  })
+
+  test('opens conversation history panel', async ({ page }) => {
+    await navigateTo(page, 'Chat')
+    await page.click('button:has-text("History")')
+    // Should show the search input for conversations
+    await expect(page.locator('input[placeholder="Search conversations..."]')).toBeVisible({ timeout: 5000 })
+  })
+
+  test('shows conversations in history panel', async ({ page }) => {
+    await navigateTo(page, 'Chat')
+    await page.click('button:has-text("History")')
+    await expect(page.locator('text=Test Conversation')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Pinned Chat')).toBeVisible({ timeout: 5000 })
+  })
+
+  test('opens parameters sidebar with settings', async ({ page }) => {
+    await navigateTo(page, 'Chat')
+    await page.click('button:has-text("Parameters")')
+    await expect(page.locator('text=Temperature')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Reasoning')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Visible Actions')).toBeVisible({ timeout: 5000 })
+  })
+
+  test('shows memory map toggle in parameters', async ({ page }) => {
+    await navigateTo(page, 'Chat')
+    await page.click('button:has-text("Parameters")')
+    await expect(page.locator('text=Memory Map')).toBeVisible({ timeout: 5000 })
+  })
+
+  test('shows syntax check toggle in parameters', async ({ page }) => {
+    await navigateTo(page, 'Chat')
+    await page.click('button:has-text("Parameters")')
+    await expect(page.locator('text=Syntax Check')).toBeVisible({ timeout: 5000 })
+  })
+
+  test('shows Ethical chip in visible actions', async ({ page }) => {
+    await navigateTo(page, 'Chat')
+    await page.click('button:has-text("Parameters")')
+    await expect(page.locator('button:has-text("Ethical")')).toBeVisible({ timeout: 5000 })
+  })
 })
 
 // ── Notes Page ───────────────────────────────────────────
