@@ -10,7 +10,7 @@
 ## Install from Source
 
 ```bash
-git clone https://github.com/fabriziosalmi/Silicon-Studio.git
+git clone https://github.com/fabriziosalmi/silicondev.git
 cd Silicon-Studio
 
 # Frontend dependencies
