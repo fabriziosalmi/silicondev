@@ -11,7 +11,7 @@
 
 ```bash
 git clone https://github.com/fabriziosalmi/silicondev.git
-cd Silicon-Studio
+cd silicondev
 
 # Frontend dependencies
 npm install
