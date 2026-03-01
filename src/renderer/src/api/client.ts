@@ -583,15 +583,24 @@ export const apiClient = {
         },
     },
     search: {
-        web: async (query: string, maxResults: number = 3): Promise<{ title: string; snippet: string; url: string }[]> => {
+        web: async (query: string, maxResults: number = 3, extractContent: boolean = true): Promise<{ title: string; snippet: string; url: string; content: string | null }[]> => {
             const res = await fetch(`${API_BASE}/api/search/web`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query, max_results: maxResults })
+                body: JSON.stringify({ query, max_results: maxResults, extract_content: extractContent })
             });
-            if (!res.ok) return []; // Graceful fallback if search unavailable
+            if (!res.ok) return [];
             const data = await res.json();
             return data.results;
+        },
+        deep: async (query: string, maxPages: number = 5): Promise<{ results: { title: string; snippet: string; url: string; content: string | null }[]; queries_used: string[]; pages_fetched: number }> => {
+            const res = await fetch(`${API_BASE}/api/search/deep`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query, max_pages: maxPages })
+            });
+            if (!res.ok) return { results: [], queries_used: [], pages_fetched: 0 };
+            return res.json();
         },
     },
     checkHealth: async (): Promise<boolean> => {

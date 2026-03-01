@@ -481,9 +481,13 @@ export function ChatInterface() {
 
         if (isDirectMessage && settings.webSearchEnabled) {
             try {
-                const searchResults = await apiClient.search.web(text, 3);
+                const searchResults = await apiClient.search.web(text, 3, true);
                 if (searchResults.length > 0) {
-                    systemContent += '\n\n[WEB SEARCH]\n' + searchResults.map(r => `${r.title}\n${r.snippet}\nSource: ${r.url}`).join('\n---\n');
+                    systemContent += '\n\n[WEB SEARCH]\n' + searchResults.map((r, i) => {
+                        const num = `[${i + 1}]`;
+                        const body = r.content || r.snippet;
+                        return `${num} ${r.title}\n${body}\nSource: ${r.url}`;
+                    }).join('\n---\n');
                 }
             } catch {
                 // web search failed silently
