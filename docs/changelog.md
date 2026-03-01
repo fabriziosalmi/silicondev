@@ -1,5 +1,62 @@
 # Changelog
 
+## v0.4.0
+
+### Backend Hardening
+
+- Thread-safe `active_jobs` and `models_config` in engine service via `threading.Lock`
+- Thread-safe `server_process` in deployment service via `threading.Lock`
+- Async-safe `_active_sessions` in terminal API via `asyncio.Lock`
+- Atomic JSON writes (tempfile + `os.replace`) in conversations, notes, and models config — prevents data corruption on crash
+- `get_job_status` returns a copy to prevent external mutation
+
+### Terminal UX
+
+- Input bar retains focus after submitting a command (no need to re-click)
+
+### Docs
+
+- Added Agent Terminal feature page and API reference
+- Updated changelog and version references
+
+## v0.3.0
+
+### UI/UX Consistency Audit
+
+- Global iOS-style `:active` scale-down on all buttons and switches
+- Upgraded `focus-visible` to 2px solid blue with 2px offset
+- Apple-style tight letter-spacing on headings (`-0.02em`)
+- Fixed placeholder contrast from gray-600 to gray-500 (WCAG 3:1)
+- ToggleSwitch keyboard support (spacebar and Enter)
+- AI text width capped at `max-w-prose` for readability
+- Slim 6px scrollbars with Firefox fallback
+
+### Terminal Improvements
+
+- Full-bleed terminal layout (no padding, fills viewport)
+- Removed 240px output truncation — output streams naturally
+- Auto-scroll follows bottom unless user scrolls up manually
+- Dark-themed code blocks in streaming markdown
+- AbortController on SSE streams for proper stop/cancel
+- Stop button works in both Terminal and Agent modes
+
+## v0.2.0
+
+### NanoCore Agent Terminal
+
+- Dual-mode terminal: direct bash (PTY) and NanoCore agent
+- Streaming SSE output for both modes
+- XML-based tool call parsing with safety checks
+- Diff proposals with human approval before writing files
+- Telemetry sidebar (agent state, tokens, elapsed time)
+- Sandboxed command execution with blocked patterns and protected paths
+
+### VitePress Documentation Site
+
+- Custom Apple-inspired theme
+- Full feature documentation and API reference
+- Guide, architecture, and configuration pages
+
 ## v0.1.0
 
 Initial release. Based on [Silicon-Studio](https://github.com/rileycleavenger/Silicon-Studio) by Riley Cleavenger with significant additions.

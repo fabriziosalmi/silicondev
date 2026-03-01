@@ -65,6 +65,12 @@ MLX-powered fine-tuning (LoRA/QLoRA) and inference on M1/M2/M3/M4 chips.
 - Multi-note management with pin/rename
 - Send note content to chat
 
+### Agent Terminal
+- Dual-mode: direct bash execution and NanoCore AI agent
+- Streaming output via SSE, auto-scroll, dark code blocks
+- Diff proposals with human approval before file writes
+- Sandboxed execution with safety checks
+
 ### Agent Workflows
 - Visual workflow builder (nodes and edges)
 - Agent CRUD with configurable node types

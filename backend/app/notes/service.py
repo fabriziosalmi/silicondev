@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 import uuid
 import logging
 from pathlib import Path
@@ -83,6 +85,16 @@ class NotesService:
         return False
 
     def _save(self, note: Dict[str, Any]):
+        """Atomic write: temp file + os.replace to prevent corruption on crash."""
         path = self.notes_dir / f"{note['id']}.json"
-        with open(path, "w") as f:
-            json.dump(note, f, indent=2)
+        fd, tmp_path = tempfile.mkstemp(dir=str(self.notes_dir), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(note, f, indent=2)
+            os.replace(tmp_path, path)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise

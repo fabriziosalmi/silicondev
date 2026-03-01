@@ -22,6 +22,8 @@ features:
     details: Full-context chat runs offline. Conversations, branching, search, and syntax validation included.
   - title: Retrieval-Augmented Generation
     details: Ingest documents into local collections. Query them at inference time. Optional web retrieval via DuckDuckGo.
+  - title: Agent Terminal
+    details: Dual-mode terminal with direct bash execution and NanoCore agent. Streaming output, diff proposals with human approval, telemetry.
   - title: Model Context Protocol
     details: Connect to MCP servers. Discover and execute tools. Generate training datasets from tool schemas.
   - title: Data Pipeline

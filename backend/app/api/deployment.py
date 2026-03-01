@@ -17,6 +17,7 @@ server_process = None
 server_start_time = None
 server_logs: deque = deque(maxlen=500)
 _log_lock = threading.Lock()
+_proc_lock = threading.Lock()
 _log_thread = None
 
 
@@ -46,81 +47,82 @@ class StartRequest(BaseModel):
 @router.post("/start")
 async def start_server(req: StartRequest):
     global server_process, server_start_time
-    if server_process is not None and server_process.poll() is None:
-        raise HTTPException(status_code=400, detail="Server is already running.")
+    with _proc_lock:
+        if server_process is not None and server_process.poll() is None:
+            raise HTTPException(status_code=400, detail="Server is already running.")
 
-    cmd = [
-        "python", "-m", "mlx_lm.server",
-        "--model", req.model_path,
-        "--host", req.host,
-        "--port", str(req.port)
-    ]
+        cmd = [
+            "python", "-m", "mlx_lm.server",
+            "--model", req.model_path,
+            "--host", req.host,
+            "--port", str(req.port)
+        ]
 
-    try:
-        server_logs.clear()
-        server_process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            preexec_fn=os.setsid if os.name == 'posix' else None
-        )
-        server_start_time = time.time()
+        try:
+            server_logs.clear()
+            server_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                preexec_fn=os.setsid if os.name == 'posix' else None
+            )
+            server_start_time = time.time()
 
-        # Start background threads to read stdout/stderr into the log buffer
-        for pipe, label in [(server_process.stdout, "stdout"), (server_process.stderr, "stderr")]:
-            t = threading.Thread(target=_read_output, args=(pipe, label), daemon=True)
-            t.start()
+            for pipe, label in [(server_process.stdout, "stdout"), (server_process.stderr, "stderr")]:
+                t = threading.Thread(target=_read_output, args=(pipe, label), daemon=True)
+                t.start()
 
-        logger.info(f"Deployment server started on {req.host}:{req.port} (PID {server_process.pid})")
-
-        return {"status": "success", "message": f"API Server started on {req.host}:{req.port}", "pid": server_process.pid}
-    except Exception as e:
-        logger.error(f"Failed to start deployment server: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+            logger.info(f"Deployment server started on {req.host}:{req.port} (PID {server_process.pid})")
+            return {"status": "success", "message": f"API Server started on {req.host}:{req.port}", "pid": server_process.pid}
+        except Exception as e:
+            logger.error(f"Failed to start deployment server: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/stop")
 async def stop_server():
     global server_process, server_start_time
-    if server_process is None or server_process.poll() is not None:
+    with _proc_lock:
+        if server_process is None or server_process.poll() is not None:
+            server_process = None
+            server_start_time = None
+            return {"status": "success", "message": "Server is not running."}
+
+        try:
+            if os.name == 'posix':
+                os.killpg(os.getpgid(server_process.pid), signal.SIGTERM)
+            else:
+                server_process.terminate()
+
+            server_process.wait(timeout=5)
+        except Exception:
+            if server_process:
+                server_process.kill()
+
+        logger.info("Deployment server stopped.")
         server_process = None
         server_start_time = None
-        return {"status": "success", "message": "Server is not running."}
-
-    try:
-        if os.name == 'posix':
-            os.killpg(os.getpgid(server_process.pid), signal.SIGTERM)
-        else:
-            server_process.terminate()
-
-        server_process.wait(timeout=5)
-    except Exception:
-        if server_process:
-            server_process.kill()
-
-    logger.info("Deployment server stopped.")
-    server_process = None
-    server_start_time = None
     return {"status": "success", "message": "API Server stopped."}
 
 @router.get("/status")
 async def get_status():
     global server_process, server_start_time
-    is_running = server_process is not None and server_process.poll() is None
+    with _proc_lock:
+        is_running = server_process is not None and server_process.poll() is None
 
-    # Clean up state if process crashed
-    if server_process is not None and not is_running:
-        server_process = None
-        server_start_time = None
+        # Clean up state if process crashed
+        if server_process is not None and not is_running:
+            server_process = None
+            server_start_time = None
 
-    uptime = None
-    if is_running and server_start_time:
-        uptime = round(time.time() - server_start_time)
+        uptime = None
+        if is_running and server_start_time:
+            uptime = round(time.time() - server_start_time)
 
-    return {
-        "running": is_running,
-        "pid": server_process.pid if is_running else None,
-        "uptime_seconds": uptime,
-    }
+        return {
+            "running": is_running,
+            "pid": server_process.pid if is_running else None,
+            "uptime_seconds": uptime,
+        }
 
 
 @router.get("/logs")

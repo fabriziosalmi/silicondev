@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 import uuid
 import logging
 from pathlib import Path
@@ -176,6 +178,16 @@ class ConversationService:
         return result
 
     def _save(self, conversation: Dict[str, Any]):
+        """Atomic write: temp file + os.replace to prevent corruption on crash."""
         path = self.conversations_dir / f"{conversation['id']}.json"
-        with open(path, "w") as f:
-            json.dump(conversation, f, indent=2)
+        fd, tmp_path = tempfile.mkstemp(dir=str(self.conversations_dir), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(conversation, f, indent=2)
+            os.replace(tmp_path, path)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise

@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'SiliconDev',
-  description: 'Local AI development environment for Apple Silicon',
+  description: 'Local AI development environment for Apple M Series chips',
   base: '/silicondev/',
 
   head: [
@@ -18,7 +18,7 @@ export default defineConfig({
       { text: 'API', link: '/api/overview' },
       { text: 'Development', link: '/development/setup' },
       {
-        text: 'v0.1.0',
+        text: 'v0.4.0',
         items: [
           { text: 'Changelog', link: '/changelog' },
           { text: 'GitHub', link: 'https://github.com/fabriziosalmi/silicondev' },
@@ -47,6 +47,7 @@ export default defineConfig({
             { text: 'Data Preparation', link: '/features/data-preparation' },
             { text: 'RAG Knowledge', link: '/features/rag' },
             { text: 'MCP Integration', link: '/features/mcp' },
+            { text: 'Agent Terminal', link: '/features/terminal' },
             { text: 'Agent Workflows', link: '/features/agents' },
             { text: 'Notes', link: '/features/notes' },
             { text: 'Model Export', link: '/features/model-export' },
@@ -67,6 +68,7 @@ export default defineConfig({
             { text: 'Conversations', link: '/api/conversations' },
             { text: 'Notes', link: '/api/notes' },
             { text: 'Agents', link: '/api/agents' },
+            { text: 'Terminal', link: '/api/terminal' },
             { text: 'Data Preparation', link: '/api/preparation' },
             { text: 'MCP', link: '/api/mcp' },
             { text: 'Deployment', link: '/api/deployment' },
@@ -98,7 +100,7 @@ export default defineConfig({
 
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Based on Silicon-Studio by Riley Cleavenger.',
+      copyright: 'Based on Silicon-Studio by Riley Cleavenger. Made with ❤️ by Fabrizio Salmi.',
     },
   },
 })

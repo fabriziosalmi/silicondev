@@ -29,6 +29,8 @@ export function InputBar({ onSubmit, onStop, isRunning, disabled, mode, onModeCh
     if (!trimmed || isRunning || disabled) return
     onSubmit(trimmed)
     setValue('')
+    // Keep focus in the input so user can immediately type the next command
+    textareaRef.current?.focus()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

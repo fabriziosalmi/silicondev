@@ -1,5 +1,6 @@
 """API endpoints for the NanoCore agent terminal."""
 
+import asyncio
 import json
 import uuid
 import logging
@@ -19,6 +20,7 @@ router = APIRouter()
 
 # Active sessions keyed by session_id
 _active_sessions: dict[str, SupervisorAgent] = {}
+_sessions_lock = asyncio.Lock()
 
 
 class ExecRequest(BaseModel):
@@ -63,7 +65,8 @@ async def run_terminal(request: TerminalRequest):
         max_iterations=request.max_iterations,
         temperature=request.temperature,
     )
-    _active_sessions[session_id] = agent
+    async with _sessions_lock:
+        _active_sessions[session_id] = agent
 
     async def event_generator():
         try:
@@ -73,9 +76,9 @@ async def run_terminal(request: TerminalRequest):
             logger.error(f"Terminal session error: {e}")
             yield f"data: {json.dumps({'event': 'error', 'data': {'message': str(e)}})}\n\n"
         finally:
-            # Cleanup: stop agent and remove from active sessions
             agent.stop()
-            _active_sessions.pop(session_id, None)
+            async with _sessions_lock:
+                _active_sessions.pop(session_id, None)
             logger.info(f"Terminal session {session_id} cleaned up")
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
@@ -84,7 +87,8 @@ async def run_terminal(request: TerminalRequest):
 @router.post("/diff/decide")
 async def decide_diff(decision: DiffDecision):
     """Approve or reject a pending diff proposal."""
-    agent = _active_sessions.get(decision.session_id)
+    async with _sessions_lock:
+        agent = _active_sessions.get(decision.session_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -99,7 +103,8 @@ async def decide_diff(decision: DiffDecision):
 async def stop_terminal(body: dict = {}):
     """Stop a running agent session."""
     session_id = body.get("session_id", "")
-    agent = _active_sessions.get(session_id)
+    async with _sessions_lock:
+        agent = _active_sessions.get(session_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Session not found")
 

@@ -8,6 +8,7 @@ import threading
 import os
 import json
 import logging
+import tempfile
 from pathlib import Path
 from typing import Dict, Any, List
 
@@ -23,6 +24,8 @@ class MLXEngineService:
         self.loaded_models = {}
         self.stop_event = threading.Event()
         self.generation_lock = asyncio.Lock()
+        self._jobs_lock = threading.Lock()
+        self._config_lock = threading.Lock()
 
         # Use writable per-user directory for models/adapters
         self.workspace_dir = Path.home() / ".silicon-studio"
@@ -75,8 +78,20 @@ class MLXEngineService:
             return []
 
     def _save_models_config(self):
-        with open(self.models_config_path, "w") as f:
-            json.dump(self.models_config, f, indent=4)
+        """Atomic write: temp file + os.replace to prevent corruption on crash."""
+        fd, tmp_path = tempfile.mkstemp(
+            dir=str(self.models_config_path.parent), suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(self.models_config, f, indent=4)
+            os.replace(tmp_path, self.models_config_path)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
             
     def _get_dir_size_str(self, path: Path):
         try:
@@ -222,29 +237,30 @@ class MLXEngineService:
         return added
 
     def _register_single_path(self, model_path: Path, group_name: str, url: str):
-        # Check if already registered
-        for m in self.models_config:
-             if m['id'] == str(model_path):
-                 return m
-        
-        model_name = model_path.name
-        size_str = self._get_dir_size_str(model_path)
-        meta = self._get_model_metadata(model_path)
-        
-        new_model = {
-            "id": str(model_path),
-            "name": f"{group_name} / {model_name}" if group_name and group_name.lower() not in ["", "ollama models", "lm studio models"] else model_name,
-            "size": size_str,
-            "family": meta.get("architecture", "Custom"),
-            "architecture": meta.get("architecture", "Unknown"),
-            "context_window": meta.get("context_window", "Unknown"),
-            "quantization": meta.get("quantization", "Standard"),
-            "url": url,
-            "external": False, 
-            "is_custom": True
-        }
-        self.models_config.append(new_model)
-        return new_model
+        with self._config_lock:
+            # Check if already registered
+            for m in self.models_config:
+                if m['id'] == str(model_path):
+                    return m
+
+            model_name = model_path.name
+            size_str = self._get_dir_size_str(model_path)
+            meta = self._get_model_metadata(model_path)
+
+            new_model = {
+                "id": str(model_path),
+                "name": f"{group_name} / {model_name}" if group_name and group_name.lower() not in ["", "ollama models", "lm studio models"] else model_name,
+                "size": size_str,
+                "family": meta.get("architecture", "Custom"),
+                "architecture": meta.get("architecture", "Unknown"),
+                "context_window": meta.get("context_window", "Unknown"),
+                "quantization": meta.get("quantization", "Standard"),
+                "url": url,
+                "external": False,
+                "is_custom": True
+            }
+            self.models_config.append(new_model)
+            return new_model
 
     async def load_active_model(self, model_id: str):
         """
@@ -439,12 +455,13 @@ class MLXEngineService:
     async def start_finetuning(self, job_id: str, config: Dict[str, Any]):
         job_name = config.get("job_name", "")
         logger.debug(f"SERVICE: start_finetuning job_name='{job_name}' for job_id={job_id}")
-        self.active_jobs[job_id] = {
-            "status": "starting", 
-            "progress": 0, 
-            "job_name": job_name,
-            "job_id": job_id # Store ID as well for easy access
-        }
+        with self._jobs_lock:
+            self.active_jobs[job_id] = {
+                "status": "starting",
+                "progress": 0,
+                "job_name": job_name,
+                "job_id": job_id
+            }
         
         # Spawn a thread for training so we don't block the API
         thread = threading.Thread(target=self._run_training_job, args=(job_id, config))
@@ -457,7 +474,8 @@ class MLXEngineService:
         Executed in a separate thread.
         """
         try:
-            self.active_jobs[job_id]["status"] = "training"
+            with self._jobs_lock:
+                self.active_jobs[job_id]["status"] = "training"
             model_id = config.get("model_id")
             dataset_path = config.get("dataset_path")
             epochs = int(config.get("epochs", 3))
@@ -566,10 +584,10 @@ class MLXEngineService:
                     if "iteration" in train_info:
                         step = train_info["iteration"]
                         prog = int((step / args.iters) * 100)
-                        self.active_jobs[job_id]["progress"] = prog
+                        with self._jobs_lock:
+                            self.active_jobs[job_id]["progress"] = prog
 
                 def on_val_loss_report(self_, val_info):
-                    # We can log validation loss if we want, or just ignore
                     pass
 
             progress_callback = ProgressCallback()
@@ -612,9 +630,10 @@ class MLXEngineService:
                 training_callback=progress_callback
             )
 
-            self.active_jobs[job_id]["status"] = "completed"
-            self.active_jobs[job_id]["model_path"] = str(adapter_file)
-            self.active_jobs[job_id]["progress"] = 100
+            with self._jobs_lock:
+                self.active_jobs[job_id]["status"] = "completed"
+                self.active_jobs[job_id]["model_path"] = str(adapter_file)
+                self.active_jobs[job_id]["progress"] = 100
             
             # --- Auto-Register Fine-Tuned Model ---
             job_name = config.get("job_name")
@@ -687,17 +706,20 @@ class MLXEngineService:
                     "lora_layers": lora_layers
                 }
             }
-            self.models_config.append(ft_model_entry)
-            self._save_models_config()
+            with self._config_lock:
+                self.models_config.append(ft_model_entry)
+                self._save_models_config()
             logger.info(f"Registered fine-tuned model: {ft_model_entry['name']}")
-            
+
         except Exception as e:
             logger.error(f"Training failed: {e}", exc_info=True)
-            self.active_jobs[job_id]["status"] = "failed"
-            self.active_jobs[job_id]["error"] = str(e)
+            with self._jobs_lock:
+                self.active_jobs[job_id]["status"] = "failed"
+                self.active_jobs[job_id]["error"] = str(e)
 
     def get_job_status(self, job_id: str):
-        return self.active_jobs.get(job_id, {"status": "not_found"})
+        with self._jobs_lock:
+            return self.active_jobs.get(job_id, {"status": "not_found"}).copy()
 
     def get_model_format_info(self, model_id: str) -> Dict[str, Any]:
         """Detect chat template format, EOS tokens, and model type for a model.
@@ -913,8 +935,9 @@ class MLXEngineService:
                 logger.info(f"Deleting custom model: {model_id} ({config_entry['name']})")
                 
                 # 1. Remove from config
-                self.models_config = [m for m in self.models_config if m["id"] != model_id]
-                self._save_models_config()
+                with self._config_lock:
+                    self.models_config = [m for m in self.models_config if m["id"] != model_id]
+                    self._save_models_config()
                 
                 # 2. Delete files if it's a fine-tune (adapter path)
                 if config_entry.get("is_finetuned") and "adapter_path" in config_entry:
