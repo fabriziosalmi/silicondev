@@ -55,6 +55,12 @@ summary.list-none::-webkit-details-marker { display: none; }
 /* Rotate chevron when details is open */
 details[open] > summary .chevron-rotate { transform: rotate(90deg); }
 
+/* Dark select dropdown */
+select option {
+  background: #1a1a1a;
+  color: #e5e7eb;
+}
+
 /* Drag Region for Titlebar */
 .drag-region {
   -webkit-app-region: drag;

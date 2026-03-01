@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { apiClient } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
-import { Settings2, SlidersHorizontal, Cpu, Copy, Check, Eraser, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap } from 'lucide-react'
+import { Settings2, SlidersHorizontal, Cpu, Copy, Check, Eraser, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, Eye, EyeOff, User, Baby, FlaskConical, Feather } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -49,6 +49,8 @@ export function ChatInterface() {
             topP: 0.9,
             repetitionPenalty: 1.1,
             reasoningMode: 'auto' as 'off' | 'auto' | 'low' | 'high',
+            translateLanguage: '',
+            showPrompt: false,
         };
         try {
             const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
@@ -277,11 +279,16 @@ export function ChatInterface() {
         if (prompt) handleSend(prompt, display, action);
     }
 
+    const getTranslateLanguage = () => {
+        if (settings.translateLanguage) return settings.translateLanguage;
+        const browserLang = navigator.language.split('-')[0];
+        const langName: Record<string, string> = { en: 'English', it: 'Italian', fr: 'French', de: 'German', es: 'Spanish', pt: 'Portuguese', ja: 'Japanese', zh: 'Chinese', ko: 'Korean', ar: 'Arabic', hi: 'Hindi', ru: 'Russian', nl: 'Dutch', sv: 'Swedish', pl: 'Polish', tr: 'Turkish' };
+        return langName[browserLang] || browserLang;
+    };
+
     const sendResponseAction = (response: string, action: string) => {
         if (isGenerating || !currentModelId) return;
-        const browserLang = navigator.language.split('-')[0];
-        const langName: Record<string, string> = { en: 'English', it: 'Italian', fr: 'French', de: 'German', es: 'Spanish', pt: 'Portuguese', ja: 'Japanese', zh: 'Chinese', ko: 'Korean' };
-        const targetLang = langName[browserLang] || browserLang;
+        const targetLang = getTranslateLanguage();
 
         const prompts: Record<string, string> = {
             longer: `Expand and elaborate on the following response. Add more detail, examples, and depth while keeping the same structure and meaning.\n\n---\n${response}\n---`,
@@ -290,6 +297,11 @@ export function ChatInterface() {
             casual: `Rewrite the following response in a casual, friendly tone. Keep the same content and meaning.\n\n---\n${response}\n---`,
             technical: `Rewrite the following response in a precise, technical tone with proper terminology. Keep the same meaning.\n\n---\n${response}\n---`,
             translate: `Translate the following response to ${targetLang}. Preserve formatting, code blocks, and technical terms.\n\n---\n${response}\n---`,
+            devil: `Act as a devil's advocate. Challenge, critique, and find flaws in the following response. Point out weak arguments, logical fallacies, missing perspectives, and potential risks. Be thorough but constructive.\n\n---\n${response}\n---`,
+            perspective_ceo: `Rewrite the following response from the perspective of a pragmatic CEO focused on ROI, market impact, and business value. Keep the same core information but shift the framing.\n\n---\n${response}\n---`,
+            perspective_child: `Explain the following response as if you were talking to an 8-year-old. Use simple words, analogies, and short sentences. Make it fun and easy to understand.\n\n---\n${response}\n---`,
+            perspective_scientist: `Rewrite the following response from the perspective of a skeptical scientist. Demand evidence, question assumptions, note what's unproven, and suggest how claims could be tested.\n\n---\n${response}\n---`,
+            perspective_poet: `Rewrite the following response in a poetic, literary style. Use metaphors, vivid imagery, and elegant prose while preserving the core meaning.\n\n---\n${response}\n---`,
         };
         const labels: Record<string, string> = {
             longer: 'Longer',
@@ -298,6 +310,11 @@ export function ChatInterface() {
             casual: 'Casual',
             technical: 'Technical',
             translate: `Translate → ${targetLang}`,
+            devil: "Devil's Advocate",
+            perspective_ceo: 'CEO Perspective',
+            perspective_child: 'ELI8',
+            perspective_scientist: 'Scientist Perspective',
+            perspective_poet: 'Poet Perspective',
         };
         const prompt = prompts[action];
         const wordCount = response.split(/\s+/).length;
@@ -382,6 +399,11 @@ export function ChatInterface() {
                                             casual: <MessageCircle className="w-3.5 h-3.5" />,
                                             technical: <GraduationCap className="w-3.5 h-3.5" />,
                                             translate: <Languages className="w-3.5 h-3.5" />,
+                                            devil: <Scale className="w-3.5 h-3.5" />,
+                                            perspective_ceo: <User className="w-3.5 h-3.5" />,
+                                            perspective_child: <Baby className="w-3.5 h-3.5" />,
+                                            perspective_scientist: <FlaskConical className="w-3.5 h-3.5" />,
+                                            perspective_poet: <Feather className="w-3.5 h-3.5" />,
                                         };
                                         const isLastMsg = idx === messages.length - 1 || (idx === messages.length - 2 && messages[messages.length - 1]?.role === 'assistant');
                                         const showSpinner = isLastMsg && isGenerating;
@@ -483,48 +505,16 @@ export function ChatInterface() {
 
                                                     {/* Footer: actions + stats, single row on hover */}
                                                     {visibleContent && (
-                                                        <div className="flex items-center gap-0.5 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            {/* Response actions — icon only */}
-                                                            {[
-                                                                { key: 'longer', label: 'Longer', icon: <Expand className="w-3 h-3" /> },
-                                                                { key: 'shorter', label: 'Shorter', icon: <Shrink className="w-3 h-3" /> },
-                                                                { key: 'formal', label: 'Formal', icon: <Briefcase className="w-3 h-3" /> },
-                                                                { key: 'casual', label: 'Casual', icon: <MessageCircle className="w-3 h-3" /> },
-                                                                { key: 'technical', label: 'Technical', icon: <GraduationCap className="w-3 h-3" /> },
-                                                                { key: 'translate', label: 'Translate', icon: <Languages className="w-3 h-3" /> },
-                                                            ].map(a => (
-                                                                <button
-                                                                    key={a.key}
-                                                                    onClick={() => sendResponseAction(visibleContent, a.key)}
-                                                                    className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
-                                                                    title={a.label}
-                                                                >
-                                                                    {a.icon}
-                                                                </button>
-                                                            ))}
-                                                            <div className="w-px h-3 bg-white/10 mx-1" />
-                                                            <button
-                                                                onClick={() => copyToClipboard(visibleContent, idx)}
-                                                                className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
-                                                                title="Copy response"
-                                                            >
-                                                                {copiedIndex === idx
-                                                                    ? <Check className="w-3 h-3 text-green-500" />
-                                                                    : <Copy className="w-3 h-3" />
-                                                                }
-                                                            </button>
-                                                            {/* Stats inline */}
-                                                            {msg.stats && msg.stats.totalTokens > 0 && (
-                                                                <div className="flex items-center gap-2 ml-auto">
-                                                                    <span className="text-[10px] text-gray-600 font-mono tabular-nums">
-                                                                        {msg.stats.tokensPerSecond} tok/s
-                                                                    </span>
-                                                                    <span className="text-[10px] text-gray-600 font-mono tabular-nums">
-                                                                        {msg.stats.totalTokens} tok
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                        <ResponseActions
+                                                            content={visibleContent}
+                                                            idx={idx}
+                                                            copiedIndex={copiedIndex}
+                                                            stats={msg.stats}
+                                                            onAction={sendResponseAction}
+                                                            onCopy={copyToClipboard}
+                                                            showPrompt={settings.showPrompt}
+                                                            fullPrompt={msg.content}
+                                                        />
                                                     )}
                                                 </div>
                                             </div>
@@ -643,6 +633,44 @@ export function ChatInterface() {
                             </div>
 
                             <div className="border-t border-white/5 pt-5">
+                                <label className="text-xs text-gray-500 block mb-2">Translate Language</label>
+                                <select
+                                    title="Translate Language"
+                                    value={settings.translateLanguage}
+                                    onChange={(e) => setSettings({ ...settings, translateLanguage: e.target.value })}
+                                    className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-gray-300 outline-none focus:border-white/20 transition-colors appearance-none cursor-pointer"
+                                >
+                                    <option value="">Auto-detect (browser)</option>
+                                    {['English', 'Italian', 'French', 'German', 'Spanish', 'Portuguese', 'Japanese', 'Chinese', 'Korean', 'Arabic', 'Hindi', 'Russian', 'Dutch', 'Swedish', 'Polish', 'Turkish'].map(lang => (
+                                        <option key={lang} value={lang}>{lang}</option>
+                                    ))}
+                                </select>
+                                <p className="text-[10px] text-gray-600 mt-1.5">
+                                    Target language for the Translate action.
+                                </p>
+                            </div>
+
+                            <div className="border-t border-white/5 pt-5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs text-gray-500">Show Prompt</label>
+                                    <button
+                                        onClick={() => setSettings({ ...settings, showPrompt: !settings.showPrompt })}
+                                        className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                                            settings.showPrompt
+                                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                                : 'bg-white/[0.03] text-gray-500 border border-white/5 hover:text-gray-400 hover:bg-white/5'
+                                        }`}
+                                    >
+                                        {settings.showPrompt ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                                        {settings.showPrompt ? 'On' : 'Off'}
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-gray-600 mt-1.5">
+                                    Show raw content behind AI responses.
+                                </p>
+                            </div>
+
+                            <div className="border-t border-white/5 pt-5">
                                 <label className="text-xs text-gray-500 block mb-2">System Prompt</label>
                                 <textarea
                                     value={settings.systemPrompt}
@@ -657,6 +685,140 @@ export function ChatInterface() {
             </div>
         </div>
     )
+}
+
+function ResponseActions({
+    content,
+    idx,
+    copiedIndex,
+    stats,
+    onAction,
+    onCopy,
+    showPrompt,
+    fullPrompt,
+}: {
+    content: string;
+    idx: number;
+    copiedIndex: number | null;
+    stats?: { tokensPerSecond: number; timeToFirstToken: number; totalTokens: number };
+    onAction: (response: string, action: string) => void;
+    onCopy: (text: string, index: number) => void;
+    showPrompt: boolean;
+    fullPrompt: string;
+}) {
+    const [showPerspectives, setShowPerspectives] = useState(false);
+    const perspRef = useRef<HTMLDivElement>(null);
+
+    // Close perspectives dropdown on outside click
+    useEffect(() => {
+        if (!showPerspectives) return;
+        const handler = (e: MouseEvent) => {
+            if (perspRef.current && !perspRef.current.contains(e.target as Node)) {
+                setShowPerspectives(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showPerspectives]);
+
+    const perspectives = [
+        { key: 'perspective_ceo', label: 'CEO', icon: <User className="w-3 h-3" /> },
+        { key: 'perspective_child', label: 'ELI8', icon: <Baby className="w-3 h-3" /> },
+        { key: 'perspective_scientist', label: 'Scientist', icon: <FlaskConical className="w-3 h-3" /> },
+        { key: 'perspective_poet', label: 'Poet', icon: <Feather className="w-3 h-3" /> },
+    ];
+
+    return (
+        <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center gap-0.5">
+                {/* Tone & length actions */}
+                {[
+                    { key: 'longer', label: 'Longer', icon: <Expand className="w-3 h-3" /> },
+                    { key: 'shorter', label: 'Shorter', icon: <Shrink className="w-3 h-3" /> },
+                    { key: 'formal', label: 'Formal', icon: <Briefcase className="w-3 h-3" /> },
+                    { key: 'casual', label: 'Casual', icon: <MessageCircle className="w-3 h-3" /> },
+                    { key: 'technical', label: 'Technical', icon: <GraduationCap className="w-3 h-3" /> },
+                    { key: 'translate', label: 'Translate', icon: <Languages className="w-3 h-3" /> },
+                ].map(a => (
+                    <button
+                        key={a.key}
+                        onClick={() => onAction(content, a.key)}
+                        className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
+                        title={a.label}
+                    >
+                        {a.icon}
+                    </button>
+                ))}
+                <div className="w-px h-3 bg-white/10 mx-1" />
+                {/* Devil's Advocate */}
+                <button
+                    onClick={() => onAction(content, 'devil')}
+                    className="p-1 rounded text-gray-600 hover:text-orange-400 hover:bg-orange-500/5 transition-colors"
+                    title="Devil's Advocate"
+                >
+                    <Scale className="w-3 h-3" />
+                </button>
+                {/* Perspective Shift dropdown */}
+                <div className="relative" ref={perspRef}>
+                    <button
+                        onClick={() => setShowPerspectives(!showPerspectives)}
+                        className={`p-1 rounded transition-colors ${showPerspectives ? 'text-purple-400 bg-purple-500/10' : 'text-gray-600 hover:text-purple-400 hover:bg-purple-500/5'}`}
+                        title="Change Perspective"
+                    >
+                        <Eye className="w-3 h-3" />
+                    </button>
+                    {showPerspectives && (
+                        <div className="absolute bottom-full left-0 mb-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 z-50 min-w-[120px]">
+                            {perspectives.map(p => (
+                                <button
+                                    key={p.key}
+                                    onClick={() => { onAction(content, p.key); setShowPerspectives(false); }}
+                                    className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                                >
+                                    {p.icon}
+                                    {p.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <div className="w-px h-3 bg-white/10 mx-1" />
+                <button
+                    onClick={() => onCopy(content, idx)}
+                    className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
+                    title="Copy response"
+                >
+                    {copiedIndex === idx
+                        ? <Check className="w-3 h-3 text-green-500" />
+                        : <Copy className="w-3 h-3" />
+                    }
+                </button>
+                {/* Stats inline */}
+                {stats && stats.totalTokens > 0 && (
+                    <div className="flex items-center gap-2 ml-auto">
+                        <span className="text-[10px] text-gray-600 font-mono tabular-nums">
+                            {stats.tokensPerSecond} tok/s
+                        </span>
+                        <span className="text-[10px] text-gray-600 font-mono tabular-nums">
+                            {stats.totalTokens} tok
+                        </span>
+                    </div>
+                )}
+            </div>
+            {/* Show Prompt — what was actually sent */}
+            {showPrompt && (
+                <details className="mt-1.5">
+                    <summary className="flex items-center gap-1 cursor-pointer text-[10px] text-gray-600 hover:text-gray-400 transition-colors select-none list-none">
+                        <ChevronRight className="w-2.5 h-2.5 chevron-rotate transition-transform" />
+                        <span>View raw response</span>
+                    </summary>
+                    <div className="mt-1 pl-3 border-l border-white/5 text-[10px] text-gray-600 max-h-32 overflow-y-auto">
+                        <pre className="whitespace-pre-wrap font-mono leading-relaxed">{fullPrompt}</pre>
+                    </div>
+                </details>
+            )}
+        </div>
+    );
 }
 
 function CodeBlock({
