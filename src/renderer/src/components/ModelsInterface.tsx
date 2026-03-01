@@ -46,6 +46,19 @@ export function ModelsInterface() {
             if (!silent) setLoading(true);
             const data = await apiClient.engine.getModels();
             setModels(data);
+            // Clear downloading flag for models that finished (downloaded or no longer downloading)
+            setDownloading(prev => {
+                const next = new Set(prev);
+                let changed = false;
+                for (const id of prev) {
+                    const m = data.find(model => model.id === id);
+                    if (m && (m.downloaded || !m.downloading)) {
+                        next.delete(id);
+                        changed = true;
+                    }
+                }
+                return changed ? next : prev;
+            });
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : String(err));
         } finally {

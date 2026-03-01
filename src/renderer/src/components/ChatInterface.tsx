@@ -49,7 +49,12 @@ export function ChatInterface() {
     const [input, setInput] = useState('')
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const abortRef = useRef<AbortController | null>(null)
 
+    // Abort any in-flight streaming fetch on unmount
+    useEffect(() => {
+        return () => { abortRef.current?.abort(); };
+    }, []);
 
     const [paramsExpanded, setParamsExpanded] = useState(() => localStorage.getItem('paramsExpanded') === 'true')
     const toggleParams = () => {
@@ -432,12 +437,13 @@ export function ChatInterface() {
     };
 
     const handleStop = async () => {
+        abortRef.current?.abort();
         try {
             await apiClient.engine.stopChat();
-            setIsGenerating(false);
         } catch {
             // stop failed silently
         }
+        setIsGenerating(false);
     }
 
     const handleSend = async (directPrompt?: string, displayContent?: string, actionType?: string) => {
@@ -543,9 +549,12 @@ export function ChatInterface() {
             let firstTokenTime = 0
             let tokenCount = 0
 
+            abortRef.current?.abort();
+            abortRef.current = new AbortController();
             const response = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                signal: abortRef.current.signal,
                 body: JSON.stringify({
                     model_id: currentModelId,
                     messages: conversation.map(m => ({ role: m.role, content: m.content })),
@@ -616,6 +625,7 @@ export function ChatInterface() {
                 }
             }
         } catch (err: unknown) {
+            if (err instanceof DOMException && err.name === 'AbortError') return;
             setMessages(prev => prev.map(m =>
                 m.id === assistantMsgId ? { ...m, content: `Error: ${err instanceof Error ? err.message : String(err)}` } : m
             ))

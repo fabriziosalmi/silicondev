@@ -1,7 +1,10 @@
+import asyncio
 import logging
 from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
+
+MCP_TIMEOUT = 30  # seconds
 
 
 class MCPClient:
@@ -21,8 +24,8 @@ class MCPClient:
         )
         async with stdio_client(server_params) as (read, write):
             async with ClientSession(read, write) as session:
-                await session.initialize()
-                tools_result = await session.list_tools()
+                await asyncio.wait_for(session.initialize(), timeout=MCP_TIMEOUT)
+                tools_result = await asyncio.wait_for(session.list_tools(), timeout=MCP_TIMEOUT)
                 return [
                     {
                         "name": tool.name,
@@ -51,6 +54,8 @@ class MCPClient:
         )
         async with stdio_client(server_params) as (read, write):
             async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool(tool_name, tool_args)
+                await asyncio.wait_for(session.initialize(), timeout=MCP_TIMEOUT)
+                result = await asyncio.wait_for(
+                    session.call_tool(tool_name, tool_args), timeout=MCP_TIMEOUT
+                )
                 return result

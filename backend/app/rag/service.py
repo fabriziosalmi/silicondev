@@ -3,6 +3,7 @@ import re
 import json
 import uuid
 import logging
+import tempfile
 import numpy as np
 from pathlib import Path
 from typing import List, Dict, Any
@@ -124,9 +125,15 @@ class RagService:
 
         existing_chunks.extend(all_chunks)
 
-        # Save chunks
-        with open(chunks_file, "w") as f:
-            json.dump(existing_chunks, f)
+        # Save chunks (atomic write)
+        fd, tmp = tempfile.mkstemp(dir=str(self.rag_dir), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(existing_chunks, f)
+            os.replace(tmp, chunks_file)
+        except Exception:
+            os.unlink(tmp)
+            raise
 
         # Compute and save embeddings
         self._rebuild_embeddings(collection_id, existing_chunks)
@@ -310,7 +317,11 @@ class RagService:
         try:
             embs = embedder.embed(chunks)
             emb_file = self.rag_dir / f"{collection_id}_embeddings.npy"
-            np.save(str(emb_file), embs)
+            # Atomic write for embeddings
+            fd, tmp = tempfile.mkstemp(dir=str(self.rag_dir), suffix=".npy.tmp")
+            os.close(fd)
+            np.save(tmp, embs)
+            os.replace(tmp, str(emb_file))
             logger.info(
                 "Computed %d embeddings for collection %s", len(chunks), collection_id
             )

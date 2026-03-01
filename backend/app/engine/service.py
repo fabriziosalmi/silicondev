@@ -340,12 +340,16 @@ class MLXEngineService:
         loop = asyncio.get_running_loop()
         try:
             model, tokenizer = await loop.run_in_executor(None, load, path_to_load)
-            
+
             self.active_model_id = model_id
             self.active_model = model
             self.active_tokenizer = tokenizer
             logger.info(f"Model {model_id} loaded and set as active.")
         except Exception as e:
+            # Reset state so we don't appear to have a loaded model
+            self.active_model_id = None
+            self.active_model = None
+            self.active_tokenizer = None
             logger.error(f"Failed to load model {model_id}: {e}")
             raise
 
@@ -458,12 +462,15 @@ class MLXEngineService:
                         return _SENTINEL
                 
                 gen = _generate_iter()
-                while True:
-                    token_text = await loop.run_in_executor(None, _next_token, gen)
-                    if token_text is _SENTINEL:
-                        break
-                    yield {"text": token_text, "done": False}
-                
+                try:
+                    while True:
+                        token_text = await loop.run_in_executor(None, _next_token, gen)
+                        if token_text is _SENTINEL:
+                            break
+                        yield {"text": token_text, "done": False}
+                finally:
+                    gen.close()
+
                 yield {"text": "", "done": True}
 
             except Exception as e:
@@ -744,6 +751,14 @@ class MLXEngineService:
             with self._jobs_lock:
                 self.active_jobs[job_id]["status"] = "failed"
                 self.active_jobs[job_id]["error"] = str(e)
+            # Clean up partial adapter directory so retries don't collide
+            import shutil as _shutil
+            try:
+                if job_adapter_dir.exists() and not (job_adapter_dir / "adapters.safetensors").exists():
+                    _shutil.rmtree(job_adapter_dir)
+                    logger.info(f"Cleaned up partial adapter dir: {job_adapter_dir}")
+            except Exception as cleanup_err:
+                logger.warning(f"Failed to clean up adapter dir: {cleanup_err}")
 
     def get_job_status(self, job_id: str):
         with self._jobs_lock:

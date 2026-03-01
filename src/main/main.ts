@@ -81,8 +81,16 @@ function startBackend() {
 function stopBackend() {
     if (backendProcess) {
         console.log('Stopping backend process...');
-        backendProcess.kill();
+        const proc = backendProcess;
         backendProcess = null;
+        proc.kill('SIGTERM');
+        // Force kill if still alive after 3 seconds
+        setTimeout(() => {
+            if (!proc.killed) {
+                console.log('Backend did not exit, sending SIGKILL...');
+                proc.kill('SIGKILL');
+            }
+        }, 3000);
     }
 }
 
