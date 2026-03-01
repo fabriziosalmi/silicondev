@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { PageHeader } from './ui/PageHeader'
 import { Wand2, Copy, Loader2, Download, Upload, FileText, Table, List, Expand, ListTree, Send, Printer } from 'lucide-react'
 import { SimpleMdeReact } from "react-simplemde-editor";
-import "simplemde/dist/simplemde.min.css";
+import "easymde/dist/easymde.min.css";
 import { useGlobalState } from '../context/GlobalState'
 import { useNotes } from '../context/NotesContext'
 import { apiClient, cleanModelName } from '../api/client'

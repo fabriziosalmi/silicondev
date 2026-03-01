@@ -70,7 +70,7 @@ select option {
   -webkit-app-region: no-drag;
 }
 
-/* Premium SimpleMDE Dark Mode Overrides */
+/* EasyMDE Dark Mode Overrides */
 .editor-container .CodeMirror {
   background: transparent !important;
   color: #e5e7eb !important;
