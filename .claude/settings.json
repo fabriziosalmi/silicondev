@@ -59,7 +59,8 @@
       "Bash(python -m pytest backend/tests/ -v --ignore=backend/tests/test_shield.py --ignore=backend/tests/test_sandbox_stress.py --tb=short)",
       "Bash(python -m pytest backend/tests/ -v --ignore=backend/tests/test_shield.py --ignore=backend/tests/test_sandbox_stress.py --ignore=backend/tests/test_nanocore_sse.py)",
       "Bash(python -m pytest backend/tests/test_engine.py -v --tb=short)",
-      "Bash(python -m pytest backend/tests/ -v --ignore=backend/tests/test_shield.py --ignore=backend/tests/test_sandbox_stress.py -q)"
+      "Bash(python -m pytest backend/tests/ -v --ignore=backend/tests/test_shield.py --ignore=backend/tests/test_sandbox_stress.py -q)",
+      "Bash(python -m pytest tests/ -v --ignore=tests/test_shield.py --ignore=tests/test_sandbox_stress.py --tb=short)"
     ]
   }
 }

@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import re
+import subprocess
 import time
 import uuid
 from pathlib import Path
@@ -16,7 +17,7 @@ from .tools import run_bash, read_file, generate_edit_diff, apply_edit, apply_pa
 from .validators import validate_content, detect_lazy_edit
 from .guardrails import LoopGuardrails
 from .context import ContextManager, count_tokens
-from .repomap import generate_repo_map
+from .repomap import RepoMapCache
 from .process_manager import ProcessManager
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,38 @@ def _truncate(text: str, max_chars: int = MAX_TOOL_OUTPUT_CHARS) -> str:
 def _sse(event: str, data: dict) -> dict:
     """Wrap an event into the SSE envelope format."""
     return {"event": event, "data": data}
+
+
+def _git_snapshot(working_dir: str) -> str | None:
+    """Create a git stash snapshot of the working tree.
+
+    Uses `git stash create` which creates a stash commit without modifying
+    the working tree or index. Returns the stash ref (SHA), or None if
+    the directory is not a git repo or there's nothing to snapshot.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "stash", "create", "nanocore-pre-session"],
+            cwd=working_dir,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        sha = result.stdout.strip()
+        if sha:
+            # Store the ref so it won't be garbage-collected
+            subprocess.run(
+                ["git", "stash", "store", "-m", "nanocore-pre-session", sha],
+                cwd=working_dir,
+                capture_output=True,
+                timeout=10,
+            )
+            logger.info(f"Git snapshot created: {sha[:12]}")
+            return sha
+        # Empty output means no changes to snapshot (clean tree)
+        return None
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
 
 
 class SupervisorAgent:
@@ -224,10 +257,18 @@ class SupervisorAgent:
         from app.api.engine import service as engine_service
 
         self._start_time = time.time()
-        yield _sse("session_start", {"session_id": self.session_id})
 
-        # Fix 4: generate repo map and inject into system prompt
-        repo_map = generate_repo_map(os.getcwd())
+        # Fix 38: snapshot working tree before agent starts
+        snapshot_ref = _git_snapshot(os.getcwd())
+        snapshot_info = {}
+        if snapshot_ref:
+            snapshot_info["git_snapshot"] = snapshot_ref[:12]
+
+        yield _sse("session_start", {"session_id": self.session_id, **snapshot_info})
+
+        # Fix 4: repo map cache (Fix 32: refreshes when files change)
+        repo_map_cache = RepoMapCache(os.getcwd())
+        repo_map = repo_map_cache.get()
         system_content = SYSTEM_PROMPT
         if repo_map:
             system_content += f"\n\n## Repository Map\n\n{repo_map}\n"
@@ -256,6 +297,13 @@ class SupervisorAgent:
 
             self._state = AgentState.thinking
             yield _sse("telemetry_update", self._telemetry_data(iteration))
+
+            # Fix 32: refresh repo map in system prompt if files changed
+            fresh_map = repo_map_cache.get()
+            updated_system = SYSTEM_PROMPT
+            if fresh_map:
+                updated_system += f"\n\n## Repository Map\n\n{fresh_map}\n"
+            messages[0] = {"role": "system", "content": updated_system}
 
             # Fix 4: fit messages into context window
             fitted_messages = self._context_mgr.fit_messages(messages)
@@ -485,6 +533,7 @@ class SupervisorAgent:
                     if approved:
                         await apply_edit(file_path, new_content)
                         tool_results.append(f"[edit_file] Applied changes to {file_path}")
+                        repo_map_cache.invalidate()
                     else:
                         msg = f"[edit_file] User rejected changes to {file_path}"
                         if reason:
@@ -556,6 +605,7 @@ class SupervisorAgent:
                     if approved:
                         await apply_edit(file_path, new_content)
                         tool_results.append(f"[patch_file] Applied patch to {file_path}")
+                        repo_map_cache.invalidate()
                     else:
                         msg = f"[patch_file] User rejected patch to {file_path}"
                         if reason:

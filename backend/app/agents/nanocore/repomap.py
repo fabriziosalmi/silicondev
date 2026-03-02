@@ -9,6 +9,7 @@ import ast
 import logging
 import os
 import re
+import time
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -151,3 +152,28 @@ def generate_repo_map(working_dir: str, max_chars: int = MAX_MAP_CHARS) -> str:
         result = result[:max_chars - 20] + "\n  [... truncated]"
 
     return result
+
+
+class RepoMapCache:
+    """Cached repo map that regenerates when marked dirty.
+
+    The agent should call invalidate() after any file edit/patch so
+    the next iteration picks up changed symbols.
+    """
+
+    def __init__(self, working_dir: str, max_chars: int = MAX_MAP_CHARS):
+        self._working_dir = working_dir
+        self._max_chars = max_chars
+        self._cached: str = ""
+        self._dirty = True
+
+    def invalidate(self) -> None:
+        """Mark the cache as stale. Next get() will regenerate."""
+        self._dirty = True
+
+    def get(self) -> str:
+        """Return the repo map, regenerating if dirty."""
+        if self._dirty:
+            self._cached = generate_repo_map(self._working_dir, self._max_chars)
+            self._dirty = False
+        return self._cached
