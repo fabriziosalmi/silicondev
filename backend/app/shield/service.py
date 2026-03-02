@@ -1,7 +1,9 @@
+import asyncio
+import logging
+from typing import List, Dict
+
 from presidio_analyzer import AnalyzerEngine, Registry
 from presidio_anonymizer import AnonymizerEngine
-from typing import List, Dict
-import logging
 import spacy
 
 logger = logging.getLogger(__name__)
@@ -66,19 +68,19 @@ class PIIShieldService:
             self.anonymizer = None
 
     def analyze_text(self, text: str, entities: List[str] = None):
-        """
-        Analyze text for PII entities.
-        """
+        """Analyze text for PII entities (sync, CPU-heavy)."""
         if not self.analyzer: raise ValueError("PII Shield not initialized")
         results = self.analyzer.analyze(text=text, entities=entities, language='en')
         return [result.to_dict() for result in results]
 
+    async def analyze_text_async(self, text: str, entities: List[str] = None):
+        """Async wrapper — runs presidio analysis in a thread to avoid blocking the event loop."""
+        return await asyncio.to_thread(self.analyze_text, text, entities)
+
     def anonymize_text(self, text: str, entities: List[str] = None):
-        """
-        Redact PII from text.
-        """
+        """Redact PII from text (sync, CPU-heavy)."""
         if not self.analyzer or not self.anonymizer: return {"text": text, "items": []}
-        
+
         analyzer_results = self.analyzer.analyze(text=text, entities=entities, language='en')
         anonymized_result = self.anonymizer.anonymize(
             text=text,
@@ -93,7 +95,11 @@ class PIIShieldService:
                     "entity_type": item.entity_type,
                     "text": item.text if hasattr(item, 'text') else None,
                     "operator": item.operator
-                } 
+                }
                 for item in anonymized_result.items
             ]
         }
+
+    async def anonymize_text_async(self, text: str, entities: List[str] = None):
+        """Async wrapper — runs presidio anonymization in a thread to avoid blocking the event loop."""
+        return await asyncio.to_thread(self.anonymize_text, text, entities)

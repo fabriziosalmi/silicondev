@@ -25,6 +25,12 @@ class ConvertRequest(BaseModel):
     input_col: Optional[str] = None
     output_col: str = Field(min_length=1, max_length=255)
 
+class McpDatasetEntry(BaseModel):
+    """Validated JSONL entry for MCP fine-tuning datasets."""
+    instruction: str = Field(min_length=1, max_length=32768)
+    input: str = Field(default="", max_length=32768)
+    output: str = Field(min_length=1, max_length=32768)
+
 class McpGenerateRequest(BaseModel):
     model_id: str = Field(min_length=1, max_length=255)
     server_id: str = Field(min_length=1, max_length=255)
@@ -90,32 +96,43 @@ async def generate_mcp(request: McpGenerateRequest):
     if not tools:
         raise HTTPException(400, "No tools found on the specified MCP server")
 
-    # 2. Build dataset entries from tool schemas
+    # 2. Build dataset entries from tool schemas, validated via Pydantic
     dataset = []
+    skipped = 0
     for tool in tools:
         tool_schema = json.dumps(tool.get("inputSchema", {}), indent=2)
-        tool_name = tool["name"]
+        tool_name = tool.get("name", "")
         tool_desc = tool.get("description", "No description")
 
-        # Create training examples: user asks about the tool → model responds with tool call
-        dataset.append({
-            "instruction": f"{request.prompt}\n\nUser wants to use the '{tool_name}' tool: {tool_desc}",
-            "input": "",
-            "output": json.dumps({
-                "tool_call": {
-                    "name": tool_name,
-                    "description": tool_desc,
-                    "parameters": tool.get("inputSchema", {}),
-                }
-            }),
-        })
+        entries_raw = [
+            {
+                "instruction": f"{request.prompt}\n\nUser wants to use the '{tool_name}' tool: {tool_desc}",
+                "input": "",
+                "output": json.dumps({
+                    "tool_call": {
+                        "name": tool_name,
+                        "description": tool_desc,
+                        "parameters": tool.get("inputSchema", {}),
+                    }
+                }),
+            },
+            {
+                "instruction": f"What can the {tool_name} tool do?",
+                "input": "",
+                "output": f"The {tool_name} tool {tool_desc.lower()}. It accepts the following parameters:\n{tool_schema}",
+            },
+        ]
 
-        # Additional example: direct question about capabilities
-        dataset.append({
-            "instruction": f"What can the {tool_name} tool do?",
-            "input": "",
-            "output": f"The {tool_name} tool {tool_desc.lower()}. It accepts the following parameters:\n{tool_schema}",
-        })
+        for raw in entries_raw:
+            try:
+                validated = McpDatasetEntry(**raw)
+                dataset.append(validated.model_dump())
+            except Exception as e:
+                logger.warning(f"Skipping invalid MCP entry for tool '{tool_name}': {e}")
+                skipped += 1
+
+    if not dataset:
+        raise HTTPException(400, "No valid dataset entries could be generated")
 
     # 3. Write JSONL output (atomic: tempfile + os.replace)
     out_dir = os.path.dirname(request.output_path) or "."
@@ -135,4 +152,4 @@ async def generate_mcp(request: McpGenerateRequest):
 
     logger.info(f"Generated {len(dataset)} MCP dataset entries to {request.output_path}")
     preview = dataset[:5]
-    return {"data": preview, "rows": len(dataset)}
+    return {"data": preview, "rows": len(dataset), "skipped": skipped}

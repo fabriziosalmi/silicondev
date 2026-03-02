@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 import json
@@ -9,6 +10,9 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
+
+# Max chunk file size in bytes before refusing more ingestion (200 MB)
+_MAX_CHUNKS_FILE_BYTES = 200 * 1024 * 1024
 
 
 class RagService:
@@ -135,17 +139,37 @@ class RagService:
                 "Binary files (PDF, images) must be converted to plain text first."
             )
 
-        # Load existing chunks
+        # Load existing chunks (with size guard)
         chunks_file = self.rag_dir / f"{collection_id}_chunks.json"
         existing_chunks: List[str] = []
         if chunks_file.exists():
+            file_size = chunks_file.stat().st_size
+            if file_size > _MAX_CHUNKS_FILE_BYTES:
+                raise ValueError(
+                    f"Collection chunk file is too large ({file_size // (1024*1024)} MB). "
+                    f"Delete the collection and re-ingest, or create a new collection."
+                )
             try:
                 with open(chunks_file, "r") as f:
                     existing_chunks = json.load(f)
             except Exception:
                 existing_chunks = []
 
-        existing_chunks.extend(all_chunks)
+        # Deduplicate: skip chunks whose content hash already exists
+        existing_hashes = {
+            hashlib.md5(c.encode()).hexdigest() for c in existing_chunks
+        }
+        new_unique = []
+        for chunk in all_chunks:
+            h = hashlib.md5(chunk.encode()).hexdigest()
+            if h not in existing_hashes:
+                new_unique.append(chunk)
+                existing_hashes.add(h)
+        duplicates_skipped = len(all_chunks) - len(new_unique)
+        if duplicates_skipped:
+            logger.info(f"Skipped {duplicates_skipped} duplicate chunks")
+
+        existing_chunks.extend(new_unique)
 
         # Save chunks (atomic write)
         fd, tmp = tempfile.mkstemp(dir=str(self.rag_dir), suffix=".tmp")
@@ -173,9 +197,14 @@ class RagService:
     # ── Query (hybrid search) ───────────────────────────────
 
     def query(
-        self, collection_id: str, query_text: str, n_results: int = 5
+        self, collection_id: str, query_text: str, n_results: int = 5,
+        max_context_chars: int = 0,
     ) -> List[Dict[str, Any]]:
-        """Hybrid search: BM25 + vector similarity with reciprocal rank fusion."""
+        """Hybrid search: BM25 + vector similarity with reciprocal rank fusion.
+
+        If max_context_chars > 0, results are trimmed so their combined text
+        stays within the character budget (rough proxy for token limits).
+        """
         chunks_file = self.rag_dir / f"{collection_id}_chunks.json"
         if not chunks_file.exists():
             return []
@@ -200,7 +229,21 @@ class RagService:
         else:
             fused = bm25_results
 
-        return fused[:n_results]
+        top = fused[:n_results]
+
+        # Trim to fit within context budget if specified
+        if max_context_chars > 0 and top:
+            fitted: List[Dict[str, Any]] = []
+            used = 0
+            for item in top:
+                text_len = len(item.get("text", ""))
+                if used + text_len > max_context_chars:
+                    break
+                fitted.append(item)
+                used += text_len
+            return fitted if fitted else top[:1]  # always return at least 1
+
+        return top
 
     # ── BM25 search ─────────────────────────────────────────
 

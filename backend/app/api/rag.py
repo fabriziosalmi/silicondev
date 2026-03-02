@@ -20,6 +20,7 @@ class QueryRequest(BaseModel):
     collection_id: str
     query: str = Field(min_length=1)
     n_results: int = Field(default=5, ge=1, le=20)
+    max_context_chars: int = Field(default=0, ge=0, le=100000)
 
 @router.get("/collections")
 def get_collections():
@@ -50,5 +51,8 @@ def ingest_files(req: IngestRequest):
 
 @router.post("/query")
 def query_collection(req: QueryRequest):
-    results = service.query(req.collection_id, req.query, req.n_results)
+    results = service.query(
+        req.collection_id, req.query, req.n_results,
+        max_context_chars=req.max_context_chars,
+    )
     return {"results": results}
