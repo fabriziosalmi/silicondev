@@ -1059,6 +1059,9 @@ Return exactly this JSON structure (no other text):
         pre({ children }: { children?: React.ReactNode }) {
             // Let CodeBlock handle its own wrapper
             return <>{children}</>;
+        },
+        table({ children }: { children?: React.ReactNode }) {
+            return <div className="overflow-x-auto my-3"><table className="min-w-full">{children}</table></div>;
         }
     }), [sendCodeAction, rewriteSnippet, settings.enabledActions, settings.syntaxCheck, settings.autoFixSyntax, settings.piiRedaction]);
 
@@ -1281,7 +1284,7 @@ Return exactly this JSON structure (no other text):
                                             : 'No model loaded'
                                         }
                                     </p>
-                                    <p className="text-xs text-gray-600">
+                                    <p className="text-xs text-gray-500">
                                         {currentModelId
                                             ? 'Type a message below. Shift+Enter for newlines.'
                                             : 'Load a model from the Models tab to start chatting.'
@@ -1562,7 +1565,7 @@ Return exactly this JSON structure (no other text):
                                         <button
                                             onClick={() => handleSend()}
                                             disabled={!input.trim() || !currentModelId}
-                                            title="Send message"
+                                            title={!currentModelId ? 'Load a model first' : !input.trim() ? 'Type a message' : 'Send message'}
                                             className={`p-1.5 rounded-lg transition-colors ${input.trim() && currentModelId ? 'bg-white text-black hover:bg-gray-200' : 'bg-white/5 text-gray-700 cursor-not-allowed'}`}
                                         >
                                             <ArrowUp className="w-4 h-4" />
@@ -1570,6 +1573,9 @@ Return exactly this JSON structure (no other text):
                                     )}
                                 </div>
                             </div>
+                            {!currentModelId && !isGenerating && (
+                                <p className="text-[10px] text-amber-500/70 mt-1.5 ml-1">No model loaded — select one from the Models tab</p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1646,7 +1652,7 @@ Return exactly this JSON structure (no other text):
                                                 </button>
                                             ))}
                                         </div>
-                                        <p className="text-[10px] text-gray-600 mt-1.5">
+                                        <p className="text-[10px] text-gray-500 mt-1.5">
                                             {settings.reasoningMode === 'off' && 'No reasoning instructions added.'}
                                             {settings.reasoningMode === 'auto' && 'Let the model decide. Best for reasoning models.'}
                                             {settings.reasoningMode === 'low' && 'Brief reasoning before answering.'}
@@ -1667,7 +1673,7 @@ Return exactly this JSON structure (no other text):
                                                 <option key={lang} value={lang}>{lang}</option>
                                             ))}
                                         </select>
-                                        <p className="text-[10px] text-gray-600 mt-1.5">Target language for the Translate action.</p>
+                                        <p className="text-[10px] text-gray-500 mt-1.5">Target language for the Translate action.</p>
                                     </div>
 
                                     <div className="border-t border-white/5 pt-5">
@@ -2053,10 +2059,10 @@ function ResponseActions({
                 {/* Stats inline */}
                 {stats && stats.totalTokens > 0 && (
                     <div className="flex items-center gap-2 ml-auto">
-                        <span className="text-[10px] text-gray-600 font-mono tabular-nums">
+                        <span className="text-[10px] text-gray-500 font-mono tabular-nums">
                             {stats.tokensPerSecond} tok/s
                         </span>
-                        <span className="text-[10px] text-gray-600 font-mono tabular-nums">
+                        <span className="text-[10px] text-gray-500 font-mono tabular-nums">
                             {stats.totalTokens} tok
                         </span>
                     </div>
@@ -2069,7 +2075,7 @@ function ResponseActions({
                         <ChevronRight className="w-2.5 h-2.5 chevron-rotate transition-transform" />
                         <span>View raw response</span>
                     </summary>
-                    <div className="mt-1 pl-3 border-l border-white/5 text-[10px] text-gray-600 max-h-32 overflow-y-auto">
+                    <div className="mt-1 pl-3 border-l border-white/5 text-[10px] text-gray-500 max-h-32 overflow-y-auto">
                         <pre className="whitespace-pre-wrap font-mono leading-relaxed">{fullPrompt}</pre>
                     </div>
                 </details>
@@ -2130,8 +2136,8 @@ function MemoryMapPanel({ memory, building }: { memory: ConversationMemory | nul
             <div className="px-4 py-2">
                 <div className="max-w-3xl mx-auto p-3 rounded-lg bg-white/[0.02] border border-white/5">
                     <div className="flex items-center gap-2">
-                        <Brain className="w-3.5 h-3.5 text-gray-600" />
-                        <span className="text-xs text-gray-600">No memory context yet. Keep chatting and it will build automatically.</span>
+                        <Brain className="w-3.5 h-3.5 text-gray-500" />
+                        <span className="text-xs text-gray-500">No memory context yet. Keep chatting and it will build automatically.</span>
                     </div>
                 </div>
             </div>

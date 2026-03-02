@@ -320,7 +320,24 @@ export function ModelsInterface() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {displayedMyModels.length === 0 ? (
+                                    {loading && models.length === 0 ? (
+                                        <>
+                                            {[1,2,3].map(i => (
+                                                <tr key={i}>
+                                                    <td className="px-5 py-4" colSpan={6}>
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-8 h-8 rounded-lg bg-white/5 animate-pulse" />
+                                                            <div className="flex-1 space-y-2">
+                                                                <div className="h-3 w-48 bg-white/5 rounded animate-pulse" />
+                                                                <div className="h-2 w-32 bg-white/[0.03] rounded animate-pulse" />
+                                                            </div>
+                                                            <div className="h-3 w-16 bg-white/5 rounded animate-pulse" />
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </>
+                                    ) : displayedMyModels.length === 0 ? (
                                         <tr>
                                             <td colSpan={6} className="py-12 px-6">
                                                 {searchQuery ? (

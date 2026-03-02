@@ -282,22 +282,22 @@ export function EngineInterface() {
                                         <div className="space-y-1">
                                             <label className="text-[10px] text-gray-500 uppercase" title="Number of full passes through the dataset">Epochs</label>
                                             <input type="number" title="Epochs" value={epochs} onChange={e => { setEpochs(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                            <p className="text-[9px] text-gray-600 leading-tight">Full passes over dataset</p>
+                                            <p className="text-[9px] text-gray-500 leading-tight">Full passes over dataset</p>
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] text-gray-500 uppercase" title="Samples processed per training step">Batch Size</label>
                                             <input type="number" title="Batch Size" value={batchSize} onChange={e => { setBatchSize(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                            <p className="text-[9px] text-gray-600 leading-tight">Samples per step</p>
+                                            <p className="text-[9px] text-gray-500 leading-tight">Samples per step</p>
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] text-gray-500 uppercase" title="How fast the model adapts — lower is safer but slower">Learn Rate</label>
                                             <input type="number" title="Learning Rate" step="0.00001" value={learningRate} onChange={e => { setLearningRate(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                            <p className="text-[9px] text-gray-600 leading-tight">Lower = safer, slower</p>
+                                            <p className="text-[9px] text-gray-500 leading-tight">Lower = safer, slower</p>
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] text-gray-500 uppercase" title="Max tokens per training example — longer uses more memory">Max Seq</label>
                                             <input type="number" title="Max Seq Length" value={maxSeqLength} onChange={e => { setMaxSeqLength(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                            <p className="text-[9px] text-gray-600 leading-tight">Tokens per example</p>
+                                            <p className="text-[9px] text-gray-500 leading-tight">Tokens per example</p>
                                         </div>
                                     </div>
 
@@ -307,27 +307,27 @@ export function EngineInterface() {
                                             <div className="space-y-1">
                                                 <label className="text-[10px] text-gray-500 uppercase" title="Adapter capacity — higher rank = more expressive but uses more memory">Rank (R)</label>
                                                 <input type="number" title="LoRA Rank" value={loraRank} onChange={e => { setLoraRank(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                                <p className="text-[9px] text-gray-600 leading-tight">Adapter capacity</p>
+                                                <p className="text-[9px] text-gray-500 leading-tight">Adapter capacity</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-[10px] text-gray-500 uppercase" title="Scaling factor — typically 2x rank">Alpha</label>
                                                 <input type="number" title="LoRA Alpha" value={loraAlpha} onChange={e => { setLoraAlpha(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                                <p className="text-[9px] text-gray-600 leading-tight">Scaling, usually 2x rank</p>
+                                                <p className="text-[9px] text-gray-500 leading-tight">Scaling, usually 2x rank</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-[10px] text-gray-500 uppercase" title="How many transformer layers get LoRA adapters">Layers</label>
                                                 <input type="number" title="Target Layers" value={loraLayers} onChange={e => { setLoraLayers(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                                <p className="text-[9px] text-gray-600 leading-tight">Layers with adapters</p>
+                                                <p className="text-[9px] text-gray-500 leading-tight">Layers with adapters</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-[10px] text-gray-500 uppercase" title="Regularization — 0 disables, 0.05-0.1 helps prevent overfitting">Dropout</label>
                                                 <input type="number" title="LoRA Dropout" step="0.05" value={loraDropout} onChange={e => { setLoraDropout(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                                <p className="text-[9px] text-gray-600 leading-tight">0 = off, 0.05 typical</p>
+                                                <p className="text-[9px] text-gray-500 leading-tight">0 = off, 0.05 typical</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-[10px] text-gray-500 uppercase" title="Fixed random seed for reproducible training runs. Leave empty for random.">Seed</label>
                                                 <input type="number" title="Random Seed" placeholder="Random" value={seed ?? ''} onChange={e => setSeed(e.target.value ? parseInt(e.target.value) : null)} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                                <p className="text-[9px] text-gray-600 leading-tight">For reproducibility</p>
+                                                <p className="text-[9px] text-gray-500 leading-tight">For reproducibility</p>
                                             </div>
                                         </div>
                                     </div>
@@ -416,7 +416,7 @@ export function EngineInterface() {
                             <div className="bg-black/20 border border-white/10 border-dashed rounded-xl p-6 text-center shrink-0">
                                 <ShieldAlert className="w-8 h-8 text-gray-600 mx-auto mb-2" />
                                 <h4 className="text-gray-400 font-medium">No Active Jobs</h4>
-                                <p className="text-gray-600 text-sm">Configure your parameters and start a job to view live telemetry.</p>
+                                <p className="text-gray-500 text-sm">Configure your parameters and start a job to view live telemetry.</p>
                             </div>
                         )}
 

@@ -52,8 +52,16 @@ export function ConversationListPanel({
             {/* List */}
             <div className="flex-1 overflow-y-auto space-y-1">
                 {loading && conversations.length === 0 && (
-                    <div className="p-6 text-center">
-                        <div className="w-4 h-4 border border-blue-400/40 border-t-blue-400 rounded-full animate-spin mx-auto" />
+                    <div className="space-y-1">
+                        {[1,2,3,4].map(i => (
+                            <div key={i} className="flex items-center gap-2 p-2.5 rounded-lg">
+                                <div className="w-4 h-4 rounded bg-white/5 animate-pulse shrink-0" />
+                                <div className="flex-1 space-y-1.5">
+                                    <div className="h-2.5 rounded bg-white/5 animate-pulse" style={{ width: `${60 + i * 8}%` }} />
+                                    <div className="h-2 w-16 rounded bg-white/[0.03] animate-pulse" />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
                 {conversations.map((conv) => (
