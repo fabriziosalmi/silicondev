@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.5.8
+
+### Vector Codebase Indexer
+- AST-aware Python chunking (classes, methods, functions as individual chunks)
+- Sliding-window chunking for JS/TS/Go/Rust and 30+ other languages
+- Hybrid search: BM25 keyword + vector cosine + Reciprocal Rank Fusion
+- NanoCore `search_codebase` tool for semantic code queries
+- Index/re-index/delete from Settings UI
+- Stored at `~/.silicon-studio/codebase_index/`
+
+### Live Workspace Editor
+- New "Code" tab with file tree sidebar + Monaco editor
+- Read/write files through the backend API
+- Syntax highlighting for 40+ languages
+- Cmd+S to save, dirty-file indicators, tabbed interface
+- `diff_proposal` events from NanoCore auto-open the target file
+- Cmd+E shortcut to jump to Code tab
+
+## v0.5.6
+
+### Self-Healing Loop
+- NanoCore detects non-zero exit codes from `run_command`
+- Automatically retries with a fix (up to 2 attempts)
+- SSE events: `self_heal_start`, `self_heal_attempt`, `self_heal_success`, `self_heal_fail`
+- Telemetry sidebar shows heal status in real-time
+
+## v0.5.4
+
+### Build & Release Fixes
+- Pre-flight check script for release builds
+- Backend crash handling improvements in Settings
+- Version alignment across package.json, pyproject.toml, main.py
+
 ## v0.4.2
 
 ### Port Auto-Detection
