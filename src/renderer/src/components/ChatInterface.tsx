@@ -138,6 +138,7 @@ export function ChatInterface() {
     const [walkthroughModel, setWalkthroughModel] = useState<string | null>(null)
     const [walkthroughError, setWalkthroughError] = useState<string | null>(null)
     const walkthroughPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+    const [hasDownloadedModels, setHasDownloadedModels] = useState(false)
 
     const startWalkthrough = async (modelId: string) => {
         setWalkthroughModel(modelId)
@@ -184,6 +185,18 @@ export function ChatInterface() {
             if (walkthroughPollRef.current) clearInterval(walkthroughPollRef.current)
         }
     }, [])
+
+    // Check once if any models are already downloaded (hide walkthrough if so)
+    useEffect(() => {
+        if (!backendReady) return
+        apiClient.engine.getModels()
+            .then(models => {
+                if (models.some(m => m.downloaded)) {
+                    setHasDownloadedModels(true)
+                }
+            })
+            .catch(() => { /* ignore */ })
+    }, [backendReady])
 
     // In-chat search
     const [showSearch, setShowSearch] = useState(false)
@@ -712,9 +725,14 @@ export function ChatInterface() {
                 }
             }
         }
+        // Strip <think>...</think> blocks (some models emit them even for code tasks)
+        const cleaned = accumulated
+            .replace(/<think>[\s\S]*?<\/think>/g, '')
+            .replace(/<\/?think[^>]*>/g, '')
+            .trim();
         // Extract code from markdown fence
-        const fenceMatch = accumulated.match(/```[\w]*\n([\s\S]*?)```/);
-        return fenceMatch ? fenceMatch[1].trimEnd() : accumulated.trim();
+        const fenceMatch = cleaned.match(/```[\w]*\n([\s\S]*?)```/);
+        return fenceMatch ? fenceMatch[1].trimEnd() : cleaned.trim();
     }, [currentModelId, settings.temperature, settings.maxTokens]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Ethical self-assessment: ask the model to rate its own response
@@ -1262,7 +1280,7 @@ Return exactly this JSON structure (no other text):
                                     </p>
 
                                     {/* One-click model download walkthrough */}
-                                    {!currentModelId && backendReady && walkthroughStep !== 'done' && (
+                                    {!currentModelId && backendReady && !hasDownloadedModels && walkthroughStep !== 'done' && (
                                         <div className="mt-6 p-4 bg-white/[0.02] border border-white/5 rounded-xl max-w-sm mx-auto">
                                             {walkthroughStep === 'idle' && (
                                                 <>

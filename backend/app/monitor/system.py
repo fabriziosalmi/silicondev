@@ -8,12 +8,17 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Prime the psutil CPU counter at import time so the first
+# interval=None call returns a real delta instead of 0 or 100.
+psutil.cpu_percent(interval=None)
+
 
 class SystemMonitor:
     @staticmethod
     def get_system_stats():
         mem = psutil.virtual_memory()
         du = shutil.disk_usage(str(Path.home()))
+        # interval=None returns usage since the last call (primed above)
         cpu_percent = psutil.cpu_percent(interval=None)
 
         gpu = SystemMonitor._get_gpu_stats()
