@@ -64,6 +64,7 @@ async def run_terminal(request: TerminalRequest):
         model_id=request.model_id,
         max_iterations=request.max_iterations,
         temperature=request.temperature,
+        max_total_tokens=request.max_total_tokens,
     )
     async with _sessions_lock:
         _active_sessions[session_id] = agent
@@ -77,6 +78,7 @@ async def run_terminal(request: TerminalRequest):
             yield f"data: {json.dumps({'event': 'error', 'data': {'message': str(e)}})}\n\n"
         finally:
             agent.stop()
+            await agent.process_manager.cleanup_all()
             async with _sessions_lock:
                 _active_sessions.pop(session_id, None)
             logger.info(f"Terminal session {session_id} cleaned up")

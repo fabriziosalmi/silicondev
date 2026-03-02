@@ -48,6 +48,8 @@ export interface TelemetryData {
   elapsedMs: number
   iteration: number
   actions: TelemetryAction[]
+  tokenBudget: number
+  budgetFraction: number
 }
 
 export interface SSEEvent {

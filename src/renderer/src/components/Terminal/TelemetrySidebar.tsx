@@ -44,6 +44,24 @@ export function TelemetrySidebar({ telemetry, isOpen }: TelemetrySidebarProps) {
           <span>Tokens</span>
           <span className="ml-auto text-white font-mono">{telemetry.tokensUsed.toLocaleString()}</span>
         </div>
+        {telemetry.tokenBudget > 0 && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[10px] text-gray-500">
+              <span>Budget</span>
+              <span>{Math.round(telemetry.budgetFraction * 100)}%</span>
+            </div>
+            <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  telemetry.budgetFraction > 0.9 ? 'bg-red-500' :
+                  telemetry.budgetFraction > 0.7 ? 'bg-yellow-500' :
+                  'bg-blue-500'
+                }`}
+                style={{ width: `${Math.min(100, telemetry.budgetFraction * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-2 text-xs text-gray-400">
           <Clock size={12} className="shrink-0 text-gray-500" />
           <span>Elapsed</span>

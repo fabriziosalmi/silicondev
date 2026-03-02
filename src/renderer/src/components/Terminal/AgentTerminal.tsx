@@ -16,6 +16,8 @@ const EMPTY_TELEMETRY: TelemetryData = {
   elapsedMs: 0,
   iteration: 0,
   actions: [],
+  tokenBudget: 50000,
+  budgetFraction: 0,
 }
 
 const STORAGE_KEY_FEED = 'nanocore-terminal-feed'
@@ -268,7 +270,18 @@ export function AgentTerminal() {
             tokensUsed: d.tokens_used as number,
             elapsedMs: d.elapsed_ms as number,
             iteration: d.iteration as number,
+            tokenBudget: (d.token_budget as number) ?? prev.tokenBudget,
+            budgetFraction: (d.budget_fraction as number) ?? prev.budgetFraction,
           }))
+          break
+
+        case 'budget_exhausted':
+          addFeedItem({
+            id: crypto.randomUUID(),
+            type: 'info',
+            content: `Token budget exhausted (${((d.total_tokens as number) || 0).toLocaleString()} / ${((d.budget as number) || 0).toLocaleString()})`,
+            timestamp: Date.now(),
+          })
           break
 
         case 'error':

@@ -239,6 +239,91 @@ async def generate_edit_diff(file_path: str, new_content: str) -> dict:
     }
 
 
+async def apply_patch_content(file_path: str, search: str, replace: str) -> dict:
+    """Apply a search/replace patch to a file.
+
+    The search block must match exactly once in the file. Returns a dict with
+    {file_path, old, new, diff, error}. If error is set, the patch was not
+    valid (search not found, ambiguous match, etc.) and the file was NOT modified.
+    """
+    # Safety: block patches to system paths
+    for ppath in PROTECTED_PATHS:
+        if file_path.startswith(ppath):
+            return {
+                "file_path": file_path,
+                "old": "",
+                "new": "",
+                "diff": "",
+                "error": f"Blocked: cannot edit files in protected path {ppath}",
+            }
+
+    p = Path(file_path)
+    if not p.exists():
+        return {
+            "file_path": file_path,
+            "old": "",
+            "new": "",
+            "diff": "",
+            "error": f"File not found: {file_path}. Use edit_file to create new files.",
+        }
+
+    file_size = p.stat().st_size
+    if file_size > MAX_EDIT_FILE_BYTES:
+        return {
+            "file_path": file_path,
+            "old": "",
+            "new": "",
+            "diff": "",
+            "error": f"File too large ({file_size // 1024} KB, max {MAX_EDIT_FILE_BYTES // 1024} KB).",
+        }
+
+    async with aiofiles.open(file_path, mode="r", errors="replace") as f:
+        old_content = await f.read()
+
+    count = old_content.count(search)
+    if count == 0:
+        return {
+            "file_path": file_path,
+            "old": old_content,
+            "new": "",
+            "diff": "",
+            "error": (
+                "Search block not found in file. "
+                "Re-read the file with run_bash to see the actual content, "
+                "then try again with the exact text."
+            ),
+        }
+    if count > 1:
+        return {
+            "file_path": file_path,
+            "old": old_content,
+            "new": "",
+            "diff": "",
+            "error": (
+                f"Search block found {count} times. "
+                "Include more surrounding context to make it unique."
+            ),
+        }
+
+    new_content = old_content.replace(search, replace, 1)
+
+    old_lines = old_content.splitlines(keepends=True)
+    new_lines = new_content.splitlines(keepends=True)
+    diff = "".join(difflib.unified_diff(
+        old_lines, new_lines,
+        fromfile=f"a/{p.name}",
+        tofile=f"b/{p.name}",
+    ))
+
+    return {
+        "file_path": file_path,
+        "old": old_content,
+        "new": new_content,
+        "diff": diff,
+        "error": None,
+    }
+
+
 async def apply_edit(file_path: str, new_content: str) -> bool:
     """Write new_content to file_path atomically. Only call after human approval.
 

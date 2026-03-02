@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import re
 import time
 import uuid
@@ -10,7 +11,12 @@ from typing import AsyncGenerator
 from .types import AgentState, TrajectoryEntry
 from .prompts import SYSTEM_PROMPT
 from .parser import extract_tool_calls, has_partial_tool_tag, strip_tool_calls
-from .tools import run_bash, generate_edit_diff, apply_edit
+from .tools import run_bash, generate_edit_diff, apply_edit, apply_patch_content
+from .validators import validate_content, detect_lazy_edit
+from .guardrails import LoopGuardrails
+from .context import ContextManager, count_tokens
+from .repomap import generate_repo_map
+from .process_manager import ProcessManager
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +52,14 @@ def _sse(event: str, data: dict) -> dict:
 class SupervisorAgent:
     """Runs a multi-turn agent loop, yielding SSE-formatted dicts."""
 
-    def __init__(self, session_id: str, model_id: str, max_iterations: int = 10, temperature: float = 0.7):
+    def __init__(
+        self,
+        session_id: str,
+        model_id: str,
+        max_iterations: int = 10,
+        temperature: float = 0.7,
+        max_total_tokens: int = 50_000,
+    ):
         self.session_id = session_id
         self.model_id = model_id
         self.max_iterations = max_iterations
@@ -59,13 +72,27 @@ class SupervisorAgent:
         self._total_tokens = 0
         self._start_time = 0.0
 
+        # Fix 2: guardrails
+        self.guardrails = LoopGuardrails(max_total_tokens=max_total_tokens)
+        # Fix 4: context manager
+        self._context_mgr = ContextManager(max_context_tokens=6000)
+        # Fix 3: process manager
+        self.process_manager = ProcessManager()
+
     def stop(self):
         """Signal the agent to stop after current iteration."""
         self._stopped = True
-        # Also stop any active MLX generation
+        # Stop any active MLX generation
         try:
             from app.api.engine import service as engine_service
             engine_service.stop_generation()
+        except Exception:
+            pass
+        # Schedule background process cleanup
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(self.process_manager.cleanup_all())
         except Exception:
             pass
 
@@ -79,6 +106,65 @@ class SupervisorAgent:
         pending["event"].set()
         return True
 
+    def _telemetry_data(self, iteration: int) -> dict:
+        """Build a telemetry_update data payload."""
+        return {
+            "agent": "supervisor",
+            "state": self._state.value,
+            "tokens_used": self._total_tokens,
+            "elapsed_ms": (time.time() - self._start_time) * 1000,
+            "iteration": iteration,
+            "token_budget": self.guardrails.max_total_tokens,
+            "budget_fraction": self.guardrails.budget_fraction(),
+        }
+
+    async def _wait_for_diff_approval(self, call_id: str, iteration: int):
+        """Wait for human diff approval. Yields heartbeat telemetry events.
+
+        Returns an async generator of SSE events to yield, plus sets the
+        result on self._pending_diffs[call_id].
+        This is an async generator (not a plain coroutine) because the
+        caller needs to yield heartbeats during the wait.
+        """
+        event = asyncio.Event()
+        self._pending_diffs[call_id] = {
+            "event": event,
+            "approved": False,
+        }
+
+        self._state = AgentState.waiting_human_approval
+        yield _sse("telemetry_update", self._telemetry_data(iteration))
+
+        wait_start = time.time()
+        timed_out = False
+        while not event.is_set():
+            if self._stopped:
+                break
+            if time.time() - wait_start > MAX_APPROVAL_WAIT_SECS:
+                timed_out = True
+                break
+            try:
+                await asyncio.wait_for(event.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                yield _sse("telemetry_update", self._telemetry_data(iteration))
+
+        if timed_out:
+            self._pending_diffs[call_id]["timed_out"] = True
+        if self._stopped:
+            self._pending_diffs[call_id]["stopped"] = True
+
+    def _consume_diff_result(self, call_id: str) -> tuple[bool | None, str]:
+        """Read and clean up a pending diff result.
+
+        Returns (approved, reason). approved is None if stopped or timed out.
+        """
+        pending = self._pending_diffs.pop(call_id, {})
+        if pending.get("stopped"):
+            return None, "Session stopped"
+        if pending.get("timed_out"):
+            return None, f"Auto-rejected: no response within {MAX_APPROVAL_WAIT_SECS}s"
+        return pending.get("approved", False), pending.get("reason", "")
+
     async def run(self, prompt: str) -> AsyncGenerator[dict, None]:
         """Main agent loop. Yields SSE event dicts."""
         # Lazy import to avoid circular imports at module level
@@ -87,8 +173,14 @@ class SupervisorAgent:
         self._start_time = time.time()
         yield _sse("session_start", {"session_id": self.session_id})
 
+        # Fix 4: generate repo map and inject into system prompt
+        repo_map = generate_repo_map(os.getcwd())
+        system_content = SYSTEM_PROMPT
+        if repo_map:
+            system_content += f"\n\n## Repository Map\n\n{repo_map}\n"
+
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_content},
             {"role": "user", "content": prompt},
         ]
 
@@ -97,14 +189,23 @@ class SupervisorAgent:
             if self._stopped:
                 break
 
+            # Fix 2: check token budget before each iteration
+            if self.guardrails.is_over_budget():
+                yield _sse("budget_exhausted", {
+                    "total_tokens": self._total_tokens,
+                    "budget": self.guardrails.max_total_tokens,
+                })
+                yield _sse("token_stream", {
+                    "agent": "supervisor",
+                    "text": "\n\nI've used my full token budget. Stopping here — you can continue with a new prompt if needed.",
+                })
+                break
+
             self._state = AgentState.thinking
-            yield _sse("telemetry_update", {
-                "agent": "supervisor",
-                "state": self._state.value,
-                "tokens_used": self._total_tokens,
-                "elapsed_ms": (time.time() - self._start_time) * 1000,
-                "iteration": iteration,
-            })
+            yield _sse("telemetry_update", self._telemetry_data(iteration))
+
+            # Fix 4: fit messages into context window
+            fitted_messages = self._context_mgr.fit_messages(messages)
 
             # --- Generate from model ---
             accumulated = ""
@@ -116,7 +217,7 @@ class SupervisorAgent:
             try:
                 async for chunk in engine_service.generate_stream(
                     self.model_id,
-                    messages,
+                    fitted_messages,
                     temperature=self.temperature,
                     max_tokens=2048,
                 ):
@@ -136,14 +237,12 @@ class SupervisorAgent:
                             think_buffer += token_text
                             if "</think>" in think_buffer:
                                 in_think_block = False
-                                # Resume streaming from after the think block
                                 streamed_up_to = len(accumulated)
                                 think_buffer = ""
                             continue
 
                         if "<think>" in accumulated[streamed_up_to:]:
                             in_think_block = True
-                            # Stream everything before <think>
                             before_think = accumulated[streamed_up_to:].split("<think>")[0]
                             if before_think:
                                 yield _sse("token_stream", {"agent": "supervisor", "text": before_think})
@@ -155,8 +254,6 @@ class SupervisorAgent:
                         if not has_partial_tool_tag(accumulated):
                             new_text = accumulated[streamed_up_to:]
                             if new_text:
-                                # Strip any complete <tool>...</tool> blocks
-                                # and stray XML fragments before sending to UI
                                 display_text = strip_tool_calls(new_text)
                                 if display_text:
                                     yield _sse("token_stream", {"agent": "supervisor", "text": display_text})
@@ -165,7 +262,9 @@ class SupervisorAgent:
                 yield _sse("error", {"message": str(e)})
                 return
 
+            # Fix 2: track tokens for generation
             self._total_tokens += iter_tokens
+            self.guardrails.add_tokens(count_tokens(accumulated))
 
             # Clean the accumulated text: remove think blocks before parsing
             cleaned = _strip_think_tags(accumulated)
@@ -175,7 +274,6 @@ class SupervisorAgent:
 
             if not tool_calls:
                 # No tool calls — agent is done
-                # Stream any remaining cleaned text (strip both think and tool XML)
                 clean_remaining = _strip_think_tags(accumulated[streamed_up_to:])
                 clean_remaining = strip_tool_calls(clean_remaining)
                 if clean_remaining:
@@ -194,30 +292,69 @@ class SupervisorAgent:
 
                 if tc.name == "run_bash":
                     command = tc.args.get("command", "")
-                    yield _sse("tool_start", {"tool": "run_bash", "args": {"command": command}, "call_id": call_id})
+                    background = tc.args.get("background", "").lower() in ("true", "1", "yes")
 
-                    output_lines = []
-                    exit_code = 0
-                    async for stream, text in run_bash(command):
-                        yield _sse("tool_log", {"call_id": call_id, "stream": stream, "text": text})
-                        output_lines.append(text)
-                        if stream == "stderr" and "Blocked:" in text:
-                            exit_code = 1
+                    # Fix 3: background process support
+                    if background:
+                        yield _sse("tool_start", {"tool": "run_bash", "args": {"command": command, "background": True}, "call_id": call_id})
+                        try:
+                            proc_id, mp = await self.process_manager.spawn(command)
+                            # Give it a moment to start and produce initial output
+                            await asyncio.sleep(0.5)
+                            initial = self.process_manager.read_output(proc_id, last_n=10)
+                            initial_text = "\n".join(initial) if initial else "(started, no output yet)"
+                            yield _sse("tool_log", {"call_id": call_id, "stream": "stdout", "text": f"[background {proc_id}] {initial_text}\n"})
+                            yield _sse("tool_done", {"call_id": call_id, "exit_code": 0})
+                            tool_results.append(f"[bash background] Started as {proc_id}. Use read_output to check output, kill_process to stop.")
+                        except Exception as e:
+                            yield _sse("tool_log", {"call_id": call_id, "stream": "stderr", "text": str(e)})
+                            yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                            tool_results.append(f"[bash background] Failed: {e}")
+                    else:
+                        yield _sse("tool_start", {"tool": "run_bash", "args": {"command": command}, "call_id": call_id})
 
-                    yield _sse("tool_done", {"call_id": call_id, "exit_code": exit_code})
+                        output_lines = []
+                        exit_code = 0
+                        async for stream, text in run_bash(command):
+                            yield _sse("tool_log", {"call_id": call_id, "stream": stream, "text": text})
+                            output_lines.append(text)
+                            if stream == "stderr" and "Blocked:" in text:
+                                exit_code = 1
 
-                    raw_output = "".join(output_lines)
-                    tool_results.append(f"[bash output]\n{_truncate(raw_output)}")
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": exit_code})
 
-                    self._trajectory.append(TrajectoryEntry(
-                        agent="supervisor", action="run_bash",
-                        input=command, output=raw_output[:500],
-                        tokens=iter_tokens,
-                    ))
+                        raw_output = "".join(output_lines)
+                        tool_results.append(f"[bash output]\n{_truncate(raw_output)}")
+
+                        # Fix 2: track errors for loop detection
+                        if exit_code != 0:
+                            self.guardrails.record_error(raw_output)
+                            if self.guardrails.is_stuck_on_same_error():
+                                tool_results.append(self.guardrails.rubber_duck_message())
+
+                        self._trajectory.append(TrajectoryEntry(
+                            agent="supervisor", action="run_bash",
+                            input=command, output=raw_output[:500],
+                            tokens=iter_tokens,
+                        ))
 
                 elif tc.name == "edit_file":
                     file_path = tc.args.get("path", "")
                     new_content = tc.args.get("content", "")
+
+                    # Fix 5: validate before generating diff
+                    lazy_err = detect_lazy_edit(new_content)
+                    if lazy_err:
+                        tool_results.append(f"[edit_file] Rejected: {lazy_err}. Write the complete file content.")
+                        continue
+
+                    validation_err = await validate_content(file_path, new_content)
+                    if validation_err:
+                        tool_results.append(f"[edit_file] Validation failed: {validation_err}")
+                        self.guardrails.record_fix_attempt(file_path)
+                        if self.guardrails.is_over_fix_limit(file_path):
+                            tool_results.append(self.guardrails.fix_limit_message(file_path))
+                        continue
 
                     diff_info = await generate_edit_diff(file_path, new_content)
 
@@ -236,64 +373,24 @@ class SupervisorAgent:
                     })
 
                     # Wait for human decision
-                    self._state = AgentState.waiting_human_approval
-                    yield _sse("telemetry_update", {
-                        "agent": "supervisor",
-                        "state": self._state.value,
-                        "tokens_used": self._total_tokens,
-                        "elapsed_ms": (time.time() - self._start_time) * 1000,
-                        "iteration": iteration,
-                    })
+                    async for heartbeat in self._wait_for_diff_approval(call_id, iteration):
+                        yield heartbeat
 
-                    event = asyncio.Event()
-                    self._pending_diffs[call_id] = {
-                        "event": event,
-                        "approved": False,
-                        "diff_info": diff_info,
-                    }
-
-                    # Send periodic heartbeats while waiting (hard timeout: 5 min)
-                    wait_start = time.time()
-                    timed_out = False
-                    while not event.is_set():
-                        if self._stopped:
+                    approved, reason = self._consume_diff_result(call_id)
+                    if approved is None:
+                        # stopped or timed out
+                        tool_results.append(f"[edit_file] {reason}")
+                        if reason == "Session stopped":
                             break
-                        if time.time() - wait_start > MAX_APPROVAL_WAIT_SECS:
-                            timed_out = True
-                            break
-                        try:
-                            await asyncio.wait_for(event.wait(), timeout=5.0)
-                        except asyncio.TimeoutError:
-                            yield _sse("telemetry_update", {
-                                "agent": "supervisor",
-                                "state": self._state.value,
-                                "tokens_used": self._total_tokens,
-                                "elapsed_ms": (time.time() - self._start_time) * 1000,
-                                "iteration": iteration,
-                            })
-
-                    if self._stopped:
-                        tool_results.append(f"[edit_file] Session stopped")
-                        break
-
-                    if timed_out:
-                        del self._pending_diffs[call_id]
-                        tool_results.append(
-                            f"[edit_file] Auto-rejected: no response within {MAX_APPROVAL_WAIT_SECS}s"
-                        )
                         continue
-
-                    approved = self._pending_diffs[call_id]["approved"]
-                    reject_reason = self._pending_diffs[call_id].get("reason", "")
-                    del self._pending_diffs[call_id]
 
                     if approved:
                         await apply_edit(file_path, new_content)
                         tool_results.append(f"[edit_file] Applied changes to {file_path}")
                     else:
                         msg = f"[edit_file] User rejected changes to {file_path}"
-                        if reject_reason:
-                            msg += f" — reason: {reject_reason}"
+                        if reason:
+                            msg += f" — reason: {reason}"
                         tool_results.append(msg)
 
                     self._trajectory.append(TrajectoryEntry(
@@ -302,17 +399,119 @@ class SupervisorAgent:
                         output="approved" if approved else "rejected",
                     ))
 
+                elif tc.name == "patch_file":
+                    # Fix 1: surgical search/replace edits
+                    file_path = tc.args.get("path", "")
+                    search = tc.args.get("search", "")
+                    replace = tc.args.get("replace", "")
+
+                    # Fix 5: check for lazy placeholders in the replacement
+                    lazy_err = detect_lazy_edit(replace)
+                    if lazy_err:
+                        tool_results.append(f"[patch_file] Rejected: {lazy_err}. Write the complete replacement text.")
+                        continue
+
+                    yield _sse("tool_start", {"tool": "patch_file", "args": {"path": file_path}, "call_id": call_id})
+
+                    patch_result = await apply_patch_content(file_path, search, replace)
+
+                    if patch_result["error"]:
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                        tool_results.append(f"[patch_file] Error: {patch_result['error']}")
+                        self.guardrails.record_fix_attempt(file_path)
+                        if self.guardrails.is_over_fix_limit(file_path):
+                            tool_results.append(self.guardrails.fix_limit_message(file_path))
+                        continue
+
+                    # Fix 5: validate the result before proposing
+                    new_content = patch_result["new"]
+                    validation_err = await validate_content(file_path, new_content)
+                    if validation_err:
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                        tool_results.append(f"[patch_file] Validation failed: {validation_err}")
+                        self.guardrails.record_fix_attempt(file_path)
+                        if self.guardrails.is_over_fix_limit(file_path):
+                            tool_results.append(self.guardrails.fix_limit_message(file_path))
+                        continue
+
+                    yield _sse("tool_done", {"call_id": call_id, "exit_code": 0})
+
+                    # Show diff to user for approval
+                    yield _sse("diff_proposal", {
+                        "call_id": call_id,
+                        "file_path": patch_result["file_path"],
+                        "old": patch_result["old"],
+                        "new": patch_result["new"],
+                        "diff": patch_result["diff"],
+                    })
+
+                    async for heartbeat in self._wait_for_diff_approval(call_id, iteration):
+                        yield heartbeat
+
+                    approved, reason = self._consume_diff_result(call_id)
+                    if approved is None:
+                        tool_results.append(f"[patch_file] {reason}")
+                        if reason == "Session stopped":
+                            break
+                        continue
+
+                    if approved:
+                        await apply_edit(file_path, new_content)
+                        tool_results.append(f"[patch_file] Applied patch to {file_path}")
+                    else:
+                        msg = f"[patch_file] User rejected patch to {file_path}"
+                        if reason:
+                            msg += f" — reason: {reason}"
+                        tool_results.append(msg)
+
+                    self._trajectory.append(TrajectoryEntry(
+                        agent="supervisor", action="patch_file",
+                        input=file_path,
+                        output="approved" if approved else "rejected",
+                    ))
+
+                elif tc.name == "read_output":
+                    # Fix 3: read background process output
+                    proc_id = tc.args.get("proc_id", "")
+                    yield _sse("tool_start", {"tool": "read_output", "args": {"proc_id": proc_id}, "call_id": call_id})
+
+                    lines = self.process_manager.read_output(proc_id)
+                    output = "\n".join(lines)
+                    yield _sse("tool_log", {"call_id": call_id, "stream": "stdout", "text": output})
+                    yield _sse("tool_done", {"call_id": call_id, "exit_code": 0})
+                    tool_results.append(f"[read_output {proc_id}]\n{_truncate(output)}")
+
+                elif tc.name == "kill_process":
+                    # Fix 3: kill background process
+                    proc_id = tc.args.get("proc_id", "")
+                    yield _sse("tool_start", {"tool": "kill_process", "args": {"proc_id": proc_id}, "call_id": call_id})
+
+                    result = await self.process_manager.kill(proc_id)
+                    yield _sse("tool_log", {"call_id": call_id, "stream": "stdout", "text": result})
+                    yield _sse("tool_done", {"call_id": call_id, "exit_code": 0})
+                    tool_results.append(f"[kill_process] {result}")
+
                 else:
                     tool_results.append(f"[unknown tool: {tc.name}]")
 
+            # Fix 2: track token cost of tool results
+            tool_output_text = "\n---\n".join(tool_results)
+            self.guardrails.add_tokens(count_tokens(tool_output_text))
+
             # Append assistant message (cleaned) and tool results to conversation
+            # (full messages for accurate context management later)
             messages.append({"role": "assistant", "content": cleaned})
             messages.append({
                 "role": "user",
-                "content": "Tool results:\n" + "\n---\n".join(tool_results),
+                "content": "Tool results:\n" + tool_output_text,
             })
 
         # --- Done ---
+        # Fix 3: clean up background processes
+        cleanup_msgs = await self.process_manager.cleanup_all()
+        if cleanup_msgs:
+            logger.info(f"Session cleanup: {cleanup_msgs}")
+
         self._state = AgentState.done
         elapsed_ms = (time.time() - self._start_time) * 1000
         yield _sse("done", {
