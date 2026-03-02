@@ -366,28 +366,29 @@ function App() {
           </button>
         </div>
 
-        {activeTab === 'terminal' ? (
-          /* Terminal: full-bleed, no padding, no outer scroll — terminal manages its own layout */
-          <div className="flex-1 overflow-hidden no-drag relative">
-            <AgentTerminal />
+        {/* Terminal: full-bleed, no padding — stays mounted once visited */}
+        <div className={`flex-1 overflow-hidden no-drag relative ${activeTab === 'terminal' ? '' : 'hidden'}`}>
+          <AgentTerminal />
+        </div>
+
+        {/* Standard tabs with scroll container */}
+        <div className={`flex-1 overflow-y-auto no-drag relative ${activeTab === 'terminal' ? 'hidden' : ''}`}>
+          <div className="w-full h-full p-4 md:p-8 overflow-x-hidden">
+            {/* Keep-alive: tabs with expensive in-memory state stay mounted but hidden */}
+            <div className={activeTab === 'chat' ? '' : 'hidden'}><ChatInterface /></div>
+            <div className={activeTab === 'engine' ? '' : 'hidden'}><EngineInterface /></div>
+            {/* Mount-on-demand: lightweight tabs that refetch on mount */}
+            {activeTab === 'studio' && <DataPreparation />}
+            {activeTab === 'models' && <ModelsInterface />}
+            {activeTab === 'evaluations' && <Evaluations />}
+            {activeTab === 'rag' && <RagKnowledge />}
+            {activeTab === 'agents' && <AgentWorkflows />}
+            {activeTab === 'deployment' && <Deployment />}
+            {activeTab === 'workspace' && <Workspace />}
+            {activeTab === 'export' && <ModelExport />}
+            {activeTab === 'settings' && <Settings />}
           </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto no-drag relative">
-            <div className="w-full h-full p-4 md:p-8 overflow-x-hidden">
-              {activeTab === 'studio' && <DataPreparation />}
-              {activeTab === 'models' && <ModelsInterface />}
-              {activeTab === 'engine' && <EngineInterface />}
-              {activeTab === 'evaluations' && <Evaluations />}
-              {activeTab === 'rag' && <RagKnowledge />}
-              {activeTab === 'agents' && <AgentWorkflows />}
-              {activeTab === 'deployment' && <Deployment />}
-              {activeTab === 'chat' && <ChatInterface />}
-              {activeTab === 'workspace' && <Workspace />}
-              {activeTab === 'export' && <ModelExport />}
-              {activeTab === 'settings' && <Settings />}
-            </div>
-          </div>
-        )}
+        </div>
 
       </div>
     </div>

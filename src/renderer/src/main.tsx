@@ -8,6 +8,15 @@ import { ToastProvider } from './components/ui/Toast'
 import './index.css'
 import App from './App.tsx'
 
+// Catch unhandled promise rejections so they don't silently disappear
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+});
+
+// Prevent accidental file drops from navigating the Electron webview
+document.addEventListener('dragover', (e) => { e.preventDefault(); });
+document.addEventListener('drop', (e) => { e.preventDefault(); });
+
 class ErrorBoundary extends Component<
   { children: ReactNode },
   { hasError: boolean; error: Error | null }

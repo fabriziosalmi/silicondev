@@ -198,6 +198,15 @@ export function ChatInterface() {
             .catch(() => { /* ignore */ })
     }, [backendReady])
 
+    // DOM windowing: only render last N messages to avoid DOM bloat on long conversations
+    const RENDER_WINDOW = 100;
+    const RENDER_PAGE = 50;
+    const [renderStart, setRenderStart] = useState(0);
+    useEffect(() => {
+        // Reset render window when messages change, showing latest messages
+        setRenderStart(Math.max(0, messages.length - RENDER_WINDOW));
+    }, [messages.length]);
+
     // In-chat search
     const [showSearch, setShowSearch] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
@@ -1336,7 +1345,16 @@ Return exactly this JSON structure (no other text):
                             </div>
                         ) : (
                             <div className="max-w-3xl mx-auto py-6 px-4">
-                                {messages.map((msg, idx) => {
+                                {renderStart > 0 && (
+                                    <button
+                                        onClick={() => setRenderStart(Math.max(0, renderStart - RENDER_PAGE))}
+                                        className="w-full py-2 mb-4 text-xs text-gray-500 hover:text-gray-300 bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 rounded-lg transition-colors"
+                                    >
+                                        Show {Math.min(renderStart, RENDER_PAGE)} earlier messages ({renderStart} hidden)
+                                    </button>
+                                )}
+                                {messages.slice(renderStart).map((msg, relIdx) => {
+                                    const idx = renderStart + relIdx;
                                     let thinkingContent = '';
                                     let visibleContent = msg.content;
 
