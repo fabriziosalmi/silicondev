@@ -4,7 +4,7 @@ import type { ModelEntry, JobStatus, ModelFormatInfo } from '../api/client'
 import { useGlobalState } from '../context/GlobalState'
 import { useToast } from './ui/Toast'
 import { Card } from './ui/Card'
-import { Cpu, Activity, Play, Settings2, ShieldAlert, FileText, Download } from 'lucide-react'
+import { Cpu, Activity, Play, Settings2, ShieldAlert, FileText, Download, Loader2 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const PRESETS = {
@@ -268,20 +268,24 @@ export function EngineInterface() {
 
                                     <div className="grid grid-cols-4 gap-3">
                                         <div className="space-y-1">
-                                            <label className="text-[10px] text-gray-500 uppercase">Epochs</label>
+                                            <label className="text-[10px] text-gray-500 uppercase" title="Number of full passes through the dataset">Epochs</label>
                                             <input type="number" title="Epochs" value={epochs} onChange={e => { setEpochs(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
+                                            <p className="text-[9px] text-gray-600 leading-tight">Full passes over dataset</p>
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] text-gray-500 uppercase">Batch Size</label>
+                                            <label className="text-[10px] text-gray-500 uppercase" title="Samples processed per training step">Batch Size</label>
                                             <input type="number" title="Batch Size" value={batchSize} onChange={e => { setBatchSize(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
+                                            <p className="text-[9px] text-gray-600 leading-tight">Samples per step</p>
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] text-gray-500 uppercase">Learn Rate</label>
+                                            <label className="text-[10px] text-gray-500 uppercase" title="How fast the model adapts — lower is safer but slower">Learn Rate</label>
                                             <input type="number" title="Learning Rate" step="0.00001" value={learningRate} onChange={e => { setLearningRate(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
+                                            <p className="text-[9px] text-gray-600 leading-tight">Lower = safer, slower</p>
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] text-gray-500 uppercase">Max Seq</label>
+                                            <label className="text-[10px] text-gray-500 uppercase" title="Max tokens per training example — longer uses more memory">Max Seq</label>
                                             <input type="number" title="Max Seq Length" value={maxSeqLength} onChange={e => { setMaxSeqLength(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
+                                            <p className="text-[9px] text-gray-600 leading-tight">Tokens per example</p>
                                         </div>
                                     </div>
 
@@ -289,20 +293,24 @@ export function EngineInterface() {
                                         <div className="text-[10px] font-bold text-gray-500 uppercase">LoRA Specifics</div>
                                         <div className="grid grid-cols-4 gap-3">
                                             <div className="space-y-1">
-                                                <label className="text-[10px] text-gray-500 uppercase">Rank (R)</label>
+                                                <label className="text-[10px] text-gray-500 uppercase" title="Adapter capacity — higher rank = more expressive but uses more memory">Rank (R)</label>
                                                 <input type="number" title="LoRA Rank" value={loraRank} onChange={e => { setLoraRank(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
+                                                <p className="text-[9px] text-gray-600 leading-tight">Adapter capacity</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] text-gray-500 uppercase">Alpha</label>
+                                                <label className="text-[10px] text-gray-500 uppercase" title="Scaling factor — typically 2x rank">Alpha</label>
                                                 <input type="number" title="LoRA Alpha" value={loraAlpha} onChange={e => { setLoraAlpha(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
+                                                <p className="text-[9px] text-gray-600 leading-tight">Scaling, usually 2x rank</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] text-gray-500 uppercase">Layers</label>
+                                                <label className="text-[10px] text-gray-500 uppercase" title="How many transformer layers get LoRA adapters">Layers</label>
                                                 <input type="number" title="Target Layers" value={loraLayers} onChange={e => { setLoraLayers(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
+                                                <p className="text-[9px] text-gray-600 leading-tight">Layers with adapters</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] text-gray-500 uppercase">Dropout</label>
+                                                <label className="text-[10px] text-gray-500 uppercase" title="Regularization — 0 disables, 0.05-0.1 helps prevent overfitting">Dropout</label>
                                                 <input type="number" title="LoRA Dropout" step="0.05" value={loraDropout} onChange={e => { setLoraDropout(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
+                                                <p className="text-[9px] text-gray-600 leading-tight">0 = off, 0.05 typical</p>
                                             </div>
                                         </div>
                                     </div>
@@ -370,18 +378,18 @@ export function EngineInterface() {
                                             <button
                                                 onClick={() => handleExport(4)}
                                                 disabled={exporting}
-                                                className="flex-1 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                                className="flex-1 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                <Download className="w-3.5 h-3.5" />
-                                                {exporting ? 'Exporting...' : 'Export 4-bit GGUF'}
+                                                {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                                                {exporting ? 'Fusing model...' : 'Export 4-bit GGUF'}
                                             </button>
                                             <button
                                                 onClick={() => handleExport(8)}
                                                 disabled={exporting}
-                                                className="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                                className="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                <Download className="w-3.5 h-3.5" />
-                                                {exporting ? 'Exporting...' : 'Export 8-bit GGUF'}
+                                                {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                                                {exporting ? 'Fusing model...' : 'Export 8-bit GGUF'}
                                             </button>
                                         </div>
                                     </div>

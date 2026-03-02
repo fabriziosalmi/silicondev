@@ -1,10 +1,14 @@
 import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
+
+_search_executor = ThreadPoolExecutor(max_workers=2)
+_SEARCH_TIMEOUT = 10  # seconds — abort DDG call if it hangs
 router = APIRouter()
 
 
@@ -72,12 +76,22 @@ async def web_search(req: SearchRequest):
             detail="Web search requires duckduckgo-search. Install with: pip install duckduckgo-search",
         )
 
-    try:
+    def _run_ddg(query: str, max_results: int):
         with DDGS() as ddgs:
-            raw_results = list(ddgs.text(req.query, max_results=req.max_results))
+            return list(ddgs.text(query, max_results=max_results))
+
+    try:
+        loop = asyncio.get_running_loop()
+        raw_results = await asyncio.wait_for(
+            loop.run_in_executor(_search_executor, _run_ddg, req.query, req.max_results),
+            timeout=_SEARCH_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"Web search timed out after {_SEARCH_TIMEOUT}s for: {req.query}")
+        return {"results": [], "warning": "Search timed out — results may be unavailable due to rate limiting"}
     except Exception as e:
         logger.warning(f"Web search failed: {e}")
-        raise HTTPException(status_code=502, detail=f"Search failed: {str(e)}")
+        return {"results": [], "warning": f"Search unavailable: {e}"}
 
     results: List[dict] = []
     for r in raw_results:
@@ -128,20 +142,33 @@ async def deep_search(req: DeepSearchRequest):
     # Collect URLs from all sub-queries
     seen_urls: set = set()
     all_raw: list = []
-    try:
+
+    def _run_deep(sub_queries_list, max_pages):
         with DDGS() as ddgs:
-            for sq in sub_queries:
-                for r in ddgs.text(sq, max_results=req.max_pages):
+            for sq in sub_queries_list:
+                for r in ddgs.text(sq, max_results=max_pages):
                     if r["href"] not in seen_urls:
                         seen_urls.add(r["href"])
                         all_raw.append(r)
-                        if len(all_raw) >= req.max_pages:
-                            break
-                if len(all_raw) >= req.max_pages:
-                    break
+                        if len(all_raw) >= max_pages:
+                            return
+                if len(all_raw) >= max_pages:
+                    return
+
+    try:
+        loop = asyncio.get_running_loop()
+        await asyncio.wait_for(
+            loop.run_in_executor(_search_executor, _run_deep, sub_queries, req.max_pages),
+            timeout=_SEARCH_TIMEOUT * 2,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"Deep search timed out for: {req.query}")
+        return {"results": [], "queries_used": sub_queries, "pages_fetched": 0,
+                "warning": "Search timed out — results may be unavailable due to rate limiting"}
     except Exception as e:
         logger.warning(f"Deep search failed: {e}")
-        raise HTTPException(status_code=502, detail=f"Search failed: {str(e)}")
+        return {"results": [], "queries_used": sub_queries, "pages_fetched": 0,
+                "warning": f"Search unavailable: {e}"}
 
     # Fetch and extract content in parallel
     results = []

@@ -9,6 +9,9 @@ import time
 
 logger = logging.getLogger(__name__)
 
+# Hard cap on nodes per agent execution to prevent infinite loops
+MAX_AGENT_NODES = 50
+
 
 class AgentService:
     def __init__(self):
@@ -81,7 +84,18 @@ class AgentService:
         start = time.time()
         current_input = input_data
 
-        for node in agent.get("nodes", []):
+        nodes = agent.get("nodes", [])
+        if len(nodes) > MAX_AGENT_NODES:
+            raise ValueError(f"Agent has {len(nodes)} nodes (max {MAX_AGENT_NODES})")
+
+        visited_ids: set = set()
+        for node in nodes:
+            node_id = node.get("id")
+            if node_id and node_id in visited_ids:
+                raise ValueError(f"Duplicate node ID detected: {node_id} — possible cycle")
+            if node_id:
+                visited_ids.add(node_id)
+
             node_type = node.get("type", "generic")
             node_data = node.get("data", {})
             node_label = node_data.get("label") or node.get("name", node_type)
@@ -170,9 +184,11 @@ class AgentService:
             return input_text
 
         try:
+            import shlex
             env = {**os.environ, "NODE_INPUT": input_text}
-            proc = await asyncio.create_subprocess_shell(
-                command,
+            cmd_parts = shlex.split(command)
+            proc = await asyncio.create_subprocess_exec(
+                *cmd_parts,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env=env,

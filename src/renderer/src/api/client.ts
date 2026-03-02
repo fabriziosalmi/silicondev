@@ -207,6 +207,17 @@ export function cleanModelName(name: string): string {
     return name.replace(/^.*\s*\/\s*(?:Models|models)\s*\/\s*/, '')
 }
 
+/** Throw with backend detail when available, fallback to generic message */
+async function throwIfNotOk(res: Response, fallback: string): Promise<void> {
+    if (res.ok) return;
+    let detail = fallback;
+    try {
+        const body = await res.json();
+        if (body.detail) detail = body.detail;
+    } catch { /* response wasn't JSON */ }
+    throw new Error(detail);
+}
+
 // --- API Client ---
 
 export const apiClient = {
@@ -214,7 +225,21 @@ export const apiClient = {
     monitor: {
         getStats: async (): Promise<SystemStats> => {
             const res = await fetch(`${API_BASE}/api/monitor/stats`);
-            if (!res.ok) throw new Error('Failed to fetch stats');
+            await throwIfNotOk(res, 'Failed to fetch stats');
+            return res.json();
+        },
+        getStorage: async (): Promise<{ total_bytes: number; breakdown: Record<string, number>; path: string }> => {
+            const res = await fetch(`${API_BASE}/api/monitor/storage`);
+            await throwIfNotOk(res, 'Failed to fetch storage info');
+            return res.json();
+        },
+        cleanupStorage: async (targets: string[]): Promise<{ freed_bytes: number; cleaned: string[] }> => {
+            const res = await fetch(`${API_BASE}/api/monitor/storage/cleanup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targets })
+            });
+            await throwIfNotOk(res, 'Failed to cleanup storage');
             return res.json();
         }
     },
@@ -225,7 +250,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ file_path: filePath, limit })
             });
-            if (!res.ok) throw new Error('Failed to preview CSV');
+            await throwIfNotOk(res, 'Failed to preview CSV');
             return res.json();
         },
         convertCsv: async (filePath: string, outputPath: string, instructionCol: string, inputCol?: string, outputCol?: string): Promise<ConvertResult> => {
@@ -234,7 +259,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ file_path: filePath, output_path: outputPath, instruction_col: instructionCol, input_col: inputCol, output_col: outputCol })
             });
-            if (!res.ok) throw new Error('Failed to convert CSV');
+            await throwIfNotOk(res, 'Failed to convert CSV');
             return res.json();
         },
         generateMcp: async (modelId: string, serverId: string, prompt: string, outputPath: string): Promise<{ data: PreviewRow[]; rows: number }> => {
@@ -243,14 +268,14 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId, server_id: serverId, prompt, output_path: outputPath })
             });
-            if (!res.ok) throw new Error(`MCP generation failed (${res.status})`);
+            await throwIfNotOk(res, 'MCP generation failed');
             return res.json();
         }
     },
     engine: {
         getModels: async (): Promise<ModelEntry[]> => {
             const res = await fetch(`${API_BASE}/api/engine/models`);
-            if (!res.ok) throw new Error('Failed to fetch models');
+            await throwIfNotOk(res, 'Failed to fetch models');
             return res.json();
         },
         downloadModel: async (modelId: string): Promise<{ status: string; model_id: string }> => {
@@ -259,7 +284,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId })
             });
-            if (!res.ok) throw new Error('Failed to start download');
+            await throwIfNotOk(res, 'Failed to start download');
             return res.json();
         },
         deleteModel: async (modelId: string): Promise<{ status: string; model_id: string }> => {
@@ -268,7 +293,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId })
             });
-            if (!res.ok) throw new Error('Failed to delete model');
+            await throwIfNotOk(res, 'Failed to delete model');
             return res.json();
         },
         registerModel: async (name: string, path: string, url: string = ""): Promise<ModelEntry> => {
@@ -277,7 +302,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, path, url })
             });
-            if (!res.ok) throw new Error('Failed to register model');
+            await throwIfNotOk(res, 'Failed to register model');
             return res.json();
         },
         scanModels: async (path: string): Promise<ModelEntry[]> => {
@@ -286,12 +311,12 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path })
             });
-            if (!res.ok) throw new Error('Failed to scan directory');
+            await throwIfNotOk(res, 'Failed to scan directory');
             return res.json();
         },
         getJobStatus: async (jobId: string): Promise<JobStatus> => {
             const res = await fetch(`${API_BASE}/api/engine/jobs/${jobId}`);
-            if (!res.ok) throw new Error('Failed to get job status');
+            await throwIfNotOk(res, 'Failed to get job status');
             return res.json();
         },
         finetune: async (params: FineTuneParams): Promise<{ job_id: string; status: string; job_name: string }> => {
@@ -300,7 +325,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(params)
             });
-            if (!res.ok) throw new Error('Failed to start fine-tuning');
+            await throwIfNotOk(res, 'Failed to start fine-tuning');
             return res.json();
         },
         chatStream: async (modelId: string, messages: ChatMessage[], params: Record<string, unknown> = {}): Promise<Response> => {
@@ -309,24 +334,24 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId, messages, ...params })
             });
-            if (!res.ok) throw new Error('Failed to generate chat response');
+            await throwIfNotOk(res, 'Failed to generate chat response');
             return res;
         },
         stopChat: async (): Promise<{ status: string }> => {
             const res = await fetch(`${API_BASE}/api/engine/chat/stop`, {
                 method: 'POST'
             });
-            if (!res.ok) throw new Error('Failed to stop chat generation');
+            await throwIfNotOk(res, 'Failed to stop chat generation');
             return res.json();
         },
         listAdapters: async (): Promise<ModelEntry[]> => {
             const res = await fetch(`${API_BASE}/api/engine/models/adapters`);
-            if (!res.ok) throw new Error('Failed to fetch adapters');
+            await throwIfNotOk(res, 'Failed to fetch adapters');
             return res.json();
         },
         getModelFormat: async (modelId: string): Promise<ModelFormatInfo> => {
             const res = await fetch(`${API_BASE}/api/engine/models/${encodeURIComponent(modelId)}/format`);
-            if (!res.ok) throw new Error('Failed to fetch model format');
+            await throwIfNotOk(res, 'Failed to fetch model format');
             return res.json();
         },
         exportModel: async (modelId: string, outputPath: string, qBits: number = 4): Promise<{ status: string; path: string }> => {
@@ -335,7 +360,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId, output_path: outputPath, q_bits: qBits })
             });
-            if (!res.ok) throw new Error('Failed to export model');
+            await throwIfNotOk(res, 'Failed to export model');
             return res.json();
         },
         loadModel: async (modelId: string): Promise<{ status: string; model_id: string; context_window?: number; architecture?: string }> => {
@@ -344,21 +369,21 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId })
             });
-            if (!res.ok) throw new Error('Failed to load model into memory');
+            await throwIfNotOk(res, 'Failed to load model into memory');
             return res.json();
         },
         unloadModel: async (): Promise<{ status: string }> => {
             const res = await fetch(`${API_BASE}/api/engine/models/unload`, {
                 method: 'POST'
             });
-            if (!res.ok) throw new Error('Failed to unload model');
+            await throwIfNotOk(res, 'Failed to unload model');
             return res.json();
         }
     },
     rag: {
         getCollections: async (): Promise<RagCollection[]> => {
             const res = await fetch(`${API_BASE}/api/rag/collections`);
-            if (!res.ok) throw new Error('Failed to fetch collections');
+            await throwIfNotOk(res, 'Failed to fetch collections');
             return res.json();
         },
         createCollection: async (name: string): Promise<RagCollection> => {
@@ -367,14 +392,14 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name })
             });
-            if (!res.ok) throw new Error('Failed to create collection');
+            await throwIfNotOk(res, 'Failed to create collection');
             return res.json();
         },
         deleteCollection: async (id: string): Promise<{ status: string }> => {
             const res = await fetch(`${API_BASE}/api/rag/collections/${id}`, {
                 method: 'DELETE'
             });
-            if (!res.ok) throw new Error('Failed to delete collection');
+            await throwIfNotOk(res, 'Failed to delete collection');
             return res.json();
         },
         ingest: async (collectionId: string, files: string[], chunkSize: number, overlap: number): Promise<RagCollection> => {
@@ -383,7 +408,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ collection_id: collectionId, files, chunk_size: chunkSize, overlap })
             });
-            if (!res.ok) throw new Error('Failed to ingest files');
+            await throwIfNotOk(res, 'Failed to ingest files');
             return res.json();
         },
         query: async (collectionId: string, query: string, nResults: number = 5): Promise<{ results: { text: string; score: number; index: number; method?: string }[] }> => {
@@ -392,14 +417,14 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ collection_id: collectionId, query, n_results: nResults })
             });
-            if (!res.ok) throw new Error('Failed to query collection');
+            await throwIfNotOk(res, 'Failed to query collection');
             return res.json();
         },
     },
     agents: {
         getAgents: async (): Promise<AgentDefinition[]> => {
             const res = await fetch(`${API_BASE}/api/agents/`);
-            if (!res.ok) throw new Error('Failed to fetch agents');
+            await throwIfNotOk(res, 'Failed to fetch agents');
             return res.json();
         },
         saveAgent: async (agent: AgentDefinition): Promise<AgentDefinition> => {
@@ -408,14 +433,14 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(agent)
             });
-            if (!res.ok) throw new Error('Failed to save agent');
+            await throwIfNotOk(res, 'Failed to save agent');
             return res.json();
         },
         deleteAgent: async (agentId: string): Promise<{ status: string }> => {
             const res = await fetch(`${API_BASE}/api/agents/${agentId}`, {
                 method: 'DELETE'
             });
-            if (!res.ok) throw new Error('Failed to delete agent');
+            await throwIfNotOk(res, 'Failed to delete agent');
             return res.json();
         },
         execute: async (agentId: string, input: string): Promise<AgentExecutionResult> => {
@@ -424,19 +449,19 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ input })
             });
-            if (!res.ok) throw new Error('Failed to execute agent');
+            await throwIfNotOk(res, 'Failed to execute agent');
             return res.json();
         }
     },
     conversations: {
         list: async (): Promise<ConversationSummary[]> => {
             const res = await fetch(`${API_BASE}/api/conversations/`);
-            if (!res.ok) throw new Error('Failed to fetch conversations');
+            await throwIfNotOk(res, 'Failed to fetch conversations');
             return res.json();
         },
         get: async (id: string): Promise<Conversation> => {
             const res = await fetch(`${API_BASE}/api/conversations/${id}`);
-            if (!res.ok) throw new Error('Failed to fetch conversation');
+            await throwIfNotOk(res, 'Failed to fetch conversation');
             return res.json();
         },
         create: async (title?: string, messages?: ConversationMessage[], modelId?: string): Promise<Conversation> => {
@@ -445,7 +470,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title, messages, model_id: modelId })
             });
-            if (!res.ok) throw new Error('Failed to create conversation');
+            await throwIfNotOk(res, 'Failed to create conversation');
             return res.json();
         },
         update: async (id: string, updates: { title?: string; messages?: ConversationMessage[]; model_id?: string; pinned?: boolean }): Promise<Conversation> => {
@@ -454,14 +479,14 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates)
             });
-            if (!res.ok) throw new Error('Failed to update conversation');
+            await throwIfNotOk(res, 'Failed to update conversation');
             return res.json();
         },
         delete: async (id: string): Promise<{ status: string }> => {
             const res = await fetch(`${API_BASE}/api/conversations/${id}`, {
                 method: 'DELETE'
             });
-            if (!res.ok) throw new Error('Failed to delete conversation');
+            await throwIfNotOk(res, 'Failed to delete conversation');
             return res.json();
         },
         search: async (query: string): Promise<ConversationSummary[]> => {
@@ -470,7 +495,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ q: query })
             });
-            if (!res.ok) throw new Error('Failed to search conversations');
+            await throwIfNotOk(res, 'Failed to search conversations');
             return res.json();
         },
         branch: async (id: string, messageIndex: number): Promise<Conversation> => {
@@ -479,7 +504,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message_index: messageIndex })
             });
-            if (!res.ok) throw new Error('Failed to branch conversation');
+            await throwIfNotOk(res, 'Failed to branch conversation');
             return res.json();
         },
     },
@@ -490,7 +515,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, language })
             });
-            if (!res.ok) throw new Error('Syntax check failed');
+            await throwIfNotOk(res, 'Syntax check failed');
             return res.json();
         },
         run: async (code: string, language: string = '', timeout?: number): Promise<SandboxResult> => {
@@ -499,7 +524,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, language, timeout })
             });
-            if (!res.ok) throw new Error('Sandbox execution failed');
+            await throwIfNotOk(res, 'Sandbox execution failed');
             return res.json();
         },
         kill: async (runId: string): Promise<{ killed: boolean }> => {
@@ -508,7 +533,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ run_id: runId })
             });
-            if (!res.ok) throw new Error('Failed to kill process');
+            await throwIfNotOk(res, 'Failed to kill process');
             return res.json();
         },
     },
@@ -519,36 +544,36 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_path: modelPath, host, port })
             });
-            if (!res.ok) throw new Error('Failed to start deployment');
+            await throwIfNotOk(res, 'Failed to start deployment');
             return res.json();
         },
         stop: async (): Promise<{ status: string; message: string }> => {
             const res = await fetch(`${API_BASE}/api/deployment/stop`, {
                 method: 'POST'
             });
-            if (!res.ok) throw new Error('Failed to stop deployment');
+            await throwIfNotOk(res, 'Failed to stop deployment');
             return res.json();
         },
         getStatus: async (): Promise<DeploymentStatus> => {
             const res = await fetch(`${API_BASE}/api/deployment/status`);
-            if (!res.ok) throw new Error('Failed to fetch deployment status');
+            await throwIfNotOk(res, 'Failed to fetch deployment status');
             return res.json();
         },
         getLogs: async (since: number = 0): Promise<{ logs: { timestamp: number; source: string; message: string }[] }> => {
             const res = await fetch(`${API_BASE}/api/deployment/logs?since=${since}`);
-            if (!res.ok) throw new Error('Failed to fetch deployment logs');
+            await throwIfNotOk(res, 'Failed to fetch deployment logs');
             return res.json();
         }
     },
     notes: {
         list: async (): Promise<NoteSummary[]> => {
             const res = await fetch(`${API_BASE}/api/notes/`);
-            if (!res.ok) throw new Error('Failed to fetch notes');
+            await throwIfNotOk(res, 'Failed to fetch notes');
             return res.json();
         },
         get: async (id: string): Promise<Note> => {
             const res = await fetch(`${API_BASE}/api/notes/${id}`);
-            if (!res.ok) throw new Error('Failed to fetch note');
+            await throwIfNotOk(res, 'Failed to fetch note');
             return res.json();
         },
         create: async (title?: string, content?: string): Promise<Note> => {
@@ -557,7 +582,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title, content })
             });
-            if (!res.ok) throw new Error('Failed to create note');
+            await throwIfNotOk(res, 'Failed to create note');
             return res.json();
         },
         update: async (id: string, updates: { title?: string; content?: string; pinned?: boolean }): Promise<Note> => {
@@ -566,21 +591,21 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates)
             });
-            if (!res.ok) throw new Error('Failed to update note');
+            await throwIfNotOk(res, 'Failed to update note');
             return res.json();
         },
         delete: async (id: string): Promise<{ status: string }> => {
             const res = await fetch(`${API_BASE}/api/notes/${id}`, {
                 method: 'DELETE'
             });
-            if (!res.ok) throw new Error('Failed to delete note');
+            await throwIfNotOk(res, 'Failed to delete note');
             return res.json();
         },
     },
     mcp: {
         listServers: async (): Promise<{ id: string; name: string; command: string; args: string[]; env: Record<string, string>; transport: string }[]> => {
             const res = await fetch(`${API_BASE}/api/mcp/servers`);
-            if (!res.ok) throw new Error('Failed to fetch MCP servers');
+            await throwIfNotOk(res, 'Failed to fetch MCP servers');
             return res.json();
         },
         addServer: async (server: { name: string; command: string; args?: string[]; env?: Record<string, string>; transport?: string }): Promise<{ id: string; name: string; command: string }> => {
@@ -589,19 +614,19 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(server)
             });
-            if (!res.ok) throw new Error('Failed to add MCP server');
+            await throwIfNotOk(res, 'Failed to add MCP server');
             return res.json();
         },
         removeServer: async (serverId: string): Promise<{ status: string }> => {
             const res = await fetch(`${API_BASE}/api/mcp/servers/${serverId}`, {
                 method: 'DELETE'
             });
-            if (!res.ok) throw new Error('Failed to remove MCP server');
+            await throwIfNotOk(res, 'Failed to remove MCP server');
             return res.json();
         },
         listTools: async (serverId: string): Promise<{ tools: { name: string; description: string; inputSchema: Record<string, unknown> }[] }> => {
             const res = await fetch(`${API_BASE}/api/mcp/servers/${serverId}/tools`);
-            if (!res.ok) throw new Error('Failed to list MCP tools');
+            await throwIfNotOk(res, 'Failed to list MCP tools');
             return res.json();
         },
         executeTool: async (serverId: string, toolName: string, toolArgs: Record<string, unknown> = {}): Promise<{ result: string }> => {
@@ -610,7 +635,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ server_id: serverId, tool_name: toolName, tool_args: toolArgs })
             });
-            if (!res.ok) throw new Error('Failed to execute MCP tool');
+            await throwIfNotOk(res, 'Failed to execute MCP tool');
             return res.json();
         },
     },
@@ -644,7 +669,7 @@ export const apiClient = {
     indexer: {
         getSources: async (): Promise<{ sources: IndexerSource[] }> => {
             const res = await fetch(`${API_BASE}/api/indexer/sources`);
-            if (!res.ok) throw new Error('Failed to fetch indexer sources');
+            await throwIfNotOk(res, 'Failed to fetch indexer sources');
             return res.json();
         },
         addSource: async (url: string, label?: string): Promise<IndexerSource> => {
@@ -653,14 +678,14 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url, label })
             });
-            if (!res.ok) throw new Error('Failed to add indexer source');
+            await throwIfNotOk(res, 'Failed to add indexer source');
             return res.json();
         },
         removeSource: async (sourceId: string): Promise<{ ok: boolean }> => {
             const res = await fetch(`${API_BASE}/api/indexer/sources/${sourceId}`, {
                 method: 'DELETE'
             });
-            if (!res.ok) throw new Error('Failed to remove indexer source');
+            await throwIfNotOk(res, 'Failed to remove indexer source');
             return res.json();
         },
         toggleSource: async (sourceId: string, enabled: boolean): Promise<{ ok: boolean }> => {
@@ -669,17 +694,17 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ enabled })
             });
-            if (!res.ok) throw new Error('Failed to toggle indexer source');
+            await throwIfNotOk(res, 'Failed to toggle indexer source');
             return res.json();
         },
         crawl: async (): Promise<{ status: string; indexed: number; fetched?: number }> => {
             const res = await fetch(`${API_BASE}/api/indexer/crawl`, { method: 'POST' });
-            if (!res.ok) throw new Error('Crawl failed');
+            await throwIfNotOk(res, 'Crawl failed');
             return res.json();
         },
         getStatus: async (): Promise<IndexerStatus> => {
             const res = await fetch(`${API_BASE}/api/indexer/status`);
-            if (!res.ok) throw new Error('Failed to fetch indexer status');
+            await throwIfNotOk(res, 'Failed to fetch indexer status');
             return res.json();
         },
         start: async (intervalMinutes?: number): Promise<{ status: string }> => {
@@ -687,12 +712,12 @@ export const apiClient = {
                 ? `${API_BASE}/api/indexer/start?interval_minutes=${intervalMinutes}`
                 : `${API_BASE}/api/indexer/start`;
             const res = await fetch(url, { method: 'POST' });
-            if (!res.ok) throw new Error('Failed to start indexer');
+            await throwIfNotOk(res, 'Failed to start indexer');
             return res.json();
         },
         stop: async (): Promise<{ status: string }> => {
             const res = await fetch(`${API_BASE}/api/indexer/stop`, { method: 'POST' });
-            if (!res.ok) throw new Error('Failed to stop indexer');
+            await throwIfNotOk(res, 'Failed to stop indexer');
             return res.json();
         },
     },
@@ -715,7 +740,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: sessionId, call_id: callId, approved, reason })
             });
-            if (!res.ok) throw new Error('Failed to decide diff');
+            await throwIfNotOk(res, 'Failed to decide diff');
         },
         stop: async (sessionId: string): Promise<void> => {
             const res = await fetch(`${API_BASE}/api/terminal/stop`, {
@@ -723,7 +748,7 @@ export const apiClient = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: sessionId })
             });
-            if (!res.ok) throw new Error('Failed to stop terminal session');
+            await throwIfNotOk(res, 'Failed to stop terminal session');
         },
     },
     checkHealth: async (): Promise<boolean> => {

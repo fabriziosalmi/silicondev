@@ -7,6 +7,27 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Encoding fallback chain: try each in order until one works
+_ENCODING_CHAIN = ["utf-8", "utf-8-sig", "cp1252", "latin-1"]
+
+
+def _read_csv_safe(file_path: str, **kwargs) -> pd.DataFrame:
+    """Read CSV with encoding fallback chain. Tries UTF-8, then UTF-8-sig, CP1252, Latin-1."""
+    last_err = None
+    for enc in _ENCODING_CHAIN:
+        try:
+            return pd.read_csv(file_path, encoding=enc, **kwargs)
+        except UnicodeDecodeError as e:
+            last_err = e
+            continue
+        except pd.errors.ParserError as e:
+            raise ValueError(
+                f"CSV parsing error (encoding={enc}): {e}. "
+                f"Check for unmatched quotes or malformed rows."
+            )
+    raise ValueError(f"Cannot decode file — tried {', '.join(_ENCODING_CHAIN)}: {last_err}")
+
+
 class DataPreparationService:
     def __init__(self):
         pass
@@ -17,12 +38,14 @@ class DataPreparationService:
         """
         if not os.path.exists(file_path):
             raise ValueError(f"File not found: {file_path}")
-            
+
         try:
-            df = pd.read_csv(file_path)
+            df = _read_csv_safe(file_path)
             # Replace NaN with empty strings for JSON compatibility
             df = df.where(pd.notnull(df), "")
             return df.head(limit).to_dict(orient="records")
+        except ValueError:
+            raise
         except Exception as e:
             raise ValueError(f"Error reading CSV: {str(e)}")
 
@@ -40,7 +63,7 @@ class DataPreparationService:
             raise ValueError(f"File not found: {file_path}")
             
         try:
-            df = pd.read_csv(file_path, keep_default_na=False, na_values=[])
+            df = _read_csv_safe(file_path, keep_default_na=False, na_values=[])
             jsonl_data = []
             skipped_rows = 0
             errors = []

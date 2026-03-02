@@ -48,6 +48,8 @@ export function ChatInterface() {
     })
     const [input, setInput] = useState('')
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const messagesContainerRef = useRef<HTMLDivElement>(null)
+    const userScrolledUpRef = useRef(false)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const abortRef = useRef<AbortController | null>(null)
 
@@ -101,7 +103,7 @@ export function ChatInterface() {
     })
 
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-    const [isGenerating, setIsGenerating] = useState(false)
+    const { isGenerating, setIsGenerating } = useGlobalState()
 
     // Conversation context (list + active ID managed in sidebar)
     const { activeConversationId, setActiveConversationId, fetchConversations, conversationList } = useConversations()
@@ -351,8 +353,23 @@ export function ChatInterface() {
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
     }, [settings]);
 
+    // Track whether user has scrolled up from the bottom
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        const container = messagesContainerRef.current;
+        if (!container) return;
+        const handleScroll = () => {
+            const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+            userScrolledUpRef.current = distanceFromBottom > 80;
+        };
+        container.addEventListener('scroll', handleScroll, { passive: true });
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    // Auto-scroll only when user is near bottom
+    useEffect(() => {
+        if (!userScrolledUpRef.current) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        }
     }, [messages])
 
     // Auto-build memory map every N messages
@@ -513,7 +530,7 @@ export function ChatInterface() {
                     }).join('\n---\n');
                 }
             } catch {
-                // web search failed silently
+                systemContent += '\n\n[Web search unavailable — responding without web results]';
             }
         }
 
@@ -1222,7 +1239,7 @@ Return exactly this JSON structure (no other text):
                     )}
 
                     {/* Messages */}
-                    <div className="flex-1 overflow-y-auto">
+                    <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
                         {messages.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center">
                                 <div className="text-center max-w-md">
@@ -2411,8 +2428,8 @@ function CodeBlock({
                     </span>
                 </div>
             )}
-            {/* Syntax errors */}
-            {checkResult && !checkResult.valid && !checkResult.skipped && (
+            {/* Syntax errors — hidden when syntax check is toggled off */}
+            {syntaxCheck && checkResult && !checkResult.valid && !checkResult.skipped && (
                 <div className="border-t border-red-500/10 bg-red-500/[0.03] px-3 py-2">
                     <div className="flex items-center justify-between">
                         <span className="text-[10px] font-medium text-red-400">Syntax error</span>

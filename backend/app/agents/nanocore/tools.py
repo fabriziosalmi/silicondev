@@ -58,6 +58,8 @@ DESTRUCTIVE_PREFIXES = [
 
 # Max output bytes per tool call before truncation
 MAX_OUTPUT_BYTES = 10 * 1024  # 10 KB
+# Max file size for edit_file reads (500 KB) — prevents blowing up LLM context
+MAX_EDIT_FILE_BYTES = 500 * 1024
 
 
 def _is_blocked(command: str) -> str | None:
@@ -107,12 +109,23 @@ async def run_bash(command: str, timeout: int = 60) -> AsyncGenerator[tuple[str,
     # Create PTY pair
     master_fd, slave_fd = pty.openpty()
 
+    # Prevent interactive prompts from hanging the subprocess
+    safe_env = {
+        **os.environ,
+        "GIT_EDITOR": "/bin/true",
+        "EDITOR": "/bin/true",
+        "VISUAL": "/bin/true",
+        "GIT_TERMINAL_PROMPT": "0",
+        "PAGER": "cat",
+    }
+
     try:
         proc = await asyncio.create_subprocess_shell(
             command,
             stdin=slave_fd,
             stdout=slave_fd,
             stderr=slave_fd,
+            env=safe_env,
         )
     except Exception as e:
         os.close(master_fd)
@@ -196,6 +209,14 @@ async def generate_edit_diff(file_path: str, new_content: str) -> dict:
 
     p = Path(file_path)
     if p.exists():
+        file_size = p.stat().st_size
+        if file_size > MAX_EDIT_FILE_BYTES:
+            return {
+                "file_path": file_path,
+                "old": "",
+                "new": "",
+                "diff": f"Blocked: file too large ({file_size // 1024} KB, max {MAX_EDIT_FILE_BYTES // 1024} KB). Use targeted patch commands instead.",
+            }
         async with aiofiles.open(file_path, mode="r", errors="replace") as f:
             old_content = await f.read()
     else:

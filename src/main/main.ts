@@ -4,6 +4,8 @@ import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 
 let backendProcess: ChildProcess | null = null;
+let mainWindow: BrowserWindow | null = null;
+let isQuitting = false;
 
 function startBackend() {
     const isDev = !app.isPackaged;
@@ -97,7 +99,7 @@ function stopBackend() {
 function createWindow() {
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
-    const mainWindow = new BrowserWindow({
+    mainWindow = new BrowserWindow({
         width: Math.floor(width * 0.8),
         height: Math.floor(height * 0.9),
         webPreferences: {
@@ -122,6 +124,16 @@ function createWindow() {
         // dist/main/main.js (Current file)
         // dist/renderer/index.html
         mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    }
+
+    // macOS: hide window on close instead of destroying it (native behavior)
+    if (process.platform === 'darwin') {
+        mainWindow.on('close', (e) => {
+            if (!isQuitting) {
+                e.preventDefault();
+                mainWindow?.hide();
+            }
+        });
     }
 }
 
@@ -160,8 +172,16 @@ app.whenReady().then(() => {
     createWindow();
 
     app.on('activate', function () {
-        if (BrowserWindow.getAllWindows().length === 0) createWindow();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.show();
+        } else {
+            createWindow();
+        }
     });
+});
+
+app.on('before-quit', () => {
+    isQuitting = true;
 });
 
 app.on('will-quit', () => {

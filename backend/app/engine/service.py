@@ -9,11 +9,32 @@ import os
 import sys
 import json
 import logging
+import psutil
+import shutil
 import tempfile
+import time
 from pathlib import Path
 from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
+
+# Minimum free disk space required for heavy I/O operations (1 GB)
+_MIN_DISK_SPACE_BYTES = 1_073_741_824
+
+
+def _check_disk_space(target_path: Path, min_bytes: int = _MIN_DISK_SPACE_BYTES) -> None:
+    """Raise OSError if disk has less than min_bytes free at target_path."""
+    check_path = target_path if target_path.exists() else target_path.parent
+    while not check_path.exists() and check_path != check_path.parent:
+        check_path = check_path.parent
+    usage = shutil.disk_usage(str(check_path))
+    if usage.free < min_bytes:
+        free_gb = usage.free / (1024 ** 3)
+        min_gb = min_bytes / (1024 ** 3)
+        raise OSError(
+            f"Not enough disk space: {free_gb:.1f} GB free, need at least {min_gb:.1f} GB"
+        )
+
 
 class MLXEngineService:
     def __init__(self):
@@ -27,6 +48,7 @@ class MLXEngineService:
         self.generation_lock = asyncio.Lock()
         self._jobs_lock = threading.Lock()
         self._config_lock = threading.Lock()
+        self._load_warning: str | None = None
 
         # Use writable per-user directory for models/adapters
         self.workspace_dir = Path.home() / ".silicon-studio"
@@ -192,6 +214,34 @@ class MLXEngineService:
 
         return meta
 
+    @staticmethod
+    def _validate_model_format(model_path: Path) -> str | None:
+        """Check if model has MLX-compatible weights. Returns warning message or None."""
+        safetensors = list(model_path.glob("*.safetensors"))
+        if safetensors:
+            return None  # Compatible
+
+        gguf_files = list(model_path.glob("*.gguf"))
+        if gguf_files:
+            return "GGUF format (Ollama/llama.cpp) — must be converted to MLX safetensors before loading"
+
+        bin_files = list(model_path.glob("*.bin"))
+        if bin_files:
+            return "PyTorch .bin format — must be converted to MLX safetensors before loading"
+
+        return "No weight files (.safetensors) found — may not be a valid MLX model"
+
+    @staticmethod
+    def _estimate_model_size_bytes(model_path: Path) -> int:
+        """Estimate model size by summing .safetensors files."""
+        total = 0
+        for f in model_path.glob("*.safetensors"):
+            try:
+                total += f.stat().st_size
+            except OSError:
+                pass
+        return total
+
     def scan_directory(self, path: str, max_depth=4) -> List[Dict[str, Any]]:
         """
         Scans a directory for MLX models and returns a list of found models with metadata.
@@ -274,6 +324,7 @@ class MLXEngineService:
             model_name = model_path.name
             size_str = self._get_dir_size_str(model_path)
             meta = self._get_model_metadata(model_path)
+            format_warning = self._validate_model_format(model_path)
 
             new_model = {
                 "id": str(model_path),
@@ -285,8 +336,11 @@ class MLXEngineService:
                 "quantization": meta.get("quantization", "Standard"),
                 "url": url,
                 "external": False,
-                "is_custom": True
+                "is_custom": True,
             }
+            if format_warning:
+                new_model["format_warning"] = format_warning
+                logger.warning(f"Model {model_name}: {format_warning}")
             self.models_config.append(new_model)
             return new_model
 
@@ -295,6 +349,8 @@ class MLXEngineService:
         Loads a model and tokenizer into active memory, replacing any previously loaded model.
         Includes VRAM cleanup for Apple Silicon.
         """
+        if self.generation_lock.locked():
+            raise RuntimeError("Cannot switch models while generation is in progress")
         async with self.generation_lock:
             await self._load_model_impl(model_id)
 
@@ -337,6 +393,30 @@ class MLXEngineService:
 
         logger.info(f"Loading from: {path_to_load}")
 
+        # Pre-load validation
+        self._load_warning = None
+        load_path = Path(path_to_load)
+        if load_path.is_absolute() and load_path.is_dir():
+            # Check config.json exists
+            if not (load_path / "config.json").exists():
+                raise FileNotFoundError(
+                    f"Model directory missing config.json (download may be incomplete): {path_to_load}"
+                )
+            # Check weight format compatibility
+            fmt_warn = self._validate_model_format(load_path)
+            if fmt_warn:
+                raise ValueError(f"Incompatible model format: {fmt_warn}")
+            # Memory pre-check: warn if swap is likely
+            model_bytes = self._estimate_model_size_bytes(load_path)
+            if model_bytes > 0:
+                available = psutil.virtual_memory().available
+                if model_bytes > available * 0.8:
+                    self._load_warning = (
+                        f"Model size ({model_bytes / 1e9:.1f} GB) exceeds available RAM "
+                        f"({available / 1e9:.1f} GB) — heavy swap expected, system may become slow"
+                    )
+                    logger.warning(self._load_warning)
+
         loop = asyncio.get_running_loop()
         try:
             model, tokenizer = await loop.run_in_executor(None, load, path_to_load)
@@ -372,11 +452,15 @@ class MLXEngineService:
                             cw_num = int(cw_str)
                         except ValueError:
                             pass
-                return {
+                result: Dict[str, Any] = {
                     "context_window": cw_num,
                     "architecture": m.get("architecture"),
                     "quantization": m.get("quantization"),
                 }
+                if self._load_warning:
+                    result["warning"] = self._load_warning
+                    self._load_warning = None
+                return result
         return {}
 
     def unload_model(self):
@@ -523,10 +607,30 @@ class MLXEngineService:
             max_seq_length = int(config.get("max_seq_length", 512))
             lora_dropout = float(config.get("lora_dropout", 0.0))
             lora_layers = int(config.get("lora_layers", 8))
-            
+
+            # Safety clamp: limit max_seq_length based on available unified memory
+            mem_gb = psutil.virtual_memory().total / (1024 ** 3)
+            if mem_gb <= 8:
+                max_safe_seq = 512
+            elif mem_gb <= 16:
+                max_safe_seq = 2048
+            elif mem_gb <= 32:
+                max_safe_seq = 4096
+            else:
+                max_safe_seq = 8192
+            if max_seq_length > max_safe_seq:
+                logger.warning(
+                    f"Clamping max_seq_length from {max_seq_length} to {max_safe_seq} "
+                    f"({mem_gb:.0f} GB unified memory)"
+                )
+                max_seq_length = max_safe_seq
+
             # Create dedicated directory for this job
             job_adapter_dir = self.adapters_dir / job_id
             job_adapter_dir.mkdir(parents=True, exist_ok=True)
+
+            # Pre-flight: check disk space before training
+            _check_disk_space(job_adapter_dir)
             
             adapter_file = job_adapter_dir / "adapters.safetensors"
 
@@ -543,7 +647,6 @@ class MLXEngineService:
 
             # 2. Setup Training Arguments
             from mlx_lm.tuner.datasets import load_local_dataset, CacheDataset
-            import shutil
 
             # Fix: load_local_dataset expects a directory containing 'train.jsonl'.
             # It ignores the filename of dataset_path if we just pass the parent directory.
@@ -752,10 +855,9 @@ class MLXEngineService:
                 self.active_jobs[job_id]["status"] = "failed"
                 self.active_jobs[job_id]["error"] = str(e)
             # Clean up partial adapter directory so retries don't collide
-            import shutil as _shutil
             try:
                 if job_adapter_dir.exists() and not (job_adapter_dir / "adapters.safetensors").exists():
-                    _shutil.rmtree(job_adapter_dir)
+                    shutil.rmtree(job_adapter_dir)
                     logger.info(f"Cleaned up partial adapter dir: {job_adapter_dir}")
             except Exception as cleanup_err:
                 logger.warning(f"Failed to clean up adapter dir: {cleanup_err}")
@@ -936,29 +1038,43 @@ class MLXEngineService:
         self.active_downloads.add(model_id)
         try:
             from huggingface_hub import snapshot_download
-            
+
             logger.info(f"Downloading {model_id} to {self.models_dir}...")
             sanitized_name = model_id.replace("/", "--")
             local_dir = self.models_dir / sanitized_name
-            
+
+            # Pre-flight: check disk space
+            _check_disk_space(self.models_dir)
+
             # Remove partial .completed if it exists (shouldn't, but safety)
             marker_file = local_dir / ".completed"
             if marker_file.exists():
                 os.remove(marker_file)
-            
+
             snapshot_download(
                 repo_id=model_id,
                 local_dir=local_dir,
                 local_dir_use_symlinks=False,
-                # Force allowing patterns if needed? Default is all.
+                resume_download=True,
             )
-            
-            # Write marker file
+
+            # Post-download integrity: config.json must exist
+            if not (local_dir / "config.json").exists():
+                raise RuntimeError(
+                    f"Download incomplete: config.json missing in {local_dir}"
+                )
+
+            # Write marker file with metadata
             with open(marker_file, 'w') as f:
-                f.write("ok")
-                
+                json.dump({"status": "ok", "model_id": model_id, "timestamp": time.time()}, f)
+
             logger.info(f"Successfully downloaded {model_id}")
             return True
+        except PermissionError as e:
+            logger.error(f"Permission denied downloading {model_id}: {e}")
+            raise PermissionError(
+                f"Cannot write to models directory: {e}. Check folder permissions for {self.models_dir}"
+            ) from e
         except Exception as e:
             logger.error(f"Failed to download {model_id}: {e}")
             raise
@@ -986,7 +1102,6 @@ class MLXEngineService:
                 if config_entry.get("is_finetuned") and "adapter_path" in config_entry:
                     adapter_path = Path(config_entry["adapter_path"])
                     if adapter_path.exists() and adapter_path.is_dir():
-                        import shutil
                         logger.info(f"Removing adapter directory: {adapter_path}")
                         shutil.rmtree(adapter_path)
                 
@@ -996,7 +1111,6 @@ class MLXEngineService:
                      # SAFETY CHECK: Only delete if path is under home directory and is a real model dir
                      home = Path.home()
                      if target_path.is_relative_to(home) and target_path.is_dir():
-                         import shutil
                          logger.info(f"Removing user model directory: {target_path}")
                          shutil.rmtree(target_path)
                      else:
@@ -1010,7 +1124,6 @@ class MLXEngineService:
             
             if local_dir.exists():
                 logger.info(f"Deleting foundation model {model_id} at {local_dir}")
-                import shutil
                 shutil.rmtree(local_dir)
                 return True
             else:
@@ -1029,6 +1142,9 @@ class MLXEngineService:
         base_model = config["base_model"] if config.get("is_finetuned") else model_id
         adapter_path = config.get("adapter_path")
         
+        # Pre-flight: check disk space at export target
+        _check_disk_space(Path(output_path).parent)
+
         logger.info(f"Exporting model {model_id} to {output_path} (Quant: {q_bits} bits)...")
 
         from mlx_lm import fuse
@@ -1047,6 +1163,8 @@ class MLXEngineService:
             await loop.run_in_executor(None, lambda: fuse(**fuse_kwargs))
             logger.info(f"Model exported successfully to {output_path}")
             return {"status": "success", "path": output_path}
+        except PermissionError as e:
+            raise PermissionError(f"Cannot write to export path: {e}") from e
         except Exception as e:
             logger.error(f"Export failed: {e}")
             raise e

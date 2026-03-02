@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card } from './ui/Card'
 import { ToggleSwitch } from './ui/ToggleSwitch'
 import { apiClient } from '../api/client'
-import { Settings2, MessageSquare, Brain, RotateCcw, Info, Server, Plus, Trash2, Loader2, Gauge, Globe, Play, Square, RefreshCcw } from 'lucide-react'
+import { Settings2, MessageSquare, Brain, RotateCcw, Info, Server, Plus, Trash2, Loader2, Gauge, Globe, Play, Square, RefreshCcw, HardDrive } from 'lucide-react'
 import type { IndexerSource, IndexerStatus } from '../api/client'
 
 const CHAT_SETTINGS_KEY = 'silicon-studio-chat-settings'
@@ -507,6 +507,37 @@ export function Settings() {
         localStorage.removeItem(TOPBAR_SETTINGS_KEY)
     }
 
+    // Storage management
+    const [storageInfo, setStorageInfo] = useState<{ total_bytes: number; breakdown: Record<string, number>; path: string } | null>(null)
+    const [storageCleaning, setStorageCleaning] = useState(false)
+
+    const fetchStorage = async () => {
+        try {
+            const info = await apiClient.monitor.getStorage()
+            setStorageInfo(info)
+        } catch { /* ignore */ }
+    }
+
+    const formatBytes = (bytes: number) => {
+        if (bytes < 1024) return `${bytes} B`
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+        if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+        return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+    }
+
+    const handleCleanup = async (targets: string[]) => {
+        const label = targets.join(', ')
+        if (!confirm(`Delete all ${label}? This cannot be undone.`)) return
+        setStorageCleaning(true)
+        try {
+            const result = await apiClient.monitor.cleanupStorage(targets)
+            if (result.freed_bytes > 0) {
+                fetchStorage()
+            }
+        } catch { /* ignore */ }
+        setStorageCleaning(false)
+    }
+
     return (
         <div className="max-w-3xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
@@ -602,6 +633,56 @@ export function Settings() {
             <WebIndexerSection />
 
             {/* About / Reset */}
+            {/* Storage Management */}
+            <Card className="p-5">
+                <SectionHeader icon={<HardDrive size={16} />} title="Storage" />
+                {storageInfo ? (
+                    <div className="space-y-3">
+                        <div className="text-xs text-gray-500 font-mono">{storageInfo.path}</div>
+                        <div className="grid grid-cols-3 gap-2">
+                            {Object.entries(storageInfo.breakdown).map(([key, bytes]) => (
+                                <div key={key} className="flex items-center justify-between px-3 py-2 rounded-lg bg-black/30 border border-white/5">
+                                    <span className="text-xs text-gray-400 capitalize">{key}</span>
+                                    <span className="text-xs font-mono text-white">{formatBytes(bytes)}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                            <span className="text-xs text-gray-400">Total: <span className="text-white font-mono">{formatBytes(storageInfo.total_bytes)}</span></span>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => handleCleanup(['logs'])}
+                                    disabled={storageCleaning}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-[11px] hover:bg-white/10 transition-colors disabled:opacity-50"
+                                >
+                                    <Trash2 size={12} />
+                                    Clear Logs
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleCleanup(['logs', 'conversations', 'notes'])}
+                                    disabled={storageCleaning}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                >
+                                    {storageCleaning ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                                    Clear All Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={fetchStorage}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-sm hover:bg-white/10 transition-colors"
+                    >
+                        <HardDrive size={14} />
+                        Check Storage Usage
+                    </button>
+                )}
+            </Card>
+
             <Card className="p-5">
                 <div className="flex items-center justify-between">
                     <div>
@@ -609,6 +690,7 @@ export function Settings() {
                         <p className="text-xs text-gray-500 mt-1">Local AI development environment for Apple Silicon</p>
                     </div>
                     <button
+                        type="button"
                         onClick={handleReset}
                         className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm hover:bg-red-500/20 transition-colors"
                     >

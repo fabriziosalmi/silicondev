@@ -42,6 +42,8 @@ interface GlobalStateContextType {
     setActiveModel: (model: LoadedModel | null) => void;
     isTraining: boolean;
     setIsTraining: (training: boolean) => void;
+    isGenerating: boolean;
+    setIsGenerating: (generating: boolean) => void;
     pendingChatInput: string | null;
     setPendingChatInput: (input: string | null) => void;
 }
@@ -53,6 +55,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
     const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
     const [activeModel, setActiveModel] = useState<LoadedModel | null>(null);
     const [isTraining, setIsTraining] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
     const [pendingChatInput, setPendingChatInput] = useState<string | null>(null);
 
     // Poll backend health + stats — only update state when values actually change
@@ -82,9 +85,19 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
             }
         };
 
+        // Re-poll immediately when app becomes visible (after sleep/tab switch)
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') poll();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+
         poll();
         const interval = setInterval(poll, 5000);
-        return () => { mounted = false; clearInterval(interval); };
+        return () => {
+            mounted = false;
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', onVisible);
+        };
     }, []);
 
     return (
@@ -96,6 +109,8 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
             setActiveModel,
             isTraining,
             setIsTraining,
+            isGenerating,
+            setIsGenerating,
             pendingChatInput,
             setPendingChatInput,
         }}>

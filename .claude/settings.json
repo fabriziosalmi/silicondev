@@ -14,7 +14,24 @@
       "Bash(.venv/bin/python -m PyInstaller spec/silicon_server.spec --clean --noconfirm --distpath dist --workpath build)",
       "Bash(/Users/fab/Documents/git/Silicon-Studio/backend/.venv/bin/python -m PyInstaller /Users/fab/Documents/git/Silicon-Studio/backend/spec/silicon_server.spec --clean --noconfirm --distpath /Users/fab/Documents/git/Silicon-Studio/backend/dist --workpath /Users/fab/Documents/git/Silicon-Studio/backend/build)",
       "Bash(gh release upload v0.4.1 /Users/fab/Documents/git/Silicon-Studio/release/SiliconDev-0.4.1-arm64.dmg --repo fabriziosalmi/silicondev)",
-      "Bash(gh release upload v0.4.1 /Users/fab/Documents/git/Silicon-Studio/release/SiliconDev-0.4.1-arm64-mac.zip --repo fabriziosalmi/silicondev)"
+      "Bash(gh release upload v0.4.1 /Users/fab/Documents/git/Silicon-Studio/release/SiliconDev-0.4.1-arm64-mac.zip --repo fabriziosalmi/silicondev)",
+      "Bash(.venv/bin/python -c \":*)",
+      "Bash(.venv/bin/python -c \"from app.api.engine import router; from app.mcp.client import MCPClient; from app.rag.service import RagService; print\\(''Backend imports OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''backend/app/engine/service.py'', doraise=True\\); print\\(''service.py OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''backend/app/agents/service.py'', doraise=True\\); print\\(''agents/service.py OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''backend/app/api/engine.py'', doraise=True\\); print\\(''engine.py OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''backend/app/preparation/service.py'', doraise=True\\); print\\(''preparation OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''backend/app/rag/service.py'', doraise=True\\); print\\(''rag OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''backend/app/api/search.py'', doraise=True\\); print\\(''search OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''backend/app/agents/nanocore/tools.py'', doraise=True\\); print\\(''tools OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''backend/app/agents/nanocore/supervisor.py'', doraise=True\\); print\\(''supervisor OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''backend/app/agents/service.py'', doraise=True\\); print\\(''agents/service OK''\\)\")",
+      "Bash(python -m py_compile backend/main.py)",
+      "Bash(python -m py_compile backend/app/api/monitor.py)",
+      "Bash(python -m pytest tests/test_nanocore_sse.py tests/test_mcp_mock.py tests/test_search_resilience.py tests/test_atomicity.py tests/test_sandbox_stress.py -v --timeout=30)",
+      "Bash(python -m pytest tests/test_nanocore_sse.py tests/test_mcp_mock.py tests/test_search_resilience.py tests/test_atomicity.py tests/test_sandbox_stress.py -v)",
+      "Bash(backend/.venv/bin/python -m pytest backend/tests/ -v)",
+      "Bash(backend/.venv/bin/python -m pytest backend/tests/ -v --ignore=backend/tests/test_shield.py)"
     ]
   }
 }

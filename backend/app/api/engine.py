@@ -102,6 +102,12 @@ async def load_model(request: LoadModelRequest):
         await service.load_active_model(request.model_id)
         metadata = service.get_active_model_metadata()
         return {"status": "loaded", "model_id": request.model_id, **metadata}
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

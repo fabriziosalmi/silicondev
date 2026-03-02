@@ -4,14 +4,32 @@ import uvicorn
 import os
 import sys
 import logging
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-# Configure logging
+# Log directory: ~/.silicon-studio/logs/
+_LOG_DIR = Path.home() / ".silicon-studio" / "logs"
+_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+# Configure logging — stdout + rotating file
+_log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+_handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+try:
+    _file_handler = RotatingFileHandler(
+        str(_LOG_DIR / "app.log"),
+        maxBytes=5 * 1024 * 1024,  # 5 MB per file
+        backupCount=3,
+        encoding="utf-8",
+    )
+    _file_handler.setFormatter(logging.Formatter(_log_format))
+    _handlers.append(_file_handler)
+except OSError:
+    pass  # fall back to stdout-only if disk is read-only
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+    format=_log_format,
+    handlers=_handlers,
 )
 logger = logging.getLogger(__name__)
 

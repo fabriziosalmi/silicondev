@@ -20,6 +20,8 @@ _THINK_OPEN_RE = re.compile(r'</?think[^>]*>')
 
 # Max chars of tool output to inject back into the conversation
 MAX_TOOL_OUTPUT_CHARS = 4000
+# Max seconds to wait for diff approval before auto-rejecting
+MAX_APPROVAL_WAIT_SECS = 300  # 5 minutes
 
 
 def _strip_think_tags(text: str) -> str:
@@ -245,9 +247,14 @@ class SupervisorAgent:
                         "diff_info": diff_info,
                     }
 
-                    # Send periodic heartbeats while waiting
+                    # Send periodic heartbeats while waiting (hard timeout: 5 min)
+                    wait_start = time.time()
+                    timed_out = False
                     while not event.is_set():
                         if self._stopped:
+                            break
+                        if time.time() - wait_start > MAX_APPROVAL_WAIT_SECS:
+                            timed_out = True
                             break
                         try:
                             await asyncio.wait_for(event.wait(), timeout=5.0)
@@ -263,6 +270,13 @@ class SupervisorAgent:
                     if self._stopped:
                         tool_results.append(f"[edit_file] Session stopped")
                         break
+
+                    if timed_out:
+                        del self._pending_diffs[call_id]
+                        tool_results.append(
+                            f"[edit_file] Auto-rejected: no response within {MAX_APPROVAL_WAIT_SECS}s"
+                        )
+                        continue
 
                     approved = self._pending_diffs[call_id]["approved"]
                     reject_reason = self._pending_diffs[call_id].get("reason", "")

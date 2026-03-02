@@ -41,7 +41,7 @@ function MiniBar({ percent, thresholds }: { percent: number; thresholds: { warn:
 }
 
 export function TopBar() {
-    const { backendReady, systemStats, activeModel, setActiveModel, isTraining } = useGlobalState();
+    const { backendReady, systemStats, activeModel, setActiveModel, isTraining, isGenerating } = useGlobalState();
     const thresholds = getThresholds();
     const [showModelMenu, setShowModelMenu] = useState(false);
     const [models, setModels] = useState<ModelEntry[]>([]);
@@ -54,6 +54,7 @@ export function TopBar() {
     };
 
     const handleLoadModel = async (model: ModelEntry) => {
+        if (isGenerating) return; // Don't switch models during generation
         setLoadingModelId(model.id);
         try {
             const result = await apiClient.engine.loadModel(model.id);

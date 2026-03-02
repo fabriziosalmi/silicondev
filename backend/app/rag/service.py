@@ -93,12 +93,28 @@ class RagService:
 
             for file_to_process in paths_to_process:
                 try:
+                    # Skip binary files (PDF, images, etc.)
+                    with open(file_to_process, "rb") as fb:
+                        header = fb.read(8)
+                    if header.startswith(b"%PDF") or header.startswith(b"\x89PNG") or header.startswith(b"\xff\xd8"):
+                        logger.warning(
+                            f"Skipping binary file {file_to_process.name} — "
+                            f"PDF/image files must be converted to text first"
+                        )
+                        continue
+
                     with open(
                         file_to_process, "r", encoding="utf-8", errors="ignore"
                     ) as f:
                         text = f.read()
 
-                    base_chunks = self._recursive_split(text, chunk_size)
+                    # Skip files with no extractable text
+                    stripped = text.strip()
+                    if not stripped:
+                        logger.warning(f"Skipping empty file: {file_to_process.name}")
+                        continue
+
+                    base_chunks = self._recursive_split(stripped, chunk_size)
 
                     if overlap > 0 and len(base_chunks) > 1:
                         chunks: List[str] = [base_chunks[0][:chunk_size]]
@@ -112,6 +128,12 @@ class RagService:
                     all_chunks.extend(chunks)
                 except Exception as e:
                     logger.warning(f"Error processing {file_to_process}: {e}")
+
+        if not all_chunks:
+            raise ValueError(
+                "No text could be extracted from the provided files. "
+                "Binary files (PDF, images) must be converted to plain text first."
+            )
 
         # Load existing chunks
         chunks_file = self.rag_dir / f"{collection_id}_chunks.json"
