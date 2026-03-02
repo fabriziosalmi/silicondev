@@ -1,8 +1,6 @@
 # SiliconDev
 
-<div align="center">
-
-**Local AI Development Environment for Apple Silicon**
+**Local LLM fine-tuning and chat for Apple Silicon.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Platform: macOS](https://img.shields.io/badge/Platform-macOS_(Apple_Silicon)-black)
@@ -10,88 +8,28 @@
 
 [Download DMG](https://github.com/fabriziosalmi/silicondev/releases/latest) · [Documentation](https://fabriziosalmi.github.io/silicondev/) · [Report Bug](https://github.com/fabriziosalmi/silicondev/issues)
 
-</div>
-
----
-
-**SiliconDev** is an open-source desktop app for local LLM fine-tuning, inference, and tooling on Apple Silicon. Built on [MLX](https://github.com/ml-explore/mlx), it provides a unified interface for data preparation, model management, fine-tuning, chat, RAG, MCP integration, and more. Everything runs on-device — no cloud, no API keys, no data leaves your machine.
-
-Based on [Silicon-Studio](https://github.com/rileycleavenger/Silicon-Studio) by [Riley Cleavenger](https://github.com/rileycleavenger).
+SiliconDev is a desktop app for running, fine-tuning, and chatting with LLMs on your Mac. It uses Apple's [MLX](https://github.com/ml-explore/mlx) framework so everything runs on-device — no cloud, no API keys, no data leaves your machine.
 
 ![SiliconDev Demo](https://github.com/fabriziosalmi/silicondev/raw/main/assets/demo.gif)
 
+## Why SiliconDev?
 
-## Features
+- **Runs entirely on your Mac.** No cloud accounts, no API keys, zero telemetry. Your data stays local.
+- **Fine-tuning built in.** LoRA and QLoRA training directly on Apple Silicon, with real-time loss curves.
+- **One app, not six.** Data prep, model management, training, chat, RAG, MCP tools, and an agent terminal in a single window.
 
-### Native Apple Silicon
-MLX-powered fine-tuning (LoRA/QLoRA) and inference on M1/M2/M3/M4 chips.
+## Quickstart
 
-### Data Preparation
-- Preview and edit JSONL/CSV datasets
-- PII redaction via local NLP (Presidio)
-- Format conversion (CSV to JSONL, chat templates)
-- MCP-based dataset generation from tool call traces
+```bash
+git clone https://github.com/fabriziosalmi/silicondev.git && cd silicondev
+make setup
+make run
+```
 
-### Model Management
-- Browse and download models from Hugging Face
-- 4-bit / 8-bit quantization support
-- Model load/switch from top bar or Models page
-- Export fine-tuned models (4-bit, 8-bit, full precision)
+Requires macOS 13+, Apple Silicon (M1/M2/M3/M4), Node.js 18+, and Python 3.10+.
 
-### Fine-Tuning Engine
-- LoRA / QLoRA with visual configuration
-- Real-time loss curves and metrics
-- Configurable hyperparameters and LoRA settings
-
-### Chat
-- Local ChatGPT-like interface, fully offline
-- Conversation branching and history
-- In-chat search (Ctrl+F) with match navigation
-- Quick actions: rewrite, translate, self-critique, perspectives
-- RAG knowledge injection and web search
-- Syntax validation and auto-fix for code
-- PII redaction, memory map, reasoning modes
-- Collapsible parameters sidebar
-
-### RAG Knowledge
-- Create and manage document collections
-- Chunk-based retrieval with keyword scoring
-- Toggle per-conversation RAG context injection
-
-### MCP Integration
-- Add/remove MCP servers (stdio transport)
-- Discover and test tools
-- Generate fine-tuning datasets from MCP tool schemas
-
-### Notes
-- Markdown editor with live preview
-- Multi-note management with pin/rename
-- Send note content to chat
-
-### Agent Terminal
-- Dual-mode: direct bash execution and NanoCore AI agent
-- Streaming output via SSE, auto-scroll, dark code blocks
-- Diff proposals with human approval before file writes
-- Sandboxed execution with safety checks
-
-### Agent Workflows
-- Visual workflow builder (nodes and edges)
-- Agent CRUD with configurable node types
-
-### Settings
-- Centralized settings page (chat defaults, RAG defaults, MCP servers, status bar thresholds)
-- Per-conversation parameter overrides
-- Color-coded RAM/CPU usage bars in top status bar
-
-## Getting Started
-
-### Prerequisites
-- macOS 13+ (Ventura or later)
-- Apple Silicon Mac (M1/M2/M3/M4)
-- Node.js 18+
-- Python 3.10+
-
-### Build from Source
+<details>
+<summary>Manual setup (without Make)</summary>
 
 ```bash
 git clone https://github.com/fabriziosalmi/silicondev.git
@@ -109,6 +47,39 @@ cd ..
 # Run
 npm run dev
 ```
+</details>
+
+## Features
+
+### Chat
+Local ChatGPT-like interface, fully offline. Conversation branching, in-chat search (Ctrl+F), quick actions (rewrite, translate, self-critique), RAG knowledge injection, web search, syntax validation, PII redaction.
+
+### Fine-Tuning
+LoRA / QLoRA with visual configuration. Real-time loss curves, configurable hyperparameters, LoRA rank/alpha/dropout/layers.
+
+### Data Preparation
+Preview and edit JSONL/CSV datasets. PII redaction via Presidio. CSV-to-JSONL conversion with chat templates. MCP-based dataset generation.
+
+### Model Management
+Browse and download models from Hugging Face. 4-bit / 8-bit quantization. Load, switch, and export models. Scan local directories (LM Studio, Ollama, HF cache).
+
+### RAG Knowledge
+Create document collections with chunk-based retrieval. Toggle per-conversation RAG context injection.
+
+### MCP Integration
+Add stdio-transport MCP servers. Discover and test tools. Generate fine-tuning data from tool schemas.
+
+### Agent Terminal
+Dual-mode: direct bash and NanoCore AI agent. Streaming output, diff proposals with human approval, sandboxed execution.
+
+### Notes
+Markdown editor with live preview, multi-note management, send to chat.
+
+## Limitations
+
+- **macOS only.** Requires Apple Silicon (M1 or later). No Intel, no Linux, no Windows.
+- **No CUDA.** This is MLX-only. If you have an NVIDIA GPU, use a different tool.
+- **Large models need RAM.** 7B models need ~8 GB free. 30B+ models need 32+ GB.
 
 ## Tech Stack
 
@@ -116,6 +87,10 @@ npm run dev
 - **Backend**: Python, FastAPI, Uvicorn
 - **AI Engine**: Apple MLX, MLX-LM
 - **Data**: Pandas, Presidio, MCP SDK
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, architecture overview, and how to submit a PR.
 
 ## License
 
