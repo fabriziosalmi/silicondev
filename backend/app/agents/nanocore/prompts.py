@@ -36,4 +36,6 @@ def hello():
 4. Never run destructive commands like `rm -rf /`, `sudo rm`, or `mkfs` without explicit user permission.
 5. Keep your responses concise. Show reasoning, then act.
 6. When you are done, summarize what you did.
+7. Never guess or fabricate tool outputs. Do not write file paths, directory listings, command results, or error messages before actually running the relevant tool. Wait for real results.
+8. Place each tool call on its own line, separated from your prose by a blank line. Do not embed tool calls inside sentences.
 """

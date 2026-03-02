@@ -4,6 +4,15 @@ import { StreamingMarkdown } from './StreamingMarkdown'
 import { HolographicDiff } from './HolographicDiff'
 import type { FeedItem } from './types'
 
+// Strip XML tool/arg tags that may leak through the backend SSE stream.
+// Matches both complete blocks (<tool ...>...</tool>) and orphaned tags.
+const TOOL_BLOCK_RE = /<tool\s+name="[^"]*">[\s\S]*?<\/tool>/g
+const STRAY_TAG_RE = /<\/?(?:tool|arg)\b[^>]*>/g
+
+function stripToolXml(text: string): string {
+  return text.replace(TOOL_BLOCK_RE, '').replace(STRAY_TAG_RE, '').trim()
+}
+
 interface MessageFeedProps {
   items: FeedItem[]
   sessionId: string
@@ -37,17 +46,20 @@ const FeedItemView = memo(function FeedItemView({
         </div>
       )
 
-    case 'ai_text':
+    case 'ai_text': {
+      const cleanContent = stripToolXml(item.content)
+      if (!cleanContent) return null
       return (
         <div className="flex items-start gap-2">
           <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
             <Bot size={14} className="text-blue-400" />
           </div>
           <div className="min-w-0 flex-1 prose prose-invert prose-sm max-w-prose text-sm text-gray-200 select-text">
-            <StreamingMarkdown content={item.content} />
+            <StreamingMarkdown content={cleanContent} />
           </div>
         </div>
       )
+    }
 
     case 'tool_start':
       return (

@@ -23,8 +23,11 @@ _ARG_RE = re.compile(
     re.DOTALL,
 )
 
-# Detect an incomplete tool tag (opened but not closed)
-_PARTIAL_RE = re.compile(r'<tool\s+name="[^"]*">[^<]*$', re.DOTALL)
+# Stray/orphaned XML tag fragments to clean from streamed text
+_STRAY_TAGS_RE = re.compile(r'</?(?:tool|arg)\b[^>]*>', re.DOTALL)
+
+# The prefix we're watching for during streaming
+_TOOL_TAG_START = "<tool "
 
 
 def extract_tool_calls(text: str) -> list[ParsedToolCall]:
@@ -46,23 +49,33 @@ def extract_tool_calls(text: str) -> list[ParsedToolCall]:
 
 
 def has_partial_tool_tag(text: str) -> bool:
-    """Check if text ends with an incomplete tool tag (opened but not closed).
+    """Check if text ends with a partial or incomplete tool tag.
 
-    Used to suppress streaming of partial XML to the frontend.
+    Detects both:
+    - A fully opened but unclosed <tool name="...">...  (missing </tool>)
+    - A prefix being typed: <, <t, <to, <too, <tool  (before the tag is formed)
     """
-    # Look at the last 500 chars to avoid scanning huge strings
     tail = text[-500:] if len(text) > 500 else text
-    # Check if there's an opening <tool that hasn't been closed
+
+    # Check for an opening <tool that hasn't been closed yet
     last_open = tail.rfind("<tool ")
-    if last_open == -1:
-        return False
-    after_open = tail[last_open:]
-    # If we find </tool> after the last <tool, it's complete
-    if "</tool>" in after_open:
-        return False
-    return True
+    if last_open != -1:
+        after_open = tail[last_open:]
+        if "</tool>" not in after_open:
+            return True
+
+    # Check if the text ends with a prefix of "<tool " being built up
+    # (e.g. "<", "<t", "<to", "<too", "<tool")
+    for length in range(1, len(_TOOL_TAG_START) + 1):
+        if tail.endswith(_TOOL_TAG_START[:length]):
+            return True
+
+    return False
 
 
 def strip_tool_calls(text: str) -> str:
     """Remove all complete tool call blocks from text, leaving surrounding prose."""
-    return _TOOL_RE.sub("", text).strip()
+    cleaned = _TOOL_RE.sub("", text)
+    # Also remove any orphaned <tool>, </tool>, <arg>, </arg> fragments
+    cleaned = _STRAY_TAGS_RE.sub("", cleaned)
+    return cleaned.strip()

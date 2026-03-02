@@ -151,11 +151,15 @@ class SupervisorAgent:
                             think_buffer = token_text
                             continue
 
-                        # Stream text but suppress partial tool tags
+                        # Stream text but suppress partial/complete tool tags
                         if not has_partial_tool_tag(accumulated):
                             new_text = accumulated[streamed_up_to:]
                             if new_text:
-                                yield _sse("token_stream", {"agent": "supervisor", "text": new_text})
+                                # Strip any complete <tool>...</tool> blocks
+                                # and stray XML fragments before sending to UI
+                                display_text = strip_tool_calls(new_text)
+                                if display_text:
+                                    yield _sse("token_stream", {"agent": "supervisor", "text": display_text})
                                 streamed_up_to = len(accumulated)
             except Exception as e:
                 yield _sse("error", {"message": str(e)})
@@ -171,8 +175,9 @@ class SupervisorAgent:
 
             if not tool_calls:
                 # No tool calls — agent is done
-                # Stream any remaining cleaned text
+                # Stream any remaining cleaned text (strip both think and tool XML)
                 clean_remaining = _strip_think_tags(accumulated[streamed_up_to:])
+                clean_remaining = strip_tool_calls(clean_remaining)
                 if clean_remaining:
                     yield _sse("token_stream", {"agent": "supervisor", "text": clean_remaining})
                 break
