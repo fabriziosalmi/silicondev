@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.4.2
+
+### Port Auto-Detection
+- Backend scans 8000-8099 for a free port instead of crashing if 8000 is busy
+- Electron reads the chosen port from backend stdout via IPC
+- Frontend `API_BASE` is resolved dynamically at startup
+
+### JSON Data Migration
+- Added `_schema_version` field to conversations and notes
+- Lazy migration on read: old files get missing fields (`pinned`, timestamps, etc.) auto-filled and re-saved
+- Future schema changes just add a new `if version < N` block
+
+### Auto-Updater
+- Wired `electron-updater` to check GitHub Releases on launch (packaged builds only)
+- Update banner appears below the top bar when a new version is downloaded
+- One-click "Restart & Update" button
+
+### Electron File Logging
+- Replaced `console.log` with `electron-log` in the main process
+- Logs written to `~/Library/Logs/SiliconDev/main.log` (5 MB rotating)
+- Log file path shown in Settings for bug reports
+
+### OpenAPI Type Codegen
+- Added `openapi-typescript` toolchain (`npm run generate:types` in renderer)
+- Types can be gradually adopted from the generated file
+
+### Error Boundary
+- React `ErrorBoundary` wrapping the entire app (inline styles, immune to CSS crashes)
+- Shows error message + "Reload Application" button instead of white screen
+
 ## v0.4.0
 
 ### Backend Hardening

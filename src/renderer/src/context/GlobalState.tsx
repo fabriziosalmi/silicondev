@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { apiClient } from '../api/client';
+import { apiClient, initApiBase } from '../api/client';
 
 interface SystemStats {
     memory: {
@@ -64,6 +64,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
 
     useEffect(() => {
         let mounted = true;
+        let interval: ReturnType<typeof setInterval>;
 
         const poll = async () => {
             try {
@@ -85,14 +86,19 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
             }
         };
 
-        // Re-poll immediately when app becomes visible (after sleep/tab switch)
         const onVisible = () => {
             if (document.visibilityState === 'visible') poll();
         };
-        document.addEventListener('visibilitychange', onVisible);
 
-        poll();
-        const interval = setInterval(poll, 5000);
+        const init = async () => {
+            await initApiBase();
+            if (!mounted) return;
+            document.addEventListener('visibilitychange', onVisible);
+            poll();
+            interval = setInterval(poll, 5000);
+        };
+        init();
+
         return () => {
             mounted = false;
             clearInterval(interval);

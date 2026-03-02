@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
+SCHEMA_VERSION = 1
+
 
 class NotesService:
     def __init__(self):
@@ -39,6 +41,30 @@ class NotesService:
         )
         return results
 
+    def _migrate(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Migrate note data to current schema. Re-saves if changed."""
+        version = data.get("_schema_version", 0)
+        if version >= SCHEMA_VERSION:
+            return data
+
+        now = datetime.now(timezone.utc).isoformat()
+        if version < 1:
+            if "id" not in data or not isinstance(data.get("id"), str):
+                data["id"] = str(data.get("id", uuid.uuid4()))
+            if "pinned" not in data:
+                data["pinned"] = False
+            if "created_at" not in data:
+                data["created_at"] = now
+            if "updated_at" not in data:
+                data["updated_at"] = now
+            if "content" not in data:
+                data["content"] = ""
+            data["_schema_version"] = 1
+
+        self._save(data)
+        logger.info(f"Migrated note {data['id']} to schema v{SCHEMA_VERSION}")
+        return data
+
     def get_note(self, note_id: str) -> Optional[Dict[str, Any]]:
         """Return full note including content."""
         path = self.notes_dir / f"{note_id}.json"
@@ -46,7 +72,8 @@ class NotesService:
             return None
         try:
             with open(path, "r") as f:
-                return json.load(f)
+                data = json.load(f)
+            return self._migrate(data)
         except Exception as e:
             logger.error(f"Failed to load note {note_id}: {e}")
             return None
@@ -54,6 +81,7 @@ class NotesService:
     def create_note(self, title: str = "Untitled", content: str = "") -> Dict[str, Any]:
         now = datetime.now(timezone.utc).isoformat()
         note = {
+            "_schema_version": SCHEMA_VERSION,
             "id": str(uuid.uuid4()),
             "title": title,
             "content": content,

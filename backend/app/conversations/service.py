@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
+SCHEMA_VERSION = 1
+
 
 class ConversationService:
     def __init__(self):
@@ -43,6 +45,29 @@ class ConversationService:
         )
         return results
 
+    def _migrate(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Migrate conversation data to current schema. Re-saves if changed."""
+        version = data.get("_schema_version", 0)
+        if version >= SCHEMA_VERSION:
+            return data
+
+        now = datetime.now(timezone.utc).isoformat()
+        if version < 1:
+            if "id" not in data or not isinstance(data.get("id"), str):
+                data["id"] = str(data.get("id", uuid.uuid4()))
+            if "pinned" not in data:
+                data["pinned"] = False
+            if "created_at" not in data:
+                data["created_at"] = now
+            if "updated_at" not in data:
+                data["updated_at"] = now
+            data["message_count"] = len(data.get("messages", []))
+            data["_schema_version"] = 1
+
+        self._save(data)
+        logger.info(f"Migrated conversation {data['id']} to schema v{SCHEMA_VERSION}")
+        return data
+
     def get_conversation(self, conversation_id: str) -> Optional[Dict[str, Any]]:
         """Return full conversation including messages."""
         path = self.conversations_dir / f"{conversation_id}.json"
@@ -50,7 +75,8 @@ class ConversationService:
             return None
         try:
             with open(path, "r") as f:
-                return json.load(f)
+                data = json.load(f)
+            return self._migrate(data)
         except Exception as e:
             logger.error(f"Failed to load conversation {conversation_id}: {e}")
             return None
@@ -63,6 +89,7 @@ class ConversationService:
     ) -> Dict[str, Any]:
         now = datetime.now(timezone.utc).isoformat()
         conversation = {
+            "_schema_version": SCHEMA_VERSION,
             "id": str(uuid.uuid4()),
             "title": title,
             "messages": messages or [],
@@ -144,6 +171,7 @@ class ConversationService:
         now = datetime.now(timezone.utc).isoformat()
         title = source.get("title", "Untitled")
         branch = {
+            "_schema_version": SCHEMA_VERSION,
             "id": str(uuid.uuid4()),
             "title": f"{title} (branch)",
             "messages": branched_messages,

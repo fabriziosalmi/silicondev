@@ -507,6 +507,12 @@ export function Settings() {
         localStorage.removeItem(TOPBAR_SETTINGS_KEY)
     }
 
+    // Log path from Electron
+    const [logPath, setLogPath] = useState<string | null>(null)
+    useEffect(() => {
+        (window as any).electronAPI?.getLogPath?.().then((p: string) => setLogPath(p)).catch(() => {})
+    }, [])
+
     // Storage management
     const [storageInfo, setStorageInfo] = useState<{ total_bytes: number; breakdown: Record<string, number>; path: string } | null>(null)
     const [storageCleaning, setStorageCleaning] = useState(false)
@@ -554,9 +560,9 @@ export function Settings() {
                     <div className="flex flex-col gap-1">
                         <label className="text-xs font-bold text-gray-500 uppercase">Backend URL</label>
                         <div className="flex items-center px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-gray-400">
-                            http://127.0.0.1:8000
+                            {apiClient.API_BASE}
                         </div>
-                        <span className="text-[10px] text-gray-600">Read-only. Configured at build time.</span>
+                        <span className="text-[10px] text-gray-600">Auto-detected at startup.</span>
                     </div>
                     <div className="flex flex-col gap-1">
                         <label className="text-xs font-bold text-gray-500 uppercase">Reasoning Mode</label>
@@ -571,6 +577,15 @@ export function Settings() {
                             <option value="high">High</option>
                         </select>
                     </div>
+                    {logPath && (
+                    <div className="flex flex-col gap-1 col-span-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase">Log File</label>
+                        <div className="flex items-center px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-gray-400 truncate">
+                            {logPath}
+                        </div>
+                        <span className="text-[10px] text-gray-600">Share this file when reporting bugs.</span>
+                    </div>
+                    )}
                 </div>
             </Card>
 

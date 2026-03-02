@@ -1,4 +1,20 @@
-export const API_BASE = 'http://127.0.0.1:8000'
+let API_BASE = 'http://127.0.0.1:8000'
+
+export function getApiBase(): string {
+    return API_BASE;
+}
+
+export async function initApiBase(): Promise<void> {
+    try {
+        const api = (window as any).electronAPI;
+        const port = await api?.getBackendPort?.();
+        if (port && typeof port === 'number') {
+            API_BASE = `http://127.0.0.1:${port}`;
+        }
+    } catch {
+        // Keep default port 8000
+    }
+}
 
 // --- Shared Types ---
 
@@ -221,7 +237,7 @@ async function throwIfNotOk(res: Response, fallback: string): Promise<void> {
 // --- API Client ---
 
 export const apiClient = {
-    API_BASE,
+    get API_BASE() { return API_BASE; },
     monitor: {
         getStats: async (): Promise<SystemStats> => {
             const res = await fetch(`${API_BASE}/api/monitor/stats`);

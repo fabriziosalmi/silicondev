@@ -2,10 +2,21 @@ import { app, BrowserWindow, screen, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
+import log from 'electron-log/main';
+import { autoUpdater } from 'electron-updater';
+
+// File logging: ~/Library/Logs/SiliconDev/main.log on macOS
+log.transports.file.maxSize = 5 * 1024 * 1024;
+log.transports.file.format = '{y}-{m}-{d} {h}:{i}:{s} [{level}] {text}';
 
 let backendProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
+
+// Dynamic port: resolved when backend prints SILICON_PORT=<port>
+let backendPort = 8000;
+let portResolve: ((port: number) => void) | null = null;
+const portReady = new Promise<number>((resolve) => { portResolve = resolve; });
 
 function startBackend() {
     const isDev = !app.isPackaged;
@@ -30,7 +41,7 @@ function startBackend() {
             command = 'conda';
             args = ['run', '-n', 'silicon-studio', '--no-capture-output', 'python', scriptPath];
         }
-        console.log('Starting backend in DEV mode:', command, args);
+        log.info('Starting backend in DEV mode:', command, args);
     } else {
         // In production, run the bundled executable
         // PyInstaller one-dir mode creates a directory 'silicon_server' containing the binary 'silicon_server'
@@ -38,7 +49,7 @@ function startBackend() {
         const binaryName = 'silicon_server';
         scriptPath = path.join(process.resourcesPath, 'backend', 'dist', 'silicon_server', binaryName);
         command = scriptPath;
-        console.log('Starting backend in PROD mode:', command);
+        log.info('Starting backend in PROD mode:', command);
     }
 
     try {
@@ -48,33 +59,39 @@ function startBackend() {
         });
 
         backendProcess.on('error', (err) => {
-            console.error('Failed to spawn backend process:', err);
+            log.error('Failed to spawn backend process:', err);
             dialog.showErrorBox('Backend Error', `Failed to start backend: ${err.message}\nPath: ${command}`);
         });
 
     } catch (e) {
-        console.error('Exception spawning backend:', e);
+        log.error('Exception spawning backend:', e);
         if (e instanceof Error) {
             dialog.showErrorBox('Backend Exception', `Exception starting backend: ${e.message}`);
         }
     }
 
-    // Log to console only (debug file logging disabled for production)
     if (backendProcess && backendProcess.stdout) {
         backendProcess.stdout.on('data', (data) => {
-            console.log(`[Backend]: ${data.toString()}`);
+            const text = data.toString();
+            log.info(`[Backend]: ${text}`);
+            const match = text.match(/SILICON_PORT=(\d+)/);
+            if (match && portResolve) {
+                backendPort = parseInt(match[1], 10);
+                portResolve(backendPort);
+                portResolve = null;
+            }
         });
     }
 
     if (backendProcess && backendProcess.stderr) {
         backendProcess.stderr.on('data', (data) => {
-            console.error(`[Backend Error]: ${data.toString()}`);
+            log.error(`[Backend Error]: ${data.toString()}`);
         });
     }
 
     if (backendProcess) {
         backendProcess.on('close', (code) => {
-            console.log(`Backend process exited with code ${code}`);
+            log.info(`Backend process exited with code ${code}`);
             backendProcess = null;
         });
     }
@@ -82,14 +99,13 @@ function startBackend() {
 
 function stopBackend() {
     if (backendProcess) {
-        console.log('Stopping backend process...');
+        log.info('Stopping backend process...');
         const proc = backendProcess;
         backendProcess = null;
         proc.kill('SIGTERM');
-        // Force kill if still alive after 3 seconds
         setTimeout(() => {
             if (!proc.killed) {
-                console.log('Backend did not exit, sending SIGKILL...');
+                log.warn('Backend did not exit, sending SIGKILL...');
                 proc.kill('SIGKILL');
             }
         }, 3000);
@@ -142,9 +158,8 @@ app.whenReady().then(() => {
     startBackend();
 
     ipcMain.handle('dialog:openFile', async (event) => {
-        // Basic IPC validation: ensure the request comes from our main window frame
         if (!event.senderFrame) {
-            console.warn('Blocked unauthorized dialog:openFile request');
+            log.warn('Blocked unauthorized dialog:openFile request');
             return null;
         }
 
@@ -158,7 +173,7 @@ app.whenReady().then(() => {
 
     ipcMain.handle('dialog:openDirectory', async (event) => {
         if (!event.senderFrame) {
-            console.warn('Blocked unauthorized dialog:openDirectory request');
+            log.warn('Blocked unauthorized dialog:openDirectory request');
             return null;
         }
 
@@ -170,6 +185,44 @@ app.whenReady().then(() => {
     });
 
     createWindow();
+
+    // Port IPC: renderer asks which port the backend chose
+    ipcMain.handle('get-backend-port', async () => {
+        const timeout = new Promise<number>((_, reject) =>
+            setTimeout(() => reject(new Error('Backend port timeout')), 30000)
+        );
+        try {
+            return await Promise.race([portReady, timeout]);
+        } catch {
+            return 8000;
+        }
+    });
+
+    // Log path IPC: renderer can show the log file location in Settings
+    ipcMain.handle('get-log-path', () => {
+        return log.transports.file.getFile().path;
+    });
+
+    // Auto-updater: only in packaged builds
+    if (app.isPackaged) {
+        autoUpdater.autoDownload = true;
+        autoUpdater.autoInstallOnAppQuit = true;
+
+        autoUpdater.on('update-downloaded', (info) => {
+            log.info('Update downloaded:', info.version);
+            mainWindow?.webContents.send('update-downloaded', info.version);
+        });
+
+        autoUpdater.on('error', (err) => {
+            log.error('Auto-updater error:', err);
+        });
+
+        autoUpdater.checkForUpdatesAndNotify();
+    }
+
+    ipcMain.handle('install-update', () => {
+        autoUpdater.quitAndInstall();
+    });
 
     app.on('activate', function () {
         if (mainWindow && !mainWindow.isDestroyed()) {

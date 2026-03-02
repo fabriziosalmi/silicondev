@@ -31,6 +31,16 @@ function App() {
   const conversations = useConversations()
   const notes = useNotes()
   const [loadingMessage, setLoadingMessage] = useState('Initializing backend...')
+  const [updateReady, setUpdateReady] = useState(false)
+  const [updateVersion, setUpdateVersion] = useState('')
+
+  useEffect(() => {
+    const api = (window as any).electronAPI;
+    api?.onUpdateDownloaded?.((version: string) => {
+      setUpdateReady(true);
+      setUpdateVersion(version);
+    });
+  }, []);
 
   const toggleSidebar = () => {
     setSidebarCollapsed(prev => {
@@ -102,6 +112,18 @@ function App() {
 
       {/* Modern Top Status Bar */}
       <TopBar />
+
+      {updateReady && (
+        <div className="flex items-center justify-between px-4 py-2 bg-blue-600/20 border-b border-blue-500/30 text-sm text-blue-300">
+          <span>Version {updateVersion} is ready to install.</span>
+          <button
+            onClick={() => (window as any).electronAPI?.installUpdate?.()}
+            className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded transition-colors"
+          >
+            Restart &amp; Update
+          </button>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden rounded-bl-lg rounded-br-lg border-t border-white/10 bg-[rgba(20,20,20,0.7)]">

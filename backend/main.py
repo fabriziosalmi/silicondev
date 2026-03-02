@@ -70,7 +70,7 @@ except Exception as e:
 app = FastAPI(
     title="SiliconDev Backend",
     description="Local-first LLM fine-tuning engine",
-    version="0.1.0"
+    version="0.4.2"
 )
 
 # Configure CORS for local development securely
@@ -107,9 +107,26 @@ async def health_check():
 
 if __name__ == "__main__":
     import multiprocessing
+    import socket
     multiprocessing.freeze_support()
-    
-    port = int(os.getenv("PORT", 8000))
-    # When frozen, we cannot use reload=True and should pass the app object directly
+
+    preferred = int(os.getenv("PORT", 8000))
+    port = preferred
+
+    for candidate in [preferred] + list(range(8001, 8100)):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.bind(("127.0.0.1", candidate))
+            sock.close()
+            port = candidate
+            break
+        except OSError:
+            continue
+    else:
+        logger.critical("No free port found in range 8000-8099")
+        sys.exit(1)
+
+    # Signal chosen port to Electron parent process
+    print(f"SILICON_PORT={port}", flush=True)
     logger.info(f"Uvicorn starting on port {port}")
     uvicorn.run(app, host="127.0.0.1", port=port, reload=False)
