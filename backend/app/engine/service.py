@@ -406,10 +406,26 @@ class MLXEngineService:
             fmt_warn = self._validate_model_format(load_path)
             if fmt_warn:
                 raise ValueError(f"Incompatible model format: {fmt_warn}")
-            # Memory pre-check: warn if swap is likely
+            # Memory pre-check: block if OOM certain, warn if swap likely
             model_bytes = self._estimate_model_size_bytes(load_path)
             if model_bytes > 0:
-                available = psutil.virtual_memory().available
+                mem = psutil.virtual_memory()
+                total = mem.total
+                available = mem.available
+                # Hard block: model larger than total system RAM
+                if model_bytes > total:
+                    raise MemoryError(
+                        f"Model size ({model_bytes / 1e9:.1f} GB) exceeds total system RAM "
+                        f"({total / 1e9:.1f} GB). Loading this model would crash the system."
+                    )
+                # Hard block: model > available and would use > 90% of total
+                if model_bytes > available and (model_bytes / total) > 0.90:
+                    raise MemoryError(
+                        f"Model size ({model_bytes / 1e9:.1f} GB) exceeds available RAM "
+                        f"({available / 1e9:.1f} GB) with only {total / 1e9:.1f} GB total. "
+                        f"Loading would likely cause a kernel panic."
+                    )
+                # Warn: swap likely
                 if model_bytes > available * 0.8:
                     self._load_warning = (
                         f"Model size ({model_bytes / 1e9:.1f} GB) exceeds available RAM "
@@ -425,6 +441,15 @@ class MLXEngineService:
             self.active_model = model
             self.active_tokenizer = tokenizer
             logger.info(f"Model {model_id} loaded and set as active.")
+
+            # Post-load memory pressure check
+            mem = psutil.virtual_memory()
+            if mem.percent > 85:
+                self._load_warning = (
+                    f"High memory pressure after loading ({mem.percent:.0f}% used). "
+                    f"System may be slow due to swapping."
+                )
+                logger.warning(self._load_warning)
         except Exception as e:
             # Reset state so we don't appear to have a loaded model
             self.active_model_id = None
@@ -463,18 +488,19 @@ class MLXEngineService:
                 return result
         return {}
 
-    def unload_model(self):
+    async def unload_model(self):
         """Explicitly unload the active model and free VRAM."""
-        if self.active_model:
-            logger.info(f"Unloading model {self.active_model_id}...")
-            self.active_model = None
-            self.active_tokenizer = None
-            self.active_model_id = None
-            gc.collect()
-            mx.metal.clear_cache()
-            logger.info("Model unloaded and VRAM cache cleared.")
-        else:
-            logger.info("No model currently loaded.")
+        async with self.generation_lock:
+            if self.active_model:
+                logger.info(f"Unloading model {self.active_model_id}...")
+                self.active_model = None
+                self.active_tokenizer = None
+                self.active_model_id = None
+                gc.collect()
+                mx.metal.clear_cache()
+                logger.info("Model unloaded and VRAM cache cleared.")
+            else:
+                logger.info("No model currently loaded.")
 
     def stop_generation(self):
         """Sets the stop event to interrupt MLX generation."""
@@ -497,17 +523,83 @@ class MLXEngineService:
                     yield {"error": "Model not loaded"}
                     return
 
-                # 2. Prepare Prompt
+                # Memory pressure warning at generation start
+                mem = psutil.virtual_memory()
+                if mem.percent > 85:
+                    yield {
+                        "warning": f"High memory usage ({mem.percent:.0f}%). Generation may be slow.",
+                        "done": False,
+                    }
+
+                # 2. Prepare Prompt — with context overflow protection
+                # Detect model's max context from config
+                max_ctx = None
+                for m in self.models_config:
+                    if m["id"] == model_id:
+                        cw = m.get("context_window", "")
+                        if cw and cw != "Unknown":
+                            import re as _re
+                            match = _re.match(r"^(\d+)k$", str(cw), _re.IGNORECASE)
+                            if match:
+                                max_ctx = int(match.group(1)) * 1024
+                            else:
+                                try:
+                                    max_ctx = int(cw)
+                                except ValueError:
+                                    pass
+                        break
+
                 if hasattr(tokenizer, "apply_chat_template"):
-                    prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                    try:
+                        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                    except Exception:
+                        # Fallback: raw ChatML format
+                        parts = []
+                        for msg in messages:
+                            role = msg.get("role", msg.get("role", "user"))
+                            content = msg.get("content", msg.get("content", ""))
+                            parts.append(f"<|im_start|>{role}\n{content}<|im_end|>")
+                        parts.append("<|im_start|>assistant\n")
+                        prompt = "\n".join(parts)
                 else:
                     prompt = messages[-1]['content']
+
+                # Truncate if prompt exceeds model context (FIFO: drop oldest messages)
+                if max_ctx and max_ctx > 0:
+                    reserve_tokens = max_tokens  # leave room for generation
+                    prompt_limit = max_ctx - reserve_tokens
+                    if prompt_limit < 128:
+                        prompt_limit = 128
+                    token_count = len(tokenizer.encode(prompt))
+                    if token_count > prompt_limit:
+                        logger.warning(
+                            f"Prompt ({token_count} tokens) exceeds context limit "
+                            f"({max_ctx}) minus reserve ({reserve_tokens}). Truncating."
+                        )
+                        # Re-build with fewer messages (drop oldest user/assistant turns)
+                        trimmed = list(messages)
+                        while len(trimmed) > 1:
+                            trimmed.pop(0)  # drop oldest
+                            if hasattr(tokenizer, "apply_chat_template"):
+                                try:
+                                    prompt = tokenizer.apply_chat_template(
+                                        trimmed, tokenize=False, add_generation_prompt=True
+                                    )
+                                except Exception:
+                                    prompt = trimmed[-1].get("content", trimmed[-1].get("content", ""))
+                            else:
+                                prompt = trimmed[-1].get("content", trimmed[-1].get("content", ""))
+                            if len(tokenizer.encode(prompt)) <= prompt_limit:
+                                break
 
                 # 3. Reset Stop Event
                 self.stop_event.clear()
 
                 # 4. Stream Generation
                 temp = kwargs.get("temperature", 0.7)
+                # Clamp: temp=0 can cause division by zero in softmax on some MLX versions
+                if temp < 0.01:
+                    temp = 0.01
                 max_tokens = kwargs.get("max_tokens", 512)
                 top_p = kwargs.get("top_p", 0.9)
                 repetition_penalty = kwargs.get("repetition_penalty", 1.1)
@@ -601,6 +693,21 @@ class MLXEngineService:
                 self.active_jobs[job_id]["status"] = "training"
             model_id = config.get("model_id")
             dataset_path = config.get("dataset_path")
+
+            # Pre-check: reject datasets that would OOM when loaded into RAM
+            _MAX_DATASET_MB = 500  # 500 MB limit for in-memory loading
+            try:
+                ds_size = os.path.getsize(dataset_path)
+                ds_mb = ds_size / (1024 * 1024)
+                if ds_mb > _MAX_DATASET_MB:
+                    raise ValueError(
+                        f"Dataset too large ({ds_mb:.0f} MB). "
+                        f"Maximum supported size is {_MAX_DATASET_MB} MB. "
+                        f"Split the file into smaller chunks."
+                    )
+            except OSError as e:
+                raise ValueError(f"Cannot read dataset: {e}")
+
             epochs = int(config.get("epochs", 3))
             lr = float(config.get("learning_rate", 1e-4))
             
@@ -1152,6 +1259,28 @@ class MLXEngineService:
         
         # Pre-flight: check disk space at export target
         _check_disk_space(Path(output_path).parent)
+
+        # Pre-flight: memory check — fusing loads the full model + adapter into RAM
+        base_entry = self._get_model_config_by_id(base_model)
+        if base_entry:
+            base_path = Path(base_entry["id"]) if Path(base_entry["id"]).is_absolute() else None
+            if base_path and base_path.is_dir():
+                model_bytes = self._estimate_model_size_bytes(base_path)
+                if model_bytes > 0:
+                    mem = psutil.virtual_memory()
+                    # Fusing roughly doubles RAM: original + fused output
+                    needed = model_bytes * 2
+                    if needed > mem.total:
+                        raise MemoryError(
+                            f"Export needs ~{needed / 1e9:.1f} GB RAM (model + fused copy) "
+                            f"but system only has {mem.total / 1e9:.1f} GB. "
+                            f"Try quantizing to fewer bits or use a smaller model."
+                        )
+                    if needed > mem.available:
+                        logger.warning(
+                            f"Export may cause heavy swapping: needs ~{needed / 1e9:.1f} GB, "
+                            f"only {mem.available / 1e9:.1f} GB available"
+                        )
 
         logger.info(f"Exporting model {model_id} to {output_path} (Quant: {q_bits} bits)...")
 

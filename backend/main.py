@@ -96,7 +96,7 @@ async def lifespan(app: FastAPI):
         from app.api.engine import service as engine_service
         engine_service.stop_generation()
         if engine_service.active_model is not None:
-            engine_service.unload_model()
+            await engine_service.unload_model()
             logger.info("Unloaded MLX model")
     except Exception as e:
         logger.debug(f"Engine shutdown: {e}")

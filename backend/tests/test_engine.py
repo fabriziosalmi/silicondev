@@ -117,6 +117,7 @@ def test_load_model_failure(mock_service):
 
 @patch("app.api.engine.service")
 def test_unload_model(mock_service):
+    mock_service.unload_model = AsyncMock()
     resp = client.post("/api/engine/models/unload")
     assert resp.status_code == 200
     assert resp.json()["status"] == "unloaded"
@@ -124,7 +125,7 @@ def test_unload_model(mock_service):
 
 @patch("app.api.engine.service")
 def test_unload_model_failure(mock_service):
-    mock_service.unload_model.side_effect = Exception("cleanup error")
+    mock_service.unload_model = AsyncMock(side_effect=Exception("cleanup error"))
     resp = client.post("/api/engine/models/unload")
     assert resp.status_code == 500
 

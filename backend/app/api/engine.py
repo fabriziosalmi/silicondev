@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Dict, Any, List, Optional
 import uuid
 import json
@@ -110,6 +110,8 @@ async def load_model(request: LoadModelRequest):
         await service.load_active_model(request.model_id)
         metadata = service.get_active_model_metadata()
         return {"status": "loaded", "model_id": request.model_id, **metadata}
+    except MemoryError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except ValueError as e:
@@ -123,7 +125,7 @@ async def load_model(request: LoadModelRequest):
 async def unload_model():
     """Unload the currently active model and free VRAM."""
     try:
-        service.unload_model()
+        await service.unload_model()
         return {"status": "unloaded"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -163,10 +165,19 @@ async def stop_generation():
     service.stop_generation()
     return {"status": "stopped"}
 
+_VALID_Q_BITS = {0, 2, 3, 4, 6, 8}
+
 class ExportRequest(BaseModel):
     model_id: str = Field(min_length=1, max_length=255)
     output_path: str = Field(min_length=1, max_length=1024)
-    q_bits: int = Field(default=4, ge=0, le=16)
+    q_bits: int = Field(default=4)
+
+    @field_validator("q_bits")
+    @classmethod
+    def validate_q_bits(cls, v):
+        if v not in _VALID_Q_BITS:
+            raise ValueError(f"q_bits must be one of {sorted(_VALID_Q_BITS)}, got {v}")
+        return v
 
 @router.post("/models/export")
 async def export_model(request: ExportRequest):
