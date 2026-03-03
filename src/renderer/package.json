@@ -13,6 +13,7 @@
     "generate:types": "openapi-typescript http://127.0.0.1:8000/openapi.json -o src/api/generated-types.ts"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "lucide-react": "^0.575.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

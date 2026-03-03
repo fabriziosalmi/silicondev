@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.6.1
+
+### Code Workspace Enhancements
+- New File creation: FilePlus button in file tree header, inline filename input, auto-creates parent dirs
+- File context menu: right-click or `...` button on any file/folder for Rename, Delete, Copy Path
+- Inline rename with auto-selection of name without extension
+- Delete with confirmation dialog, auto-closes open tabs
+- Workspace dir now saved independently from codebase indexer — Code tab works even if no source files are found for semantic search
+
+### Monaco Editor Fix
+- Fixed `Cannot read properties of null (reading 'useState')` crash when opening files
+- Root cause: dual React instances — `@monaco-editor/react` was in root package.json but renderer has its own React
+- Moved Monaco to renderer dependencies + Vite resolve alias to guarantee single React instance
+
+### DMG Build Fix
+- Added `"size": "2g"` to DMG config for larger app bundles (~950MB with mlx-vlm)
+- Fixed "No space left on device" error during DMG creation
+
+### Settings Fix
+- "Select Directory" button now correctly opens Finder dialog (was calling wrong IPC method)
+- Improved error message when codebase indexer finds no source files
+
 ## v0.6.0
 
 ### Vision Model Support

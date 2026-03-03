@@ -1,5 +1,5 @@
-import { useState, memo, useCallback } from 'react'
-import { FolderOpen, FolderClosed, FileCode, FileText, ChevronRight, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useRef, memo, useCallback } from 'react'
+import { FolderOpen, FolderClosed, FileCode, FileText, ChevronRight, ChevronDown, MoreHorizontal, Pencil, Trash2, Copy } from 'lucide-react'
 
 export interface TreeNode {
   name: string
@@ -11,6 +11,8 @@ export interface TreeNode {
 interface FileTreeProps {
   tree: TreeNode | null
   onFileSelect: (path: string) => void
+  onRename: (path: string, newName: string) => void
+  onDelete: (path: string) => void
   activeFile: string | null
 }
 
@@ -41,26 +43,136 @@ function isCodeFile(name: string): boolean {
   return codeExts.includes(ext)
 }
 
+function ContextMenu({ x, y, onRename, onDelete, onCopyPath, onClose }: {
+  x: number; y: number
+  onRename: () => void; onDelete: () => void; onCopyPath: () => void; onClose: () => void
+}) {
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed z-50 min-w-[140px] py-1 bg-[#1e1e1e] border border-white/10 rounded-md shadow-xl"
+      style={{ left: x, top: y }}
+    >
+      <button
+        type="button"
+        onClick={() => { onRename(); onClose() }}
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-300 hover:bg-white/10 transition-colors text-left"
+      >
+        <Pencil size={12} /> Rename
+      </button>
+      <button
+        type="button"
+        onClick={() => { onCopyPath(); onClose() }}
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-300 hover:bg-white/10 transition-colors text-left"
+      >
+        <Copy size={12} /> Copy Path
+      </button>
+      <div className="my-1 border-t border-white/5" />
+      <button
+        type="button"
+        onClick={() => { onDelete(); onClose() }}
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-red-400 hover:bg-red-500/10 transition-colors text-left"
+      >
+        <Trash2 size={12} /> Delete
+      </button>
+    </div>
+  )
+}
+
 const TreeItem = memo(function TreeItem({
   node,
   depth,
   onFileSelect,
+  onRename,
+  onDelete,
   activeFile,
 }: {
   node: TreeNode
   depth: number
   onFileSelect: (path: string) => void
+  onRename: (path: string, newName: string) => void
+  onDelete: (path: string) => void
   activeFile: string | null
 }) {
   const [expanded, setExpanded] = useState(depth < 1)
+  const [renaming, setRenaming] = useState(false)
+  const [renameName, setRenameName] = useState(node.name)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const renameInputRef = useRef<HTMLInputElement>(null)
 
   const handleClick = useCallback(() => {
+    if (renaming) return
     if (node.type === 'dir') {
       setExpanded(prev => !prev)
     } else {
       onFileSelect(node.path)
     }
-  }, [node.type, node.path, onFileSelect])
+  }, [node.type, node.path, onFileSelect, renaming])
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ x: e.clientX, y: e.clientY })
+  }, [])
+
+  const handleDotsClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setContextMenu({ x: rect.right, y: rect.bottom })
+  }, [])
+
+  const startRename = useCallback(() => {
+    setRenameName(node.name)
+    setRenaming(true)
+    setTimeout(() => {
+      const input = renameInputRef.current
+      if (input) {
+        input.focus()
+        // Select name without extension for files
+        const dotIdx = node.name.lastIndexOf('.')
+        if (node.type === 'file' && dotIdx > 0) {
+          input.setSelectionRange(0, dotIdx)
+        } else {
+          input.select()
+        }
+      }
+    }, 50)
+  }, [node.name, node.type])
+
+  const commitRename = useCallback(() => {
+    const trimmed = renameName.trim()
+    if (trimmed && trimmed !== node.name) {
+      onRename(node.path, trimmed)
+    }
+    setRenaming(false)
+  }, [renameName, node.name, node.path, onRename])
+
+  const handleDelete = useCallback(() => {
+    const what = node.type === 'dir' ? `folder "${node.name}" and all its contents` : `"${node.name}"`
+    if (confirm(`Delete ${what}?`)) {
+      onDelete(node.path)
+    }
+  }, [node.name, node.path, node.type, onDelete])
+
+  const handleCopyPath = useCallback(() => {
+    navigator.clipboard.writeText(node.path).catch(() => {})
+  }, [node.path])
 
   const isActive = node.type === 'file' && node.path === activeFile
   const paddingLeft = 8 + depth * 16
@@ -71,8 +183,9 @@ const TreeItem = memo(function TreeItem({
         role="button"
         tabIndex={0}
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick() }}
-        className={`flex items-center gap-1.5 py-[3px] pr-2 cursor-pointer text-[12px] transition-colors hover:bg-white/5 ${
+        className={`group flex items-center gap-1.5 py-[3px] pr-1 cursor-pointer text-[12px] transition-colors hover:bg-white/5 ${
           isActive ? 'bg-blue-500/15 text-blue-300' : 'text-gray-400'
         }`}
         style={{ paddingLeft }}
@@ -98,8 +211,47 @@ const TreeItem = memo(function TreeItem({
             )}
           </>
         )}
-        <span className="truncate">{node.name}</span>
+        {renaming ? (
+          <input
+            ref={renameInputRef}
+            type="text"
+            value={renameName}
+            onChange={e => setRenameName(e.target.value)}
+            onKeyDown={e => {
+              e.stopPropagation()
+              if (e.key === 'Enter') commitRename()
+              if (e.key === 'Escape') setRenaming(false)
+            }}
+            onBlur={commitRename}
+            title="Rename"
+            placeholder="New name"
+            className="flex-1 min-w-0 px-1 py-0 bg-black/40 border border-blue-500/40 rounded text-[11px] text-gray-200 outline-none"
+          />
+        ) : (
+          <>
+            <span className="truncate flex-1 min-w-0">{node.name}</span>
+            <button
+              type="button"
+              title="Actions"
+              onClick={handleDotsClick}
+              className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-white/10 text-gray-600 hover:text-gray-300 transition-all shrink-0"
+            >
+              <MoreHorizontal size={12} />
+            </button>
+          </>
+        )}
       </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onRename={startRename}
+          onDelete={handleDelete}
+          onCopyPath={handleCopyPath}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
 
       {node.type === 'dir' && expanded && node.children?.map(child => (
         <TreeItem
@@ -107,6 +259,8 @@ const TreeItem = memo(function TreeItem({
           node={child}
           depth={depth + 1}
           onFileSelect={onFileSelect}
+          onRename={onRename}
+          onDelete={onDelete}
           activeFile={activeFile}
         />
       ))}
@@ -114,7 +268,7 @@ const TreeItem = memo(function TreeItem({
   )
 })
 
-export function FileTree({ tree, onFileSelect, activeFile }: FileTreeProps) {
+export function FileTree({ tree, onFileSelect, onRename, onDelete, activeFile }: FileTreeProps) {
   if (!tree) {
     return (
       <div className="flex items-center justify-center h-full text-xs text-gray-600">
@@ -131,6 +285,8 @@ export function FileTree({ tree, onFileSelect, activeFile }: FileTreeProps) {
           node={child}
           depth={0}
           onFileSelect={onFileSelect}
+          onRename={onRename}
+          onDelete={onDelete}
           activeFile={activeFile}
         />
       ))}

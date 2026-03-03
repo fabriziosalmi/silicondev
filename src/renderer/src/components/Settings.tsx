@@ -479,15 +479,17 @@ function CodebaseIndexSection() {
     const handleIndex = async (directory: string) => {
         setIndexing(true)
         setIndexResult(null)
+        // Always set workspace dir so the Code tab can browse files,
+        // even if the codebase indexer finds no source files to index.
+        localStorage.setItem('silicon-studio-workspace-dir', directory)
+        window.dispatchEvent(new CustomEvent('workspace-dir-changed', { detail: directory }))
         try {
             const result = await apiClient.codebase.index(directory)
             setIndexResult(`Indexed ${result.file_count} files into ${result.chunk_count} chunks`)
-            // Store workspace dir for the Code tab
-            localStorage.setItem('silicon-studio-workspace-dir', directory)
-            window.dispatchEvent(new CustomEvent('workspace-dir-changed', { detail: directory }))
             fetchStatus()
         } catch (err) {
-            setIndexResult(err instanceof Error ? err.message : 'Indexing failed')
+            const msg = err instanceof Error ? err.message : 'Indexing failed'
+            setIndexResult(msg.includes('No source files') ? 'Workspace set. No source files found for semantic search, but you can browse files in the Code tab.' : msg)
         } finally { setIndexing(false) }
     }
 

@@ -113,6 +113,19 @@ class ReadRequest(BaseModel):
     path: str = Field(min_length=1, max_length=4096)
 
 
+class CreateRequest(BaseModel):
+    path: str = Field(min_length=1, max_length=4096)
+
+
+class RenameRequest(BaseModel):
+    path: str = Field(min_length=1, max_length=4096)
+    new_name: str = Field(min_length=1, max_length=255)
+
+
+class DeleteRequest(BaseModel):
+    path: str = Field(min_length=1, max_length=4096)
+
+
 class SaveRequest(BaseModel):
     path: str = Field(min_length=1, max_length=4096)
     content: str
@@ -145,6 +158,53 @@ async def read_file(req: ReadRequest):
         "content": content,
         "language": _detect_language(req.path),
     }
+
+
+@router.post("/create")
+async def create_file(req: CreateRequest):
+    """Create a new empty file. Parent directories are created automatically."""
+    path = Path(req.path).resolve()
+    if path.exists():
+        raise HTTPException(status_code=409, detail="File already exists")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("", encoding="utf-8")
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Cannot create file: {e}")
+    return {"ok": True, "path": str(path)}
+
+
+@router.post("/rename")
+async def rename_file(req: RenameRequest):
+    """Rename a file or directory. new_name is the new filename (not full path)."""
+    path = Path(req.path).resolve()
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    new_path = path.parent / req.new_name
+    if new_path.exists():
+        raise HTTPException(status_code=409, detail="A file with that name already exists")
+    try:
+        path.rename(new_path)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Cannot rename: {e}")
+    return {"ok": True, "old_path": str(path), "new_path": str(new_path)}
+
+
+@router.post("/delete")
+async def delete_file(req: DeleteRequest):
+    """Delete a file or empty directory."""
+    path = Path(req.path).resolve()
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    try:
+        if path.is_dir():
+            import shutil
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Cannot delete: {e}")
+    return {"ok": True, "path": str(path)}
 
 
 @router.post("/save")

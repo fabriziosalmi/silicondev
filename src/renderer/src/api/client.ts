@@ -798,6 +798,33 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to read file');
             return res.json();
         },
+        createFile: async (path: string): Promise<{ ok: boolean; path: string }> => {
+            const res = await fetch(`${API_BASE}/api/workspace/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path })
+            });
+            await throwIfNotOk(res, 'Failed to create file');
+            return res.json();
+        },
+        renameFile: async (path: string, newName: string): Promise<{ ok: boolean; old_path: string; new_path: string }> => {
+            const res = await fetch(`${API_BASE}/api/workspace/rename`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path, new_name: newName })
+            });
+            await throwIfNotOk(res, 'Failed to rename file');
+            return res.json();
+        },
+        deleteFile: async (path: string): Promise<{ ok: boolean }> => {
+            const res = await fetch(`${API_BASE}/api/workspace/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path })
+            });
+            await throwIfNotOk(res, 'Failed to delete file');
+            return res.json();
+        },
         saveFile: async (path: string, content: string): Promise<{ ok: boolean; bytes: number }> => {
             const res = await fetch(`${API_BASE}/api/workspace/save`, {
                 method: 'POST',

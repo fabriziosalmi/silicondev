@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { X, Circle, Save, FolderSearch, Settings as SettingsIcon } from 'lucide-react'
+import { X, Circle, Save, FolderSearch, Settings as SettingsIcon, FilePlus } from 'lucide-react'
 import { FileTree } from './FileTree'
 import { MonacoEditor } from './MonacoEditor'
 import { apiClient } from '../../api/client'
@@ -24,6 +24,9 @@ export function CodeWorkspace() {
   const [loading, setLoading] = useState(false)
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const [creatingFile, setCreatingFile] = useState(false)
+  const [newFileName, setNewFileName] = useState('')
+  const newFileInputRef = useRef<HTMLInputElement>(null)
 
   // Listen for workspace directory changes from Settings
   useEffect(() => {
@@ -111,6 +114,78 @@ export function CodeWorkspace() {
     ))
   }, [])
 
+  const handleCreateFile = useCallback(async () => {
+    const name = newFileName.trim()
+    if (!name || !workspaceDir) return
+    setCreatingFile(false)
+    setNewFileName('')
+    const fullPath = `${workspaceDir}/${name}`
+    try {
+      await apiClient.workspace.createFile(fullPath)
+      // Refresh tree
+      const newTree = await apiClient.workspace.tree(workspaceDir)
+      setTree(newTree)
+      // Read the file through the backend to get the correct language
+      try {
+        const { content, language } = await apiClient.workspace.readFile(fullPath)
+        const shortName = name.split('/').pop() || name
+        setOpenFiles(prev => [...prev, { path: fullPath, name: shortName, content, language, dirty: false, savedContent: content }])
+        setActiveFile(fullPath)
+      } catch {
+        // File was created but can't read — just select it in the tree
+        setActiveFile(null)
+      }
+    } catch (err) {
+      setSaveStatus(err instanceof Error ? err.message : 'Create failed')
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(() => setSaveStatus(null), 3000)
+    }
+  }, [newFileName, workspaceDir])
+
+  const refreshTree = useCallback(async () => {
+    if (!workspaceDir) return
+    try {
+      const newTree = await apiClient.workspace.tree(workspaceDir)
+      setTree(newTree)
+    } catch { /* ignore */ }
+  }, [workspaceDir])
+
+  const handleRenameFile = useCallback(async (filePath: string, newName: string) => {
+    try {
+      const result = await apiClient.workspace.renameFile(filePath, newName)
+      // Update open tabs that reference the old path
+      setOpenFiles(prev => prev.map(f => {
+        if (f.path === filePath) {
+          return { ...f, path: result.new_path, name: newName }
+        }
+        return f
+      }))
+      if (activeFile === filePath) setActiveFile(result.new_path)
+      await refreshTree()
+    } catch (err) {
+      setSaveStatus(err instanceof Error ? err.message : 'Rename failed')
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(() => setSaveStatus(null), 3000)
+    }
+  }, [activeFile, refreshTree])
+
+  const handleDeleteFile = useCallback(async (filePath: string) => {
+    try {
+      await apiClient.workspace.deleteFile(filePath)
+      // Close the tab if it was open
+      setOpenFiles(prev => prev.filter(f => f.path !== filePath))
+      if (activeFile === filePath) {
+        const remaining = openFiles.filter(f => f.path !== filePath)
+        setActiveFile(remaining.length > 0 ? remaining[remaining.length - 1].path : null)
+      }
+      await refreshTree()
+    } catch (err) {
+      setSaveStatus(err instanceof Error ? err.message : 'Delete failed')
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(() => setSaveStatus(null), 3000)
+    }
+  }, [activeFile, openFiles, refreshTree])
+
   const active = openFiles.find(f => f.path === activeFile)
 
   // Empty state: no workspace configured
@@ -179,16 +254,55 @@ export function CodeWorkspace() {
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
         {/* File tree sidebar */}
-        <div className="w-56 border-r border-white/5 bg-black/20 shrink-0 overflow-hidden">
-          <div className="px-2 py-1.5 text-[10px] font-bold text-gray-600 uppercase tracking-wide border-b border-white/5 truncate">
-            {tree?.name || 'Explorer'}
+        <div className="w-56 border-r border-white/5 bg-black/20 shrink-0 overflow-hidden flex flex-col">
+          <div className="px-2 py-1.5 flex items-center justify-between border-b border-white/5">
+            <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wide truncate">
+              {tree?.name || 'Explorer'}
+            </span>
+            <button
+              type="button"
+              title="New File"
+              onClick={() => { setCreatingFile(true); setTimeout(() => newFileInputRef.current?.focus(), 50) }}
+              className="p-0.5 rounded hover:bg-white/10 text-gray-600 hover:text-gray-300 transition-colors"
+            >
+              <FilePlus size={13} />
+            </button>
           </div>
+          {creatingFile && (
+            <div className="px-2 py-1 border-b border-white/5 bg-black/30">
+              <input
+                ref={newFileInputRef}
+                type="text"
+                value={newFileName}
+                onChange={e => setNewFileName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleCreateFile()
+                  if (e.key === 'Escape') { setCreatingFile(false); setNewFileName('') }
+                }}
+                onBlur={() => { if (!newFileName.trim()) { setCreatingFile(false); setNewFileName('') } }}
+                placeholder="filename.py (or path/to/file.py)"
+                className="w-full px-1.5 py-1 bg-black/40 border border-white/10 rounded text-[11px] text-gray-300 placeholder-gray-600 outline-none focus:border-blue-500/40"
+              />
+            </div>
+          )}
           {loading ? (
             <div className="flex items-center justify-center py-8 text-gray-600 text-xs">
               Loading...
             </div>
+          ) : tree && (!tree.children || tree.children.length === 0) ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-3">
+              <p className="text-[11px] text-gray-600">Empty directory</p>
+              <button
+                type="button"
+                onClick={() => { setCreatingFile(true); setTimeout(() => newFileInputRef.current?.focus(), 50) }}
+                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded text-[11px] text-blue-400 transition-colors"
+              >
+                <FilePlus size={12} />
+                New File
+              </button>
+            </div>
           ) : (
-            <FileTree tree={tree} onFileSelect={handleFileSelect} activeFile={activeFile} />
+            <FileTree tree={tree} onFileSelect={handleFileSelect} onRename={handleRenameFile} onDelete={handleDeleteFile} activeFile={activeFile} />
           )}
         </div>
 
