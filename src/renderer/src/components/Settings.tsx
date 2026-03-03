@@ -465,9 +465,9 @@ function CodebaseIndexSection() {
     const handlePickDirectory = async () => {
         try {
             const api = (window as any).electronAPI
-            const result = await api?.showOpenDialog?.({ properties: ['openDirectory'] })
-            if (result?.filePaths?.[0]) {
-                handleIndex(result.filePaths[0])
+            const dir = await api?.selectDirectory?.()
+            if (dir) {
+                handleIndex(dir)
             }
         } catch {
             // Fallback: prompt for path
