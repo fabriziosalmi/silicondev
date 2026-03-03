@@ -43,8 +43,8 @@ function isCodeFile(name: string): boolean {
   return codeExts.includes(ext)
 }
 
-function ContextMenu({ x, y, node, onRename, onDelete, onCopyPath, onClose }: {
-  x: number; y: number; node: TreeNode
+function ContextMenu({ x, y, onRename, onDelete, onCopyPath, onClose }: {
+  x: number; y: number
   onRename: () => void; onDelete: () => void; onCopyPath: () => void; onClose: () => void
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
@@ -246,7 +246,6 @@ const TreeItem = memo(function TreeItem({
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          node={node}
           onRename={startRename}
           onDelete={handleDelete}
           onCopyPath={handleCopyPath}

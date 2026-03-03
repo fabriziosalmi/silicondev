@@ -174,10 +174,8 @@ export function CodeWorkspace() {
       await apiClient.workspace.deleteFile(filePath)
       setOpenFiles(prev => prev.filter(f => f.path !== filePath))
       if (activeFile === filePath) {
-        setActiveFile(prev => {
-          const remaining = openFiles.filter(f => f.path !== filePath)
-          return remaining.length > 0 ? remaining[remaining.length - 1].path : null
-        })
+        const remaining = openFiles.filter(f => f.path !== filePath)
+        setActiveFile(remaining.length > 0 ? remaining[remaining.length - 1].path : null)
       }
       await refreshTree()
     } catch (err) {
@@ -356,11 +354,7 @@ export function CodeWorkspace() {
                 modifiedContent={activeDiff.newContent}
                 language={active.language}
                 onApprove={() => handleDiffApprove(active.path)}
-                onReject={(reason) => {
-                  handleDiffReject(active.path)
-                  // The AgentPanel's handleDiffDecided is separate — we just remove the visual diff here
-                  // The MessageFeed's HolographicDiff handles the API call for approve/reject
-                }}
+                onReject={() => handleDiffReject(active.path)}
               />
             ) : (
               <MonacoEditor
