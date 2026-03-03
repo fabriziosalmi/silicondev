@@ -1,97 +1,44 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { PanelRightOpen, PanelRightClose, Trash2, AlertCircle } from 'lucide-react'
-import { useGlobalState } from '../../context/GlobalState'
+import { Trash2 } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { MessageFeed } from './MessageFeed'
 import { InputBar } from './InputBar'
-import type { TerminalMode } from './InputBar'
-import { TelemetrySidebar } from './TelemetrySidebar'
-import type { FeedItem, TelemetryData, SSEEvent } from './types'
-
-const EMPTY_TELEMETRY: TelemetryData = {
-  agent: '',
-  state: 'idle',
-  tokensUsed: 0,
-  elapsedMs: 0,
-  iteration: 0,
-  actions: [],
-  tokenBudget: 50000,
-  budgetFraction: 0,
-}
+import type { FeedItem, SSEEvent } from './types'
 
 const STORAGE_KEY_FEED = 'nanocore-terminal-feed'
-const STORAGE_KEY_TELEMETRY = 'nanocore-terminal-telemetry'
-const STORAGE_KEY_MODE = 'nanocore-terminal-mode'
 
 function loadPersistedFeed(): FeedItem[] {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY_FEED)
     if (!raw) return []
-    const items: FeedItem[] = JSON.parse(raw)
-    return items.map((it) => {
-      if (it.diffMeta?.status === 'pending') {
-        return { ...it, diffMeta: { ...it.diffMeta, status: 'rejected', rejectReason: 'Session lost (page refreshed)' } }
-      }
-      if (it.escalationMeta?.status === 'pending') {
-        return { ...it, escalationMeta: { ...it.escalationMeta, status: 'responded', userMessage: '(session lost)' } }
-      }
-      return it
-    })
+    return JSON.parse(raw) as FeedItem[]
   } catch {
     return []
   }
 }
 
-function loadPersistedTelemetry(): TelemetryData {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY_TELEMETRY)
-    return raw ? JSON.parse(raw) : EMPTY_TELEMETRY
-  } catch {
-    return EMPTY_TELEMETRY
-  }
-}
-
-function loadPersistedMode(): TerminalMode {
-  const raw = localStorage.getItem(STORAGE_KEY_MODE)
-  return raw === 'agent' ? 'agent' : 'terminal'
-}
-
 export function AgentTerminal() {
-  const { activeModel } = useGlobalState()
   const [feedItems, setFeedItems] = useState<FeedItem[]>(loadPersistedFeed)
   const [isRunning, setIsRunning] = useState(false)
   const [sessionId, setSessionId] = useState('')
-  const [telemetry, setTelemetry] = useState<TelemetryData>(loadPersistedTelemetry)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [mode, setMode] = useState<TerminalMode>(loadPersistedMode)
 
-  // Abort any running stream on unmount
+  const toolOutputIdRef = useRef<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Abort stream on unmount
   useEffect(() => {
     return () => { abortRef.current?.abort() }
   }, [])
 
+  // Persist feed
   useEffect(() => {
     try { sessionStorage.setItem(STORAGE_KEY_FEED, JSON.stringify(feedItems)) } catch { /* quota */ }
   }, [feedItems])
-  useEffect(() => {
-    try { sessionStorage.setItem(STORAGE_KEY_TELEMETRY, JSON.stringify(telemetry)) } catch { /* quota */ }
-  }, [telemetry])
-
-  const handleModeChange = useCallback((m: TerminalMode) => {
-    setMode(m)
-    localStorage.setItem(STORAGE_KEY_MODE, m)
-  }, [])
 
   const clearHistory = useCallback(() => {
     setFeedItems([])
-    setTelemetry(EMPTY_TELEMETRY)
     sessionStorage.removeItem(STORAGE_KEY_FEED)
-    sessionStorage.removeItem(STORAGE_KEY_TELEMETRY)
   }, [])
-
-  const aiTextIdRef = useRef<string | null>(null)
-  const toolOutputIdRef = useRef<string | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
 
   const addFeedItem = useCallback((item: FeedItem) => {
     setFeedItems((prev) => [...prev, item])
@@ -101,27 +48,7 @@ export function AgentTerminal() {
     setFeedItems((prev) => prev.map((it) => (it.id === id ? updater(it) : it)))
   }, [])
 
-  const handleDiffDecided = useCallback((callId: string, approved: boolean, reason?: string) => {
-    setFeedItems((prev) =>
-      prev.map((it) =>
-        it.diffMeta?.callId === callId
-          ? { ...it, diffMeta: { ...it.diffMeta, status: approved ? 'approved' : 'rejected', rejectReason: reason } }
-          : it
-      )
-    )
-  }, [])
-
-  const handleEscalationResponded = useCallback((escalationId: string, userMessage: string) => {
-    setFeedItems((prev) =>
-      prev.map((it) =>
-        it.escalationMeta?.escalationId === escalationId
-          ? { ...it, escalationMeta: { ...it.escalationMeta, status: 'responded', userMessage } }
-          : it
-      )
-    )
-  }, [])
-
-  // --- SSE stream consumer (shared between both modes) ---
+  // SSE stream consumer (bash only)
   const consumeSSE = useCallback(async (url: string, body: Record<string, unknown>) => {
     const controller = new AbortController()
     abortRef.current = controller
@@ -187,42 +114,6 @@ export function AgentTerminal() {
           setSessionId(d.session_id as string)
           break
 
-        case 'token_stream': {
-          const text = d.text as string
-          if (!aiTextIdRef.current) {
-            const id = crypto.randomUUID()
-            aiTextIdRef.current = id
-            addFeedItem({ id, type: 'ai_text', content: text, timestamp: Date.now() })
-          } else {
-            updateFeedItem(aiTextIdRef.current, (it) => ({ ...it, content: it.content + text }))
-          }
-          toolOutputIdRef.current = null
-          break
-        }
-
-        case 'tool_start': {
-          aiTextIdRef.current = null
-          toolOutputIdRef.current = null
-
-          const tool = d.tool as string
-          const cmd = (d.args as Record<string, string>)?.command || ''
-          const callId = d.call_id as string
-          const label = tool === 'run_bash' ? `$ ${cmd}` : `${tool}`
-          addFeedItem({
-            id: crypto.randomUUID(),
-            type: 'tool_start',
-            content: label,
-            timestamp: Date.now(),
-            toolMeta: { callId, tool, command: cmd },
-          })
-
-          setTelemetry((prev) => ({
-            ...prev,
-            actions: [...prev.actions, { timestamp: Date.now(), action: tool, detail: cmd }],
-          }))
-          break
-        }
-
         case 'tool_log': {
           const text = d.text as string
           const callId = d.call_id as string
@@ -255,109 +146,20 @@ export function AgentTerminal() {
           break
         }
 
-        case 'diff_proposal': {
-          aiTextIdRef.current = null
-          toolOutputIdRef.current = null
-          const filePath = d.file_path as string
-          addFeedItem({
-            id: crypto.randomUUID(),
-            type: 'diff_proposal',
-            content: '',
-            timestamp: Date.now(),
-            diffMeta: {
-              callId: d.call_id as string,
-              filePath,
-              oldContent: d.old as string,
-              newContent: d.new as string,
-              diff: d.diff as string,
-              status: 'pending',
-            },
-          })
-          // Signal the Code workspace to open this file
-          window.dispatchEvent(new CustomEvent('workspace-open-file', { detail: filePath }))
-          break
-        }
-
-        case 'telemetry_update':
-          setTelemetry((prev) => ({
-            ...prev,
-            agent: d.agent as string,
-            state: d.state as string,
-            tokensUsed: d.tokens_used as number,
-            elapsedMs: d.elapsed_ms as number,
-            iteration: d.iteration as number,
-            tokenBudget: (d.token_budget as number) ?? prev.tokenBudget,
-            budgetFraction: (d.budget_fraction as number) ?? prev.budgetFraction,
-          }))
-          break
-
-        case 'human_escalation':
-          addFeedItem({
-            id: crypto.randomUUID(),
-            type: 'human_escalation',
-            content: (d.reason as string) || 'The agent is stuck and needs your help.',
-            timestamp: Date.now(),
-            escalationMeta: {
-              escalationId: d.escalation_id as string,
-              reason: d.reason as string,
-              status: 'pending',
-            },
-          })
-          break
-
-        case 'auto_retry': {
-          const status = d.status as string
-          const attempt = d.attempt as number
-          const maxAttempts = d.max_attempts as number
-          const cmd = (d.command as string) || ''
-
-          if (status === 'resolved') {
-            // Update the last retrying item to resolved
-            setFeedItems((prev) => {
-              const lastRetryIdx = [...prev].reverse().findIndex((it) => it.type === 'auto_retry' && it.autoRetryMeta?.status === 'retrying')
-              if (lastRetryIdx === -1) return prev
-              const idx = prev.length - 1 - lastRetryIdx
-              return prev.map((it, i) =>
-                i === idx ? { ...it, autoRetryMeta: { ...it.autoRetryMeta!, status: 'resolved' } } : it
-              )
-            })
-          } else {
-            addFeedItem({
-              id: crypto.randomUUID(),
-              type: 'auto_retry',
-              content: cmd,
-              timestamp: Date.now(),
-              autoRetryMeta: { attempt, maxAttempts, command: cmd, status: status as 'retrying' | 'exhausted' },
-            })
-          }
-          break
-        }
-
-        case 'budget_exhausted':
-          addFeedItem({
-            id: crypto.randomUUID(),
-            type: 'info',
-            content: `Token budget exhausted (${((d.total_tokens as number) || 0).toLocaleString()} / ${((d.budget as number) || 0).toLocaleString()})`,
-            timestamp: Date.now(),
-          })
-          break
-
         case 'error':
           addFeedItem({ id: crypto.randomUUID(), type: 'error', content: d.message as string, timestamp: Date.now() })
           break
 
         case 'done': {
-          const tokens = d.total_tokens as number
           const ms = d.total_time_ms as number
-          const parts: string[] = []
-          if (tokens > 0) parts.push(`${tokens.toLocaleString()} tokens`)
-          parts.push(`${Math.round(ms / 1000)}s`)
-          addFeedItem({
-            id: crypto.randomUUID(),
-            type: 'info',
-            content: `Done — ${parts.join(', ')}`,
-            timestamp: Date.now(),
-          })
+          if (ms > 0) {
+            addFeedItem({
+              id: crypto.randomUUID(),
+              type: 'info',
+              content: `Done — ${Math.round(ms / 1000)}s`,
+              timestamp: Date.now(),
+            })
+          }
           break
         }
       }
@@ -369,62 +171,37 @@ export function AgentTerminal() {
 
     addFeedItem({ id: crypto.randomUUID(), type: 'user', content: input, timestamp: Date.now() })
     setIsRunning(true)
-    setTelemetry(EMPTY_TELEMETRY)
-    aiTextIdRef.current = null
     toolOutputIdRef.current = null
 
-    if (mode === 'terminal') {
-      // Direct bash execution — no model needed
-      const { url, body } = apiClient.terminal.execUrl(input)
-      await consumeSSE(url, body)
-    } else {
-      // Agent mode — requires a loaded model
-      if (!activeModel) {
-        addFeedItem({ id: crypto.randomUUID(), type: 'error', content: 'No model loaded. Switch to Terminal mode or load a model.', timestamp: Date.now() })
-        setIsRunning(false)
-        return
-      }
-      const { url, body } = apiClient.terminal.runUrl(input, activeModel.id)
-      await consumeSSE(url, body)
-    }
+    const { url, body } = apiClient.terminal.execUrl(input)
+    await consumeSSE(url, body)
 
     setIsRunning(false)
-    aiTextIdRef.current = null
     toolOutputIdRef.current = null
-  }, [isRunning, mode, activeModel, addFeedItem, consumeSSE])
+  }, [isRunning, addFeedItem, consumeSSE])
 
   const handleStop = useCallback(async () => {
-    // Abort the SSE fetch stream (works for both terminal and agent modes)
     abortRef.current?.abort()
-
-    // For agent mode, also tell the backend to stop the supervisor loop
     if (sessionId) {
       try {
         await apiClient.terminal.stop(sessionId)
       } catch {
-        // ignore — session may already be done
+        // ignore
       }
     }
   }, [sessionId])
+
+  // No-op handlers — terminal has no diffs/escalations but MessageFeed requires them
+  const noopDiff = useCallback((_callId: string, _approved: boolean, _reason?: string) => {}, [])
+  const noopEscalation = useCallback((_id: string, _msg: string) => {}, [])
 
   return (
     <div className="h-full flex flex-col">
       {/* Terminal header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.04] bg-black/30 shrink-0">
         <div className="flex items-center gap-2 font-mono text-xs">
-          {mode === 'terminal' ? (
-            <>
-              <span className="text-green-500">bash</span>
-              <span className="text-gray-600">~</span>
-            </>
-          ) : (
-            <>
-              <span className="text-green-500">nanocore</span>
-              <span className="text-gray-600">@</span>
-              <span className="text-blue-400">{activeModel?.name ?? '?'}</span>
-              <span className="text-gray-600">~</span>
-            </>
-          )}
+          <span className="text-green-500">bash</span>
+          <span className="text-gray-600">~</span>
           {isRunning && <span className="inline-block w-1.5 h-3 bg-green-400 animate-pulse rounded-sm" />}
         </div>
         <div className="flex items-center gap-1">
@@ -438,43 +215,22 @@ export function AgentTerminal() {
               <Trash2 size={13} />
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1.5 text-gray-600 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-            title={sidebarOpen ? 'Hide telemetry' : 'Show telemetry'}
-          >
-            {sidebarOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-          </button>
         </div>
       </div>
 
-      {/* Inline warning when agent mode has no model */}
-      {mode === 'agent' && !activeModel && (
-        <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-2 shrink-0">
-          <AlertCircle size={13} className="text-amber-400 shrink-0" />
-          <span className="text-xs text-amber-400">No model loaded — load one from the Models tab, or switch to Terminal mode.</span>
-        </div>
-      )}
-
       {/* Main area */}
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 flex flex-col min-w-0">
-          <MessageFeed
-            items={feedItems}
-            sessionId={sessionId}
-            onDiffDecided={handleDiffDecided}
-            onEscalationResponded={handleEscalationResponded}
-          />
-          <InputBar
-            onSubmit={handleSubmit}
-            onStop={handleStop}
-            isRunning={isRunning}
-            mode={mode}
-            onModeChange={handleModeChange}
-          />
-        </div>
-        <TelemetrySidebar telemetry={telemetry} isOpen={sidebarOpen} />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <MessageFeed
+          items={feedItems}
+          sessionId={sessionId}
+          onDiffDecided={noopDiff}
+          onEscalationResponded={noopEscalation}
+        />
+        <InputBar
+          onSubmit={handleSubmit}
+          onStop={handleStop}
+          isRunning={isRunning}
+        />
       </div>
     </div>
   )

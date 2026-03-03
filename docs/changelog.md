@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.6.2
+
+### AI-Assisted Code Workspace
+- NanoCore agent integrated into the Code page — autonomous reasoning, tool execution, and diff proposals directly alongside the editor
+- Three-column layout: file tree | Monaco editor | agent panel (collapsible)
+- Inline Monaco DiffEditor for reviewing proposed changes with Apply/Reject actions
+- Agent panel with streaming message feed, telemetry sidebar, and dedicated input bar
+- Diff proposals auto-open the target file in the editor
+
+### Terminal Simplified
+- Terminal page is now bash-only — cleaner and faster for shell commands
+- Agent mode removed from Terminal (moved to Code workspace where it belongs)
+- Removed mode toggle, telemetry sidebar, and model dependency from Terminal
+
 ## v0.6.1
 
 ### Code Workspace Enhancements

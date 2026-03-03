@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { X, Circle, Save, FolderSearch, Settings as SettingsIcon, FilePlus } from 'lucide-react'
+import { X, Circle, Save, FolderSearch, Settings as SettingsIcon, FilePlus, PanelRightOpen, PanelRightClose } from 'lucide-react'
 import { FileTree } from './FileTree'
 import { MonacoEditor } from './MonacoEditor'
+import { DiffEditor } from './DiffEditor'
+import { AgentPanel } from './AgentPanel'
 import { apiClient } from '../../api/client'
 import type { TreeNode } from './FileTree'
+import type { DiffMetadata } from '../Terminal/types'
 
 interface OpenFile {
   path: string
@@ -27,6 +30,8 @@ export function CodeWorkspace() {
   const [creatingFile, setCreatingFile] = useState(false)
   const [newFileName, setNewFileName] = useState('')
   const newFileInputRef = useRef<HTMLInputElement>(null)
+  const [agentPanelOpen, setAgentPanelOpen] = useState(true)
+  const [pendingDiffs, setPendingDiffs] = useState<Map<string, DiffMetadata>>(new Map())
 
   // Listen for workspace directory changes from Settings
   useEffect(() => {
@@ -51,18 +56,6 @@ export function CodeWorkspace() {
       .finally(() => setLoading(false))
   }, [workspaceDir])
 
-  // Listen for "open file" signals from the terminal (diff proposals)
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const path = (e as CustomEvent).detail
-      if (path && typeof path === 'string') {
-        handleFileSelect(path)
-      }
-    }
-    window.addEventListener('workspace-open-file', handler)
-    return () => window.removeEventListener('workspace-open-file', handler)
-  }, [])
-
   const handleFileSelect = useCallback(async (path: string) => {
     // Check if already open
     const existing = openFiles.find(f => f.path === path)
@@ -81,9 +74,20 @@ export function CodeWorkspace() {
     }
   }, [openFiles])
 
+  // Called by AgentPanel when a diff proposal arrives — open the target file
+  const handleAgentOpenFile = useCallback((path: string) => {
+    handleFileSelect(path)
+  }, [handleFileSelect])
+
   const handleCloseFile = useCallback((path: string, e?: React.MouseEvent) => {
     e?.stopPropagation()
     setOpenFiles(prev => prev.filter(f => f.path !== path))
+    // Clear any pending diff for this file
+    setPendingDiffs(prev => {
+      const next = new Map(prev)
+      next.delete(path)
+      return next
+    })
     if (activeFile === path) {
       setActiveFile(() => {
         const remaining = openFiles.filter(f => f.path !== path)
@@ -122,17 +126,14 @@ export function CodeWorkspace() {
     const fullPath = `${workspaceDir}/${name}`
     try {
       await apiClient.workspace.createFile(fullPath)
-      // Refresh tree
       const newTree = await apiClient.workspace.tree(workspaceDir)
       setTree(newTree)
-      // Read the file through the backend to get the correct language
       try {
         const { content, language } = await apiClient.workspace.readFile(fullPath)
         const shortName = name.split('/').pop() || name
         setOpenFiles(prev => [...prev, { path: fullPath, name: shortName, content, language, dirty: false, savedContent: content }])
         setActiveFile(fullPath)
       } catch {
-        // File was created but can't read — just select it in the tree
         setActiveFile(null)
       }
     } catch (err) {
@@ -153,7 +154,6 @@ export function CodeWorkspace() {
   const handleRenameFile = useCallback(async (filePath: string, newName: string) => {
     try {
       const result = await apiClient.workspace.renameFile(filePath, newName)
-      // Update open tabs that reference the old path
       setOpenFiles(prev => prev.map(f => {
         if (f.path === filePath) {
           return { ...f, path: result.new_path, name: newName }
@@ -172,7 +172,6 @@ export function CodeWorkspace() {
   const handleDeleteFile = useCallback(async (filePath: string) => {
     try {
       await apiClient.workspace.deleteFile(filePath)
-      // Close the tab if it was open
       setOpenFiles(prev => prev.filter(f => f.path !== filePath))
       if (activeFile === filePath) {
         setActiveFile(prev => {
@@ -188,7 +187,35 @@ export function CodeWorkspace() {
     }
   }, [activeFile, openFiles, refreshTree])
 
+  // Diff approval: apply the new content to the file
+  const handleDiffApprove = useCallback((filePath: string) => {
+    const diff = pendingDiffs.get(filePath)
+    if (!diff) return
+    // Update editor content with the new content
+    setOpenFiles(prev => prev.map(f =>
+      f.path === filePath ? { ...f, content: diff.newContent, dirty: true } : f
+    ))
+    // Remove the pending diff
+    setPendingDiffs(prev => {
+      const next = new Map(prev)
+      next.delete(filePath)
+      return next
+    })
+    // Auto-save
+    handleSave(filePath, diff.newContent)
+  }, [pendingDiffs, handleSave])
+
+  // Diff rejection: just remove the pending diff
+  const handleDiffReject = useCallback((filePath: string) => {
+    setPendingDiffs(prev => {
+      const next = new Map(prev)
+      next.delete(filePath)
+      return next
+    })
+  }, [])
+
   const active = openFiles.find(f => f.path === activeFile)
+  const activeDiff = activeFile ? pendingDiffs.get(activeFile) : undefined
 
   // Empty state: no workspace configured
   if (!workspaceDir) {
@@ -202,7 +229,6 @@ export function CodeWorkspace() {
           </p>
           <button
             onClick={() => {
-              // Dispatch event to switch to settings tab
               window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'settings' }))
             }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded text-xs text-blue-400 transition-colors"
@@ -218,45 +244,56 @@ export function CodeWorkspace() {
   return (
     <div className="h-full flex flex-col">
       {/* Tab bar */}
-      {openFiles.length > 0 && (
-        <div className="flex items-center border-b border-white/5 bg-black/20 overflow-x-auto shrink-0">
-          {openFiles.map(f => (
-            <div
-              key={f.path}
+      <div className="flex items-center border-b border-white/5 bg-black/20 overflow-x-auto shrink-0">
+        {openFiles.map(f => (
+          <div
+            key={f.path}
+            role="button"
+            tabIndex={0}
+            onClick={() => setActiveFile(f.path)}
+            onKeyDown={(e) => { if (e.key === 'Enter') setActiveFile(f.path) }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border-r border-white/5 cursor-pointer shrink-0 transition-colors ${
+              f.path === activeFile
+                ? 'bg-[#1e1e1e] text-white'
+                : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+            }`}
+          >
+            {f.dirty && <Circle size={6} className="text-blue-400 fill-blue-400" />}
+            {pendingDiffs.has(f.path) && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
+            <span className="truncate max-w-[120px]">{f.name}</span>
+            <span
               role="button"
               tabIndex={0}
-              onClick={() => setActiveFile(f.path)}
-              onKeyDown={(e) => { if (e.key === 'Enter') setActiveFile(f.path) }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border-r border-white/5 cursor-pointer shrink-0 transition-colors ${
-                f.path === activeFile
-                  ? 'bg-[#1e1e1e] text-white'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
-              }`}
+              title="Close"
+              onClick={(e) => handleCloseFile(f.path, e)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleCloseFile(f.path) } }}
+              className="ml-1 p-0.5 rounded hover:bg-white/10 text-gray-600 hover:text-white transition-colors"
             >
-              {f.dirty && <Circle size={6} className="text-blue-400 fill-blue-400" />}
-              <span className="truncate max-w-[120px]">{f.name}</span>
-              <button
-                type="button"
-                onClick={(e) => handleCloseFile(f.path, e)}
-                className="ml-1 p-0.5 rounded hover:bg-white/10 text-gray-600 hover:text-white transition-colors"
-              >
-                <X size={10} />
-              </button>
-            </div>
-          ))}
-          {saveStatus && (
-            <div className="ml-auto px-3 py-1.5 text-[10px] text-gray-500 flex items-center gap-1">
-              <Save size={10} />
-              {saveStatus}
-            </div>
-          )}
-        </div>
-      )}
+              <X size={10} />
+            </span>
+          </div>
+        ))}
+        {saveStatus && (
+          <div className="ml-auto px-3 py-1.5 text-[10px] text-gray-500 flex items-center gap-1 shrink-0">
+            <Save size={10} />
+            {saveStatus}
+          </div>
+        )}
+        {/* Agent panel toggle */}
+        <button
+          type="button"
+          onClick={() => setAgentPanelOpen(!agentPanelOpen)}
+          className="ml-auto p-1.5 text-gray-600 hover:text-white hover:bg-white/5 transition-colors shrink-0"
+          title={agentPanelOpen ? 'Hide agent' : 'Show agent'}
+        >
+          {agentPanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
+        </button>
+      </div>
 
-      {/* Main content */}
+      {/* Main content: three-column layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* File tree sidebar */}
-        <div className="w-56 border-r border-white/5 bg-black/20 shrink-0 overflow-hidden flex flex-col">
+        <div className="w-48 border-r border-white/5 bg-black/20 shrink-0 overflow-hidden flex flex-col">
           <div className="px-2 py-1.5 flex items-center justify-between border-b border-white/5">
             <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wide truncate">
               {tree?.name || 'Explorer'}
@@ -311,20 +348,43 @@ export function CodeWorkspace() {
         {/* Editor area */}
         <div className="flex-1 min-w-0">
           {active ? (
-            <MonacoEditor
-              key={active.path}
-              filePath={active.path}
-              content={active.content}
-              language={active.language}
-              onSave={handleSave}
-              onChange={(content) => handleContentChange(active.path, content)}
-            />
+            activeDiff ? (
+              <DiffEditor
+                key={`diff-${active.path}`}
+                filePath={active.path}
+                originalContent={activeDiff.oldContent}
+                modifiedContent={activeDiff.newContent}
+                language={active.language}
+                onApprove={() => handleDiffApprove(active.path)}
+                onReject={(reason) => {
+                  handleDiffReject(active.path)
+                  // The AgentPanel's handleDiffDecided is separate — we just remove the visual diff here
+                  // The MessageFeed's HolographicDiff handles the API call for approve/reject
+                }}
+              />
+            ) : (
+              <MonacoEditor
+                key={active.path}
+                filePath={active.path}
+                content={active.content}
+                language={active.language}
+                onSave={handleSave}
+                onChange={(content) => handleContentChange(active.path, content)}
+              />
+            )
           ) : (
             <div className="h-full flex items-center justify-center bg-[#1e1e1e]">
               <p className="text-sm text-gray-600">Select a file to open</p>
             </div>
           )}
         </div>
+
+        {/* Agent panel */}
+        {agentPanelOpen && (
+          <div className="w-96 border-l border-white/5 shrink-0 overflow-hidden">
+            <AgentPanel onOpenFile={handleAgentOpenFile} />
+          </div>
+        )}
       </div>
     </div>
   )
