@@ -10,7 +10,6 @@ interface AgentInputBarProps {
 
 export function AgentInputBar({ onSubmit, onStop, isRunning, disabled }: AgentInputBarProps) {
   const [value, setValue] = useState('')
-  const [dbgFocused, setDbgFocused] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Auto-resize textarea
@@ -41,16 +40,18 @@ export function AgentInputBar({ onSubmit, onStop, isRunning, disabled }: AgentIn
   return (
     <div
       className="shrink-0 px-3 py-2.5 bg-black/20 border-t border-white/5"
-      onMouseDown={(e) => {
-        // Prevent Monaco (or other ancestors) from reclaiming focus
+      onMouseDownCapture={(e) => {
+        // Capture phase: stop Monaco from reclaiming focus before it sees the event
         e.stopPropagation()
+      }}
+      onMouseDown={() => {
         if (!disabled && !isRunning) {
           setTimeout(() => textareaRef.current?.focus(), 0)
         }
       }}
     >
       <div className="flex items-end gap-2 bg-white/[0.04] border border-white/[0.06] rounded-xl px-3 py-2 focus-within:border-blue-500/30 transition-colors">
-        <span className={`text-sm font-mono shrink-0 pb-0.5 select-none ${dbgFocused ? 'text-green-400' : disabled ? 'text-red-400' : 'text-blue-400/60'}`}>
+        <span className="text-sm font-mono shrink-0 pb-0.5 select-none text-blue-400/60">
           &gt;
         </span>
 
@@ -60,9 +61,7 @@ export function AgentInputBar({ onSubmit, onStop, isRunning, disabled }: AgentIn
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onMouseDown={(e) => e.stopPropagation()}
-          onFocus={() => setDbgFocused(true)}
-          onBlur={() => setDbgFocused(false)}
-          placeholder={disabled ? `[disabled] Load a model first...` : 'Ask the agent to edit code...'}
+          placeholder={disabled ? 'Load a model first...' : 'Ask the agent to edit code...'}
           disabled={disabled || isRunning}
           rows={1}
           style={{ WebkitAppRegion: 'no-drag', WebkitUserSelect: 'text' } as React.CSSProperties}
