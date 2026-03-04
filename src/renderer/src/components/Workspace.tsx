@@ -173,12 +173,12 @@ export function Workspace() {
         setIsGenerating(true)
 
         const prompts: Record<string, string> = {
-            continue: `Continue writing the following document naturally. Return only the continuation, no preamble:\n\n${documentBody}`,
+            continue: `Continue writing the following document naturally. Do NOT repeat any of the existing text. Return ONLY the new continuation text, nothing else:\n\n${documentBody}`,
             summarize: `Provide a brief TL;DR summary of this document. Return only the summary:\n\n${documentBody}`,
             draft: `Write an introduction section for the following document. Return only the introduction:\n\n${documentBody}`,
             toTable: `Restructure the following content as a well-formatted markdown table. Return only the table:\n\n${documentBody}`,
             keyPoints: `Extract the key points from this document as a concise bulleted list. Return only the bullet points:\n\n${documentBody}`,
-            expand: `Expand the last paragraph of this document with more detail and depth. Return only the expanded paragraph:\n\n${documentBody}`,
+            expand: `Expand the last paragraph of this document with more detail and depth. Return only the expanded paragraph, do NOT repeat earlier content:\n\n${documentBody}`,
             outline: `Generate a structured outline (with headings and sub-points) from this document. Return only the outline:\n\n${documentBody}`,
         }
 
@@ -223,11 +223,17 @@ export function Workspace() {
                 }
             }
 
-            if (generated.trim()) {
+            // Strip <think>...</think> reasoning blocks that some models emit
+            const cleaned = generated
+                .replace(/<think>[\s\S]*?<\/think>/g, '')
+                .replace(/<\/?think[^>]*>/g, '')
+                .trim()
+
+            if (cleaned) {
                 if (shouldAppend) {
-                    handleChange(documentBody + '\n\n' + generated.trim())
+                    handleChange(documentBody + '\n\n' + cleaned)
                 } else {
-                    handleChange(documentBody + '\n\n---\n\n' + generated.trim())
+                    handleChange(documentBody + '\n\n---\n\n' + cleaned)
                 }
             }
         } catch (e: unknown) {

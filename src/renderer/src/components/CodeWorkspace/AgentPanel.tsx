@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Trash2, AlertCircle, Bot, PanelRightOpen, PanelRightClose } from 'lucide-react'
-import { useAgentSession } from './useAgentSession'
+import { useAgentSession, type ActiveFileContext } from './useAgentSession'
 import { AgentInputBar } from './AgentInputBar'
 import { MessageFeed } from '../Terminal/MessageFeed'
 import { TelemetrySidebar } from '../Terminal/TelemetrySidebar'
@@ -9,9 +9,10 @@ import type { DiffMetadata } from '../Terminal/types'
 interface AgentPanelProps {
   onOpenFile: (path: string) => void
   onDiffProposal?: (filePath: string, meta: DiffMetadata) => void
+  getActiveFile?: () => ActiveFileContext | null
 }
 
-export function AgentPanel({ onOpenFile, onDiffProposal }: AgentPanelProps) {
+export function AgentPanel({ onOpenFile, onDiffProposal, getActiveFile }: AgentPanelProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const handleDiffProposal = useCallback((filePath: string, meta: { callId: string; filePath: string; oldContent: string; newContent: string; diff: string }) => {
@@ -37,7 +38,7 @@ export function AgentPanel({ onOpenFile, onDiffProposal }: AgentPanelProps) {
     handleDiffDecided,
     handleEscalationResponded,
     clearHistory,
-  } = useAgentSession({ onDiffProposal: handleDiffProposal })
+  } = useAgentSession({ onDiffProposal: handleDiffProposal, getActiveFile })
 
   return (
     <div className="h-full flex flex-col">

@@ -33,6 +33,19 @@ export function CodeWorkspace() {
   const [agentPanelOpen, setAgentPanelOpen] = useState(true)
   const [pendingDiffs, setPendingDiffs] = useState<Map<string, DiffMetadata>>(new Map())
 
+  // Provide active file context to the agent panel (called at submit time via ref)
+  const openFilesRef = useRef(openFiles)
+  openFilesRef.current = openFiles
+  const activeFileRef = useRef(activeFile)
+  activeFileRef.current = activeFile
+  const getActiveFile = useCallback(() => {
+    const path = activeFileRef.current
+    if (!path) return null
+    const f = openFilesRef.current.find(of => of.path === path)
+    if (!f) return null
+    return { path: f.path, content: f.content, language: f.language }
+  }, [])
+
   // Listen for workspace directory changes from Settings
   useEffect(() => {
     const handler = (e: Event) => {
@@ -393,7 +406,7 @@ export function CodeWorkspace() {
         {/* Agent panel */}
         {agentPanelOpen && (
           <div className="w-96 border-l border-white/5 shrink-0 overflow-hidden">
-            <AgentPanel onOpenFile={handleAgentOpenFile} onDiffProposal={handleDiffProposal} />
+            <AgentPanel onOpenFile={handleAgentOpenFile} onDiffProposal={handleDiffProposal} getActiveFile={getActiveFile} />
           </div>
         )}
       </div>

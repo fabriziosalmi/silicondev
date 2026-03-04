@@ -69,9 +69,19 @@ async def run_terminal(request: TerminalRequest):
     async with _sessions_lock:
         _active_sessions[session_id] = agent
 
+    # Build prompt with active file context if provided
+    prompt = request.prompt
+    if request.active_file:
+        ctx_parts = [f"[Currently open file: {request.active_file.path}]"]
+        if request.active_file.language:
+            ctx_parts.append(f"[Language: {request.active_file.language}]")
+        if request.active_file.content is not None:
+            ctx_parts.append(f"[File content]\n```\n{request.active_file.content}\n```")
+        prompt = "\n".join(ctx_parts) + "\n\n" + prompt
+
     async def event_generator():
         try:
-            async for event in agent.run(request.prompt):
+            async for event in agent.run(prompt):
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:
             logger.error(f"Terminal session error: {e}")

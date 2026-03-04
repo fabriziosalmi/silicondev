@@ -53,8 +53,15 @@ interface DiffProposalMeta {
   diff: string
 }
 
+export interface ActiveFileContext {
+  path: string
+  content?: string
+  language?: string
+}
+
 interface UseAgentSessionOptions {
   onDiffProposal?: (filePath: string, meta: DiffProposalMeta) => void
+  getActiveFile?: () => ActiveFileContext | null
 }
 
 export function useAgentSession(options?: UseAgentSessionOptions) {
@@ -378,7 +385,10 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
       return
     }
 
-    const { url, body } = apiClient.terminal.runUrl(input, activeModel.id)
+    const activeFile = options?.getActiveFile?.() ?? null
+    const { url, body } = apiClient.terminal.runUrl(input, activeModel.id, {
+      activeFile: activeFile ?? undefined,
+    })
     await consumeSSE(url, body)
 
     setIsRunning(false)

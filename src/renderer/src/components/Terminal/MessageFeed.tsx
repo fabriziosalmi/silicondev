@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, memo, useCallback } from 'react'
-import { User, Bot, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, RefreshCw, XCircle, CheckCircle2 } from 'lucide-react'
+import { User, Bot, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, RefreshCw, XCircle, CheckCircle2, ChevronRight } from 'lucide-react'
 import { StreamingMarkdown } from './StreamingMarkdown'
 import { HolographicDiff } from './HolographicDiff'
 import { apiClient } from '../../api/client'
@@ -96,6 +96,73 @@ const EscalationCard = memo(function EscalationCard({
 })
 
 /**
+ * Collapsible tool output block — collapsed by default, shows command preview.
+ * Inspired by Companion's ToolBlock pattern.
+ */
+function CollapsibleToolOutput({ item }: { item: FeedItem }) {
+  const [open, setOpen] = useState(false)
+  const command = item.toolMeta?.command || ''
+  const lines = item.content.split(/\r?\n/)
+  const hasMore = lines.length > 20
+  const [showFull, setShowFull] = useState(false)
+  const rendered = showFull || !hasMore ? item.content : lines.slice(-20).join('\n')
+  const isError = item.toolMeta?.exitCode !== undefined && item.toolMeta.exitCode !== 0
+
+  return (
+    <div className="rounded-[10px] overflow-hidden border border-white/[0.06] bg-white/[0.02]">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-white/[0.04] transition-colors cursor-pointer"
+      >
+        <ChevronRight
+          size={12}
+          className={`text-gray-500 transition-transform shrink-0 ${open ? 'rotate-90' : ''}`}
+        />
+        <TerminalSquare size={12} className={isError ? 'text-red-400 shrink-0' : 'text-blue-400 shrink-0'} />
+        <span className="text-[11px] font-medium text-gray-300">Terminal</span>
+        {command && (
+          <span className="text-[11px] text-gray-500 font-mono truncate flex-1">
+            $ {command}
+          </span>
+        )}
+        {isError && (
+          <span className="text-[9px] text-red-400 bg-red-500/10 rounded-full px-1.5 py-0.5 shrink-0">
+            exit {item.toolMeta?.exitCode}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="border-t border-white/[0.04]">
+          {hasMore && (
+            <div className="flex items-center justify-between px-3 py-1 border-b border-white/[0.04]">
+              <span className="text-[10px] text-gray-500">
+                {showFull ? 'Full output' : `Last 20 of ${lines.length} lines`}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShowFull(!showFull) }}
+                className="text-[10px] text-blue-400 hover:underline cursor-pointer"
+              >
+                {showFull ? 'Show tail' : 'Show full'}
+              </button>
+            </div>
+          )}
+          <div className="bg-black/60 px-3 py-2 overflow-x-auto max-h-60 overflow-y-auto">
+            <pre className={`text-xs font-mono select-text whitespace-pre-wrap break-words leading-relaxed ${
+              isError ? 'text-red-300/90' : 'text-green-300/90'
+            }`}>
+              {rendered}
+            </pre>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
  * Memoized individual feed item — only re-renders when the item itself changes.
  */
 const FeedItemView = memo(function FeedItemView({
@@ -132,7 +199,7 @@ const FeedItemView = memo(function FeedItemView({
           <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
             <Bot size={14} className="text-blue-400" />
           </div>
-          <div className="min-w-0 flex-1 prose prose-invert prose-sm max-w-prose text-sm text-gray-200 select-text">
+          <div className="min-w-0 flex-1 prose prose-invert prose-sm max-w-none text-sm text-gray-200 select-text break-words overflow-hidden">
             <StreamingMarkdown content={cleanContent} />
           </div>
         </div>
@@ -143,32 +210,15 @@ const FeedItemView = memo(function FeedItemView({
       return (
         <div className="flex items-center gap-2 mt-1">
           <Cpu size={11} className="text-yellow-500/70 shrink-0" />
-          <span className="text-[10px] text-yellow-500/60 font-mono">NanoCore Executed</span>
+          <span className="text-[10px] text-yellow-500/60 font-mono">
+            {item.toolMeta?.tool === 'run_bash' ? `$ ${item.toolMeta?.command || ''}` : item.toolMeta?.tool || 'NanoCore Executed'}
+          </span>
         </div>
       )
 
     case 'tool_output':
       return (
-        <div className="rounded-lg overflow-hidden border border-white/[0.06]">
-          {/* Command header */}
-          {item.toolMeta?.command && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#111] border-b border-white/[0.04]">
-              <TerminalSquare size={11} className="text-gray-500 shrink-0" />
-              <span className="text-[11px] text-gray-400 font-mono truncate">$ {item.toolMeta.command}</span>
-            </div>
-          )}
-          {/* Output body */}
-          <div className="bg-black/60 px-3 py-2 overflow-x-auto">
-            <pre className="text-xs text-green-300/90 font-mono select-text whitespace-pre-wrap break-words leading-relaxed">
-              {item.content}
-            </pre>
-          </div>
-          {item.toolMeta?.exitCode !== undefined && item.toolMeta.exitCode !== 0 && (
-            <div className="px-3 py-1 bg-red-500/5 border-t border-red-500/10">
-              <span className="text-[10px] text-red-400 font-mono">exit code: {item.toolMeta.exitCode}</span>
-            </div>
-          )}
-        </div>
+        <CollapsibleToolOutput item={item} />
       )
 
     case 'diff_proposal':
