@@ -464,8 +464,7 @@ function CodebaseIndexSection() {
 
     const handlePickDirectory = async () => {
         try {
-            const api = (window as any).electronAPI
-            const dir = await api?.selectDirectory?.()
+            const dir = await window.electronAPI?.selectDirectory?.()
             if (dir) {
                 handleIndex(dir)
             }
@@ -632,7 +631,7 @@ export function Settings() {
     // Log path from Electron
     const [logPath, setLogPath] = useState<string | null>(null)
     useEffect(() => {
-        (window as any).electronAPI?.getLogPath?.().then((p: string) => setLogPath(p)).catch(() => {})
+        window.electronAPI?.getLogPath?.().then(p => setLogPath(p)).catch(err => console.error('Failed to get log path:', err))
     }, [])
 
     // Storage management
@@ -782,7 +781,7 @@ export function Settings() {
                             <span className="text-xs text-gray-500 font-mono">{storageInfo.path}</span>
                             <button
                                 type="button"
-                                onClick={() => (window as any).electronAPI?.openPath?.(storageInfo.path)}
+                                onClick={() => window.electronAPI?.openPath?.(storageInfo.path)}
                                 className="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 transition-colors"
                             >
                                 Open in Finder

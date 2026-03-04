@@ -45,8 +45,16 @@ function loadPersistedTelemetry(): TelemetryData {
   }
 }
 
+interface DiffProposalMeta {
+  callId: string
+  filePath: string
+  oldContent: string
+  newContent: string
+  diff: string
+}
+
 interface UseAgentSessionOptions {
-  onDiffProposal?: (filePath: string) => void
+  onDiffProposal?: (filePath: string, meta: DiffProposalMeta) => void
 }
 
 export function useAgentSession(options?: UseAgentSessionOptions) {
@@ -248,21 +256,25 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           aiTextIdRef.current = null
           toolOutputIdRef.current = null
           const filePath = d.file_path as string
+          const callId = d.call_id as string
+          const oldContent = d.old as string
+          const newContent = d.new as string
+          const diffText = d.diff as string
           addFeedItem({
             id: crypto.randomUUID(),
             type: 'diff_proposal',
             content: '',
             timestamp: Date.now(),
             diffMeta: {
-              callId: d.call_id as string,
+              callId,
               filePath,
-              oldContent: d.old as string,
-              newContent: d.new as string,
-              diff: d.diff as string,
+              oldContent,
+              newContent,
+              diff: diffText,
               status: 'pending',
             },
           })
-          options?.onDiffProposal?.(filePath)
+          options?.onDiffProposal?.(filePath, { callId, filePath, oldContent, newContent, diff: diffText })
           break
         }
 

@@ -6,8 +6,7 @@ export function getApiBase(): string {
 
 export async function initApiBase(): Promise<void> {
     try {
-        const api = (window as any).electronAPI;
-        const port = await api?.getBackendPort?.();
+        const port = await window.electronAPI?.getBackendPort?.();
         if (port && typeof port === 'number') {
             API_BASE = `http://127.0.0.1:${port}`;
         }

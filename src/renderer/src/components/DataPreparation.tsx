@@ -36,13 +36,13 @@ export function DataPreparation() {
                 if (servers.length > 0 && !mcpServer) {
                     setMcpServer(servers[0].id)
                 }
-            }).catch(() => setMcpServers([]))
+            }).catch(err => { console.error('Failed to load MCP servers:', err); setMcpServers([]) })
         }
     }, [dataMode])
 
     const handleFileSelect = async () => {
         try {
-            const path = await (window as any).electronAPI?.selectFile?.();
+            const path = await window.electronAPI?.selectFile?.();
             if (path) {
                 setFilePath(path);
                 const name = path.split(/[/\\]/).pop() || path;
@@ -175,7 +175,7 @@ export function DataPreparation() {
                             <label className="text-xs font-bold text-gray-500 uppercase">Output Path (JSONL)</label>
                             <button
                                 onClick={async () => {
-                                    const path = await (window as any).electronAPI?.selectDirectory?.();
+                                    const path = await window.electronAPI?.selectDirectory?.();
                                     if (path) setOutputPath(path + "/" + (fileName ? fileName.replace('.csv', '_train.jsonl') : 'train.jsonl'));
                                 }}
                                 className={`flex items-center justify-between px-3 h-10 rounded-lg border text-[13px] font-medium transition-all text-left ${outputPath
@@ -230,7 +230,7 @@ export function DataPreparation() {
                                 <label className="text-xs font-bold text-gray-500 uppercase">Output Path (JSONL)</label>
                                 <button
                                     onClick={async () => {
-                                        const path = await (window as any).electronAPI?.selectDirectory?.();
+                                        const path = await window.electronAPI?.selectDirectory?.();
                                         if (path) setOutputPath(path + "/mcp_generated_train.jsonl");
                                     }}
                                     className={`flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm transition-all text-left ${outputPath

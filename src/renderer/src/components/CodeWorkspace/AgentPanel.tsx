@@ -1,22 +1,30 @@
-import { useCallback } from 'react'
-import { Trash2, AlertCircle, Bot } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { Trash2, AlertCircle, Bot, PanelRightOpen, PanelRightClose } from 'lucide-react'
 import { useAgentSession } from './useAgentSession'
 import { AgentInputBar } from './AgentInputBar'
 import { MessageFeed } from '../Terminal/MessageFeed'
 import { TelemetrySidebar } from '../Terminal/TelemetrySidebar'
-import { useState } from 'react'
-import { PanelRightOpen, PanelRightClose } from 'lucide-react'
+import type { DiffMetadata } from '../Terminal/types'
 
 interface AgentPanelProps {
   onOpenFile: (path: string) => void
+  onDiffProposal?: (filePath: string, meta: DiffMetadata) => void
 }
 
-export function AgentPanel({ onOpenFile }: AgentPanelProps) {
+export function AgentPanel({ onOpenFile, onDiffProposal }: AgentPanelProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const handleDiffProposal = useCallback((filePath: string) => {
+  const handleDiffProposal = useCallback((filePath: string, meta: { callId: string; filePath: string; oldContent: string; newContent: string; diff: string }) => {
     onOpenFile(filePath)
-  }, [onOpenFile])
+    onDiffProposal?.(filePath, {
+      callId: meta.callId,
+      filePath: meta.filePath,
+      oldContent: meta.oldContent,
+      newContent: meta.newContent,
+      diff: meta.diff,
+      status: 'pending',
+    })
+  }, [onOpenFile, onDiffProposal])
 
   const {
     feedItems,

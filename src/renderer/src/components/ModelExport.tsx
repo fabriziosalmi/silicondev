@@ -42,7 +42,7 @@ export function ModelExport() {
 
     const handleSelectOutput = async () => {
         try {
-            const path = await (window as any).electronAPI?.selectDirectory?.()
+            const path = await window.electronAPI?.selectDirectory?.()
             if (path) {
                 const model = adapters.find(a => a.id === selectedId)
                 const slug = model ? cleanModelName(model.name).replace(/\s+/g, '-').toLowerCase() : 'export'

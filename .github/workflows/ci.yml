@@ -67,3 +67,19 @@ jobs:
       - name: Build
         working-directory: src/renderer
         run: npm run build
+
+      - name: Install Playwright browsers
+        working-directory: src/renderer
+        run: npx playwright install chromium
+
+      - name: Run E2E tests
+        working-directory: src/renderer
+        run: npx playwright test --reporter=html
+
+      - name: Upload E2E report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: src/renderer/playwright-report/
+          retention-days: 7

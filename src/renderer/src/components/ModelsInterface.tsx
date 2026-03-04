@@ -606,7 +606,7 @@ export function ModelsInterface() {
                                     <button
                                         onClick={async () => {
                                             try {
-                                                const path = await (window as any).electronAPI?.selectDirectory?.();
+                                                const path = await window.electronAPI?.selectDirectory?.();
                                                 if (path) {
                                                     setCustomPath(path);
                                                     handleScan(path);

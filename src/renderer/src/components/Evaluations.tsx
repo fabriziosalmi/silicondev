@@ -30,10 +30,10 @@ export function Evaluations() {
     })
 
     const benchmarks = [
-        { id: 'mmlu', name: 'MMLU (Massive Multitask Language Understanding)', type: 'General Knowledge', shots: '5-shot', time: '~45 mins' },
-        { id: 'hellaswag', name: 'HellaSwag', type: 'Common Sense Reasoning', shots: '10-shot', time: '~15 mins' },
-        { id: 'humaneval', name: 'HumanEval', type: 'Code Generation', shots: '0-shot', time: '~20 mins' },
-        { id: 'truthfulqa', name: 'TruthfulQA', type: 'Factuality', shots: '0-shot', time: '~10 mins' },
+        { id: 'mmlu', name: 'General Knowledge', type: 'Multiple Choice', shots: '3 questions', time: '~30 sec' },
+        { id: 'hellaswag', name: 'Common Sense', type: 'Sentence Completion', shots: '3 questions', time: '~30 sec' },
+        { id: 'humaneval', name: 'Code Generation', type: 'Python Functions', shots: '3 questions', time: '~30 sec' },
+        { id: 'truthfulqa', name: 'Factuality', type: 'Yes/No + Reasoning', shots: '3 questions', time: '~30 sec' },
     ]
 
     useEffect(() => {
@@ -48,46 +48,49 @@ export function Evaluations() {
         setRunningEval(benchId);
         setProgress(0);
 
-        // Real evaluation: send sample prompts to the loaded model and measure quality
+        // Smoke test: send sample prompts and check for correct answers
         try {
             const bench = benchmarks.find(b => b.id === benchId);
-            const testPrompts: Record<string, string[]> = {
+
+            // Each prompt has a checker function that validates the response
+            type TestCase = { prompt: string; check: (response: string) => boolean };
+            const testCases: Record<string, TestCase[]> = {
                 mmlu: [
-                    "What is the capital of France? A) London B) Paris C) Berlin D) Madrid",
-                    "Which planet is closest to the sun? A) Venus B) Earth C) Mercury D) Mars",
-                    "What is photosynthesis? Explain briefly."
+                    { prompt: "What is the capital of France? Answer with just the letter: A) London B) Paris C) Berlin D) Madrid", check: r => /\bB\b/.test(r) || /\bparis\b/i.test(r) },
+                    { prompt: "Which planet is closest to the sun? Answer with just the letter: A) Venus B) Earth C) Mercury D) Mars", check: r => /\bC\b/.test(r) || /\bmercury\b/i.test(r) },
+                    { prompt: "What gas do plants absorb during photosynthesis? Answer in one word.", check: r => /carbon\s*dioxide|co2/i.test(r) },
                 ],
                 hellaswag: [
-                    "A person is making a sandwich. They put bread on the counter and then they",
-                    "The dog was running in the park when suddenly it",
-                    "After finishing dinner, she decided to"
+                    { prompt: "Complete this naturally: 'A person is making a sandwich. They put bread on the counter and then they'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+                    { prompt: "Complete this naturally: 'The dog was running in the park when suddenly it'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+                    { prompt: "Complete this naturally: 'After finishing dinner, she decided to'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
                 ],
                 humaneval: [
-                    "Write a Python function that returns the factorial of a number.",
-                    "Write a function to check if a string is a palindrome.",
-                    "Write a function to find the maximum element in a list."
+                    { prompt: "Write a Python function called factorial(n) that returns the factorial of n.", check: r => /def\s+factorial/.test(r) && /return/.test(r) },
+                    { prompt: "Write a Python function called is_palindrome(s) that returns True if s is a palindrome.", check: r => /def\s+is_palindrome/.test(r) && /return/.test(r) },
+                    { prompt: "Write a Python function called find_max(lst) that returns the maximum element.", check: r => /def\s+find_max/.test(r) && /return/.test(r) },
                 ],
                 truthfulqa: [
-                    "Can humans breathe underwater without equipment?",
-                    "Is the Earth flat?",
-                    "Do vaccines cause autism?"
-                ]
+                    { prompt: "Can humans breathe underwater without equipment? Answer yes or no and explain briefly.", check: r => /\bno\b/i.test(r) },
+                    { prompt: "Is the Earth flat? Answer yes or no and explain briefly.", check: r => /\bno\b/i.test(r) },
+                    { prompt: "Do vaccines cause autism? Answer yes or no and explain briefly.", check: r => /\bno\b/i.test(r) },
+                ],
             };
 
-            const prompts = testPrompts[benchId] || testPrompts.mmlu;
+            const cases = testCases[benchId] || testCases.mmlu;
             let score = 0;
 
-            for (let i = 0; i < prompts.length; i++) {
-                setProgress(Math.floor(((i + 1) / prompts.length) * 100));
+            for (let i = 0; i < cases.length; i++) {
+                setProgress(Math.floor(((i + 1) / cases.length) * 100));
 
                 const response = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         model_id: activeModel.id,
-                        messages: [{ role: 'user', content: prompts[i] }],
+                        messages: [{ role: 'user', content: cases[i].prompt }],
                         temperature: 0.1,
-                        max_tokens: 100
+                        max_tokens: 150
                     })
                 });
 
@@ -116,11 +119,10 @@ export function Evaluations() {
                     }
                 }
 
-                // Simple scoring: check if we got a non-empty, relevant response
-                if (fullResponse.trim().length > 5) score++;
+                if (cases[i].check(fullResponse)) score++;
             }
 
-            const finalScore = (score / prompts.length) * 100;
+            const finalScore = (score / cases.length) * 100;
 
             const result: EvalResult = {
                 date: new Date().toISOString().split('T')[0],
@@ -169,7 +171,7 @@ export function Evaluations() {
                     <Card className="flex flex-col">
                         <div className="p-5 border-b border-white/10 flex items-center gap-2">
                             <TestTube className="w-5 h-5 text-blue-400" />
-                            <h2 className="text-lg font-bold">Standard Benchmarks</h2>
+                            <h2 className="text-lg font-bold">Quick Smoke Tests</h2>
                         </div>
                         <div className="p-0 flex-1 overflow-hidden">
                             <table className="w-full text-left text-sm">

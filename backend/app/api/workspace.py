@@ -58,13 +58,46 @@ def _detect_language(path: str) -> str:
     return LANGUAGE_MAP.get(ext, "plaintext")
 
 
-def _validate_path(requested: str, workspace_root: str) -> Path:
-    """Resolve and validate that the path is under the workspace root."""
-    root = Path(workspace_root).resolve()
+def _validate_path(requested: str, workspace_root: str | None = None) -> Path:
+    """Resolve and validate that the path is safe.
+
+    - Rejects symlinks that escape the workspace root (if provided).
+    - Rejects paths under macOS system directories.
+    - Returns the resolved absolute Path.
+    """
     target = Path(requested).resolve()
-    if not str(target).startswith(str(root)):
-        raise HTTPException(status_code=403, detail="Path is outside workspace root")
+
+    # Block system paths
+    target_str = str(target)
+    for protected in PROTECTED_PATHS:
+        if target_str == protected or target_str.startswith(protected + "/"):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied: {protected} is a protected system path",
+            )
+
+    # If workspace root provided, enforce containment
+    if workspace_root:
+        root = Path(workspace_root).resolve()
+        if not target_str.startswith(str(root) + "/") and target != root:
+            raise HTTPException(
+                status_code=403,
+                detail="Path is outside workspace root",
+            )
+
     return target
+
+
+# macOS system paths that must never be read or written via the workspace API.
+# Note: on macOS /etc → /private/etc, /var → /private/var (symlinks).
+# We list both forms so resolved paths are caught.
+PROTECTED_PATHS = [
+    "/System", "/Library", "/usr", "/bin", "/sbin",
+    "/etc", "/private/etc",
+    "/var", "/private/var",
+    "/cores", "/opt",
+    "/Applications",
+]
 
 
 def _build_tree(directory: Path, max_depth: int, current_depth: int = 0) -> dict:
@@ -134,7 +167,7 @@ class SaveRequest(BaseModel):
 @router.post("/tree")
 async def get_tree(req: TreeRequest):
     """Return the file tree for a directory."""
-    root = Path(req.directory).resolve()
+    root = _validate_path(req.directory)
     if not root.is_dir():
         raise HTTPException(status_code=400, detail="Not a directory")
     return _build_tree(root, req.max_depth)
@@ -143,7 +176,7 @@ async def get_tree(req: TreeRequest):
 @router.post("/read")
 async def read_file(req: ReadRequest):
     """Read a file and return its content with detected language."""
-    path = Path(req.path).resolve()
+    path = _validate_path(req.path)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
     if path.stat().st_size > MAX_FILE_SIZE:
@@ -163,7 +196,7 @@ async def read_file(req: ReadRequest):
 @router.post("/create")
 async def create_file(req: CreateRequest):
     """Create a new empty file. Parent directories are created automatically."""
-    path = Path(req.path).resolve()
+    path = _validate_path(req.path)
     if path.exists():
         raise HTTPException(status_code=409, detail="File already exists")
     try:
@@ -177,7 +210,7 @@ async def create_file(req: CreateRequest):
 @router.post("/rename")
 async def rename_file(req: RenameRequest):
     """Rename a file or directory. new_name is the new filename (not full path)."""
-    path = Path(req.path).resolve()
+    path = _validate_path(req.path)
     if not path.exists():
         raise HTTPException(status_code=404, detail="File not found")
     new_path = path.parent / req.new_name
@@ -193,7 +226,7 @@ async def rename_file(req: RenameRequest):
 @router.post("/delete")
 async def delete_file(req: DeleteRequest):
     """Delete a file or empty directory."""
-    path = Path(req.path).resolve()
+    path = _validate_path(req.path)
     if not path.exists():
         raise HTTPException(status_code=404, detail="File not found")
     try:
@@ -210,7 +243,7 @@ async def delete_file(req: DeleteRequest):
 @router.post("/save")
 async def save_file(req: SaveRequest):
     """Save content to a file. The file must already exist (no creating new files via this endpoint)."""
-    path = Path(req.path).resolve()
+    path = _validate_path(req.path)
 
     # Safety: only allow saving to existing files
     if not path.exists():

@@ -52,7 +52,7 @@ export function CodeWorkspace() {
     setLoading(true)
     apiClient.workspace.tree(workspaceDir)
       .then(setTree)
-      .catch(() => setTree(null))
+      .catch((err) => { console.error('Failed to load file tree:', err); setTree(null) })
       .finally(() => setLoading(false))
   }, [workspaceDir])
 
@@ -69,8 +69,11 @@ export function CodeWorkspace() {
       const name = path.split('/').pop() || path
       setOpenFiles(prev => [...prev, { path, name, content, language, dirty: false, savedContent: content }])
       setActiveFile(path)
-    } catch {
-      // Failed to read file
+    } catch (err) {
+      console.error('Failed to read file:', path, err)
+      setSaveStatus('Failed to open file')
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(() => setSaveStatus(null), 3000)
     }
   }, [openFiles])
 
@@ -78,6 +81,15 @@ export function CodeWorkspace() {
   const handleAgentOpenFile = useCallback((path: string) => {
     handleFileSelect(path)
   }, [handleFileSelect])
+
+  // Called by AgentPanel when a diff proposal arrives — show in DiffEditor
+  const handleDiffProposal = useCallback((filePath: string, meta: DiffMetadata) => {
+    setPendingDiffs(prev => {
+      const next = new Map(prev)
+      next.set(filePath, meta)
+      return next
+    })
+  }, [])
 
   const handleCloseFile = useCallback((path: string, e?: React.MouseEvent) => {
     e?.stopPropagation()
@@ -133,7 +145,8 @@ export function CodeWorkspace() {
         const shortName = name.split('/').pop() || name
         setOpenFiles(prev => [...prev, { path: fullPath, name: shortName, content, language, dirty: false, savedContent: content }])
         setActiveFile(fullPath)
-      } catch {
+      } catch (err) {
+        console.error('Failed to open newly created file:', err)
         setActiveFile(null)
       }
     } catch (err) {
@@ -148,7 +161,7 @@ export function CodeWorkspace() {
     try {
       const newTree = await apiClient.workspace.tree(workspaceDir)
       setTree(newTree)
-    } catch { /* ignore */ }
+    } catch (err) { console.error('Failed to refresh file tree:', err) }
   }, [workspaceDir])
 
   const handleRenameFile = useCallback(async (filePath: string, newName: string) => {
@@ -376,7 +389,7 @@ export function CodeWorkspace() {
         {/* Agent panel */}
         {agentPanelOpen && (
           <div className="w-96 border-l border-white/5 shrink-0 overflow-hidden">
-            <AgentPanel onOpenFile={handleAgentOpenFile} />
+            <AgentPanel onOpenFile={handleAgentOpenFile} onDiffProposal={handleDiffProposal} />
           </div>
         )}
       </div>

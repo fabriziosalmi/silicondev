@@ -55,7 +55,7 @@ export function EngineInterface() {
             const downloaded = data.filter(m => m.downloaded && !m.is_finetuned); // Base models only
             setModels(downloaded)
             if (downloaded.length) setSelectedModel(downloaded[0].id)
-        }).catch(() => {})
+        }).catch(err => console.error('Failed to load models:', err))
     }, [])
 
     // Fetch model format info when selected model changes
@@ -248,7 +248,7 @@ export function EngineInterface() {
                                         </div>
                                         <button
                                             onClick={async () => {
-                                                const path = await (window as any).electronAPI?.selectFile?.();
+                                                const path = await window.electronAPI?.selectFile?.();
                                                 if (path) setDatasetPath(path);
                                             }}
                                             className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl transition-colors text-sm font-medium"

@@ -66,6 +66,31 @@ def _is_blocked(command: str) -> str | None:
     """Check if a command should be blocked. Returns reason or None."""
     normalized = command.strip().lower()
 
+    # Strip shell wrapper attempts: bash -c "...", sh -c "...", zsh -c "..."
+    # This catches `bash -c "rm -rf /"` style bypasses
+    _shell_wrap = re.match(
+        r"^(?:ba)?sh\s+-c\s+[\"'](.+?)[\"']\s*$", normalized
+    ) or re.match(
+        r"^(?:z|k|c)?sh\s+-c\s+[\"'](.+?)[\"']\s*$", normalized
+    )
+    if _shell_wrap:
+        inner = _shell_wrap.group(1)
+        inner_block = _is_blocked(inner)
+        if inner_block:
+            return f"{inner_block} (via shell -c wrapper)"
+
+    # Check each segment of piped/chained commands
+    # Splits on |, &&, ||, ; to catch `echo foo | rm -rf /`
+    segments = re.split(r'\s*(?:\|\||&&|[|;])\s*', normalized)
+    if len(segments) > 1:
+        for seg in segments:
+            seg = seg.strip()
+            if not seg:
+                continue
+            seg_block = _is_blocked(seg)
+            if seg_block:
+                return f"{seg_block} (in chained command)"
+
     # Absolute block patterns
     for pat in BLOCKED_PATTERNS:
         if pat in normalized:
@@ -75,8 +100,17 @@ def _is_blocked(command: str) -> str | None:
     for ppath in PROTECTED_PATHS:
         lower_pp = ppath.lower()
         # Block writes to system paths (rm, mv, cp, chmod, chown, etc.)
+        write_prefixes = [
+            "rm ", "mv ", "cp ", "chmod ", "chown ", "touch ", "mkdir ",
+            "rmdir ", "ln ", "install ",
+        ]
         if any(normalized.startswith(prefix) and lower_pp in normalized
-               for prefix in ["rm ", "mv ", "cp ", "chmod ", "chown ", "touch ", "mkdir "]):
+               for prefix in write_prefixes):
+            return f"Blocked: cannot modify protected system path {ppath}"
+        # Also check within piped commands (already handled above, but
+        # catch any path reference in the full command)
+        if any(prefix in normalized and lower_pp in normalized
+               for prefix in write_prefixes):
             return f"Blocked: cannot modify protected system path {ppath}"
         # Block cd + destructive combos
         if f"cd {lower_pp}" in normalized and any(d in normalized for d in ["rm ", "mv ", "chmod "]):

@@ -36,8 +36,7 @@ function App() {
   const [updateVersion, setUpdateVersion] = useState('')
 
   useEffect(() => {
-    const api = (window as any).electronAPI;
-    api?.onUpdateDownloaded?.((version: string) => {
+    window.electronAPI?.onUpdateDownloaded?.((version: string) => {
       setUpdateReady(true);
       setUpdateVersion(version);
     });
@@ -170,7 +169,7 @@ function App() {
         <div className="flex items-center justify-between px-4 py-2 bg-blue-600/20 border-b border-blue-500/30 text-sm text-blue-300">
           <span>Version {updateVersion} is ready to install.</span>
           <button
-            onClick={() => (window as any).electronAPI?.installUpdate?.()}
+            onClick={() => window.electronAPI?.installUpdate?.()}
             className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded transition-colors"
           >
             Restart &amp; Update

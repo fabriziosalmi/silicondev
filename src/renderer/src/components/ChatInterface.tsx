@@ -201,7 +201,7 @@ export function ChatInterface() {
                     setHasDownloadedModels(true)
                 }
             })
-            .catch(() => { /* ignore */ })
+            .catch(err => console.error('Failed to check downloaded models:', err))
     }, [backendReady])
 
     // DOM windowing: only render last N messages to avoid DOM bloat on long conversations
@@ -2427,7 +2427,7 @@ function CodeBlock({
         setChecking(true);
         apiClient.sandbox.check(code, language)
             .then(setCheckResult)
-            .catch(() => {})
+            .catch(err => console.error('Syntax check failed:', err))
             .finally(() => setChecking(false));
     }, [syntaxCheck, code, language]);
 
@@ -2438,7 +2438,7 @@ function CodeBlock({
         setCheckResult(null);
         apiClient.sandbox.check(displayCode, language)
             .then(setCheckResult)
-            .catch(() => {})
+            .catch(err => console.error('Syntax check failed:', err))
             .finally(() => setChecking(false));
     }, [versionIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 

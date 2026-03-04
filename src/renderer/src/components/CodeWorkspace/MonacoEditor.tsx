@@ -28,21 +28,26 @@ function EditorFallback() {
 export function MonacoEditor({ filePath, content, language, onSave, onChange }: MonacoEditorProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null)
+  // Refs to avoid stale closures in Monaco's addCommand callback
+  const filePathRef = useRef(filePath)
+  const onSaveRef = useRef(onSave)
+  filePathRef.current = filePath
+  onSaveRef.current = onSave
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleEditorDidMount = useCallback((editor: any) => {
     editorRef.current = editor
 
-    // Cmd+S to save
+    // Cmd+S to save — uses refs to avoid stale closure
     editor.addCommand(
       // Monaco.KeyMod.CtrlCmd | Monaco.KeyCode.KeyS
       2048 | 49, // CtrlCmd = 2048, KeyS = 49
       () => {
         const currentContent = editor.getValue()
-        onSave(filePath, currentContent)
+        onSaveRef.current(filePathRef.current, currentContent)
       }
     )
-  }, [filePath, onSave])
+  }, [])
 
   const handleChange = useCallback((value: string | undefined) => {
     if (value !== undefined) {
