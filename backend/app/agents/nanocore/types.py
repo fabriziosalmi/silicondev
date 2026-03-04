@@ -25,6 +25,7 @@ class AgentState(str, Enum):
 SSEEventType = Literal[
     "session_start",
     "token_stream",
+    "thinking",
     "tool_start",
     "tool_log",
     "tool_done",

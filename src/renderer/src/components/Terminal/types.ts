@@ -3,6 +3,7 @@
 export type FeedItemType =
   | 'user'
   | 'ai_text'
+  | 'thinking'
   | 'tool_start'
   | 'tool_output'
   | 'diff_proposal'

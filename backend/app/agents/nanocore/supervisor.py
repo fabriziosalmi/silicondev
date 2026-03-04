@@ -344,6 +344,10 @@ class SupervisorAgent:
                             think_buffer += token_text
                             if "</think>" in think_buffer:
                                 in_think_block = False
+                                # Extract thinking content and send as a separate event
+                                think_content = think_buffer.split("</think>")[0].replace("<think>", "").strip()
+                                if think_content:
+                                    yield _sse("thinking", {"agent": "supervisor", "content": think_content})
                                 streamed_up_to = len(accumulated)
                                 think_buffer = ""
                             continue

@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from app.agents.nanocore.types import TerminalRequest, DiffDecision, EscalationResponse
 from app.agents.nanocore.supervisor import SupervisorAgent
 from app.agents.nanocore.tools import run_bash
+from app.agents.nanocore.prompts import FILE_CONTEXT_INSTRUCTION
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,7 @@ async def run_terminal(request: TerminalRequest):
             ctx_parts.append(f"[Language: {request.active_file.language}]")
         if request.active_file.content is not None:
             ctx_parts.append(f"[File content]\n```\n{request.active_file.content}\n```")
+        ctx_parts.append(FILE_CONTEXT_INSTRUCTION)
         prompt = "\n".join(ctx_parts) + "\n\n" + prompt
 
     async def event_generator():

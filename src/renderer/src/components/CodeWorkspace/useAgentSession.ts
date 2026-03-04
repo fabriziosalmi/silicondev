@@ -348,6 +348,16 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           })
           break
 
+        case 'thinking':
+          aiTextIdRef.current = null
+          addFeedItem({
+            id: crypto.randomUUID(),
+            type: 'thinking',
+            content: (d.content as string) || '',
+            timestamp: Date.now(),
+          })
+          break
+
         case 'error':
           addFeedItem({ id: crypto.randomUUID(), type: 'error', content: d.message as string, timestamp: Date.now() })
           break

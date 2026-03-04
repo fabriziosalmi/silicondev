@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, memo, useCallback } from 'react'
-import { User, Bot, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, RefreshCw, XCircle, CheckCircle2, ChevronRight } from 'lucide-react'
+import { User, Bot, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, RefreshCw, XCircle, CheckCircle2, ChevronRight, Brain } from 'lucide-react'
 import { StreamingMarkdown } from './StreamingMarkdown'
 import { HolographicDiff } from './HolographicDiff'
 import { apiClient } from '../../api/client'
@@ -170,6 +170,44 @@ function CollapsibleToolOutput({ item }: { item: FeedItem }) {
 }
 
 /**
+ * Collapsible thinking/reasoning block — collapsed by default.
+ */
+function ThinkingBlock({ item }: { item: FeedItem }) {
+  const [open, setOpen] = useState(false)
+  const preview = item.content.slice(0, 80).replace(/\n/g, ' ')
+
+  return (
+    <div className="rounded-[10px] overflow-hidden border border-purple-500/10 bg-purple-500/[0.03]">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-purple-500/[0.05] transition-colors cursor-pointer"
+      >
+        <ChevronRight
+          size={12}
+          className={`text-purple-400/60 transition-transform shrink-0 ${open ? 'rotate-90' : ''}`}
+        />
+        <Brain size={12} className="text-purple-400/60 shrink-0" />
+        <span className="text-[11px] font-medium text-purple-300/70">Thinking</span>
+        {!open && preview && (
+          <span className="text-[11px] text-gray-500 truncate flex-1 italic">
+            {preview}{item.content.length > 80 ? '…' : ''}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="border-t border-purple-500/10 px-3 py-2 max-h-48 overflow-y-auto">
+          <p className="text-xs text-gray-400 whitespace-pre-wrap select-text leading-relaxed">
+            {item.content}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
  * Memoized individual feed item — only re-renders when the item itself changes.
  */
 const FeedItemView = memo(function FeedItemView({
@@ -275,6 +313,9 @@ const FeedItemView = memo(function FeedItemView({
         </div>
       )
     }
+
+    case 'thinking':
+      return <ThinkingBlock item={item} />
 
     case 'human_escalation':
       return item.escalationMeta ? (
