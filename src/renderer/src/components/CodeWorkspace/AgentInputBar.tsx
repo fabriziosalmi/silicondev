@@ -49,6 +49,8 @@ export function AgentInputBar({ onSubmit, onStop, isRunning, disabled }: AgentIn
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
+          onMouseDown={(e) => e.stopPropagation()}
+          onFocus={(e) => e.stopPropagation()}
           placeholder={disabled ? 'Load a model first...' : 'Ask the agent to edit code...'}
           disabled={disabled || isRunning}
           rows={1}

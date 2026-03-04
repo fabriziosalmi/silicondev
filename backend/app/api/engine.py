@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Optional, Union
 import uuid
 import json
 import logging
+from pathlib import Path
 from app.engine.service import MLXEngineService
 from app.security import safe_user_file
 
@@ -58,7 +59,7 @@ async def get_active_model():
     """Return the currently loaded model, or null if none."""
     if not service.active_model_id:
         return {"model": None}
-    # Find full model info
+    # Find full model info from config
     for m in service.models_config:
         if m["id"] == service.active_model_id:
             meta = service.get_active_model_metadata()
@@ -71,7 +72,18 @@ async def get_active_model():
                 "context_window": meta.get("context_window"),
                 "is_vision": meta.get("is_vision", False),
             }}
-    return {"model": None}
+    # Model is loaded but not in config (e.g. config reloaded) — return basic info
+    model_id = service.active_model_id
+    model_name = Path(model_id).name if "/" in model_id else model_id
+    return {"model": {
+        "id": model_id,
+        "name": model_name,
+        "size": "",
+        "path": model_id,
+        "architecture": None,
+        "context_window": None,
+        "is_vision": service.active_is_vision,
+    }}
 
 class DownloadRequest(BaseModel):
     model_id: str = Field(min_length=1, max_length=255)

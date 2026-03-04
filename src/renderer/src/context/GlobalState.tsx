@@ -54,7 +54,7 @@ const GlobalStateContext = createContext<GlobalStateContextType | undefined>(und
 export function GlobalStateProvider({ children }: { children: React.ReactNode }) {
     const [backendReady, setBackendReady] = useState(false);
     const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
-    const [activeModel, setActiveModel] = useState<LoadedModel | null>(null);
+    const [activeModel, _setActiveModel] = useState<LoadedModel | null>(null);
     const [isTraining, setIsTraining] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [pendingChatInput, setPendingChatInput] = useState<string | null>(null);
@@ -63,6 +63,13 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
     // to avoid unnecessary re-renders that cause visible flicker
     const lastStatsJson = useRef<string>('');
     const lastActiveModelId = useRef<string | null>(null);
+
+    // Wrap setActiveModel so external callers (TopBar) also sync the polling ref,
+    // preventing the next poll from overwriting a valid model with null.
+    const setActiveModel = React.useCallback((model: LoadedModel | null) => {
+        lastActiveModelId.current = model?.id ?? null;
+        _setActiveModel(model);
+    }, []);
 
     useEffect(() => {
         let mounted = true;
