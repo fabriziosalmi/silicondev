@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
 import { X, Circle, Save, FolderSearch, Settings as SettingsIcon, FilePlus, PanelRightOpen, PanelRightClose } from 'lucide-react'
 import { FileTree } from './FileTree'
 import { MonacoEditor } from './MonacoEditor'
@@ -32,6 +32,60 @@ export function CodeWorkspace() {
   const newFileInputRef = useRef<HTMLInputElement>(null)
   const [agentPanelOpen, setAgentPanelOpen] = useState(true)
   const [pendingDiffs, setPendingDiffs] = useState<Map<string, DiffMetadata>>(new Map())
+
+  // --- Resizable panels ---
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem('code-sidebar-width')
+    return saved ? Number(saved) : 192
+  })
+  const [agentWidth, setAgentWidth] = useState(() => {
+    const saved = localStorage.getItem('code-agent-width')
+    return saved ? Number(saved) : 384
+  })
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Persist widths
+  useLayoutEffect(() => {
+    localStorage.setItem('code-sidebar-width', String(sidebarWidth))
+  }, [sidebarWidth])
+  useLayoutEffect(() => {
+    localStorage.setItem('code-agent-width', String(agentWidth))
+  }, [agentWidth])
+
+  const startDrag = useCallback((
+    setter: React.Dispatch<React.SetStateAction<number>>,
+    direction: 'left' | 'right',
+    min: number,
+    max: number,
+    startX: number,
+    startW: number,
+  ) => {
+    const onMove = (e: MouseEvent) => {
+      const dx = e.clientX - startX
+      const newW = direction === 'left'
+        ? Math.min(max, Math.max(min, startW + dx))
+        : Math.min(max, Math.max(min, startW - dx))
+      setter(newW)
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [])
+
+  const handleSidebarDrag = useCallback((e: React.MouseEvent) => {
+    startDrag(setSidebarWidth, 'left', 120, 400, e.clientX, sidebarWidth)
+  }, [sidebarWidth, startDrag])
+
+  const handleAgentDrag = useCallback((e: React.MouseEvent) => {
+    startDrag(setAgentWidth, 'right', 280, 700, e.clientX, agentWidth)
+  }, [agentWidth, startDrag])
 
   // Provide active file context to the agent panel (called at submit time via ref)
   const openFilesRef = useRef(openFiles)
@@ -319,9 +373,9 @@ export function CodeWorkspace() {
       </div>
 
       {/* Main content: three-column layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div ref={containerRef} className="flex-1 flex overflow-hidden">
         {/* File tree sidebar */}
-        <div className="w-48 border-r border-white/5 bg-black/20 shrink-0 overflow-hidden flex flex-col">
+        <div style={{ width: sidebarWidth }} className="border-r border-white/5 bg-black/20 shrink-0 overflow-hidden flex flex-col">
           <div className="px-2 py-1.5 flex items-center justify-between border-b border-white/5">
             <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wide truncate">
               {tree?.name || 'Explorer'}
@@ -373,6 +427,13 @@ export function CodeWorkspace() {
           )}
         </div>
 
+        {/* Sidebar resize handle */}
+        <div
+          role="separator"
+          onMouseDown={handleSidebarDrag}
+          className="w-1 shrink-0 cursor-col-resize hover:bg-blue-500/30 active:bg-blue-500/50 transition-colors"
+        />
+
         {/* Editor area */}
         <div className="flex-1 min-w-0">
           {active ? (
@@ -403,11 +464,18 @@ export function CodeWorkspace() {
           )}
         </div>
 
-        {/* Agent panel */}
+        {/* Agent panel resize handle + panel */}
         {agentPanelOpen && (
-          <div className="w-96 border-l border-white/5 shrink-0 overflow-hidden">
+          <>
+          <div
+            role="separator"
+            onMouseDown={handleAgentDrag}
+            className="w-1 shrink-0 cursor-col-resize hover:bg-blue-500/30 active:bg-blue-500/50 transition-colors"
+          />
+          <div style={{ width: agentWidth }} className="border-l border-white/5 shrink-0 overflow-hidden">
             <AgentPanel onOpenFile={handleAgentOpenFile} onDiffProposal={handleDiffProposal} getActiveFile={getActiveFile} />
           </div>
+          </>
         )}
       </div>
     </div>
