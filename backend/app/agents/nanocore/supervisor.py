@@ -382,7 +382,7 @@ class SupervisorAgent:
             if not tool_calls:
                 # No tool calls — agent is done
                 clean_remaining = _strip_think_tags(accumulated[streamed_up_to:])
-                clean_remaining = strip_tool_calls(clean_remaining)
+                clean_remaining = strip_tool_calls(clean_remaining, strip_whitespace=True)
                 if clean_remaining:
                     yield _sse("token_stream", {"agent": "supervisor", "text": clean_remaining})
                 break

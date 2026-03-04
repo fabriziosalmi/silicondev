@@ -73,9 +73,13 @@ def has_partial_tool_tag(text: str) -> bool:
     return False
 
 
-def strip_tool_calls(text: str) -> str:
-    """Remove all complete tool call blocks from text, leaving surrounding prose."""
+def strip_tool_calls(text: str, *, strip_whitespace: bool = False) -> str:
+    """Remove all complete tool call blocks from text, leaving surrounding prose.
+
+    By default preserves leading/trailing whitespace so that streamed tokens
+    keep their inter-word spaces. Pass strip_whitespace=True for final output.
+    """
     cleaned = _TOOL_RE.sub("", text)
     # Also remove any orphaned <tool>, </tool>, <arg>, </arg> fragments
     cleaned = _STRAY_TAGS_RE.sub("", cleaned)
-    return cleaned.strip()
+    return cleaned.strip() if strip_whitespace else cleaned
