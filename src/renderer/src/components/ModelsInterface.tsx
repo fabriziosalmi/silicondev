@@ -3,7 +3,7 @@ import { apiClient, cleanModelName } from '../api/client';
 import type { ModelEntry } from '../api/client';
 import { PageHeader } from './ui/PageHeader';
 import { useToast } from './ui/Toast';
-import { Search, Download, Trash2, Database, HardDrive, FileText, Play, LogOut, AlertTriangle } from 'lucide-react';
+import { Search, Download, Trash2, Database, HardDrive, FileText, Play, LogOut } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useGlobalState } from '../context/GlobalState';
@@ -238,10 +238,17 @@ export function ModelsInterface() {
         m.id.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const displayedDiscoverModels = discoverableModels.filter(m =>
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.id.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const availableRamBytes = systemStats?.memory.available ?? 0;
+
+    const displayedDiscoverModels = discoverableModels.filter(m => {
+        const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            m.id.toLowerCase().includes(searchQuery.toLowerCase());
+        if (!matchesSearch) return false;
+        // Hide models that exceed available RAM
+        const sizeGB = parseSizeGB(m.size);
+        if (sizeGB > 0 && availableRamBytes > 0 && sizeGB * 1.07e9 > availableRamBytes) return false;
+        return true;
+    });
 
     // Helper to extract Quantization from name
     const guessQuant = (name: string) => {
@@ -465,7 +472,10 @@ export function ModelsInterface() {
                                     <div className="p-4 border-b border-white/10">
                                         <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Recommended for your Mac</h3>
                                         <div className="grid grid-cols-2 gap-2">
-                                            {RECOMMENDED_MODELS.map(rec => {
+                                            {RECOMMENDED_MODELS.filter(rec => {
+                                            if (availableRamBytes > 0 && rec.sizeGB * 1.07e9 > availableRamBytes) return false;
+                                            return true;
+                                        }).map(rec => {
                                                 const catalogModel = discoverableModels.find(m => m.id === rec.id);
                                                 if (!catalogModel) return null;
                                                 const isDownloading = downloading.has(rec.id);
@@ -490,12 +500,7 @@ export function ModelsInterface() {
                                         </div>
                                     </div>
                                 )}
-                                {displayedDiscoverModels.map(model => {
-                                    const sizeGB = parseSizeGB(model.size);
-                                    const exceedsRam = sizeGB > 0 && systemStats
-                                        ? sizeGB * 1.07e9 > systemStats.memory.available
-                                        : false;
-                                    return (
+                                {displayedDiscoverModels.map(model => (
                                     <button
                                         key={model.id}
                                         onClick={() => selectModelForDetails(model)}
@@ -506,16 +511,9 @@ export function ModelsInterface() {
                                         <div className="flex items-center gap-2 mt-2">
                                             <span className="text-[10px] px-1.5 py-0.5 bg-white/5 rounded text-gray-400 border border-white/5">{guessPublisher(model.id)}</span>
                                             <span className="text-[10px] px-1.5 py-0.5 bg-white/5 rounded text-gray-400 border border-white/5">{model.size}</span>
-                                            {exceedsRam && (
-                                                <span className="text-[10px] px-1.5 py-0.5 bg-red-500/10 rounded text-red-400 border border-red-500/20 flex items-center gap-1">
-                                                    <AlertTriangle className="w-3 h-3" />
-                                                    Exceeds RAM
-                                                </span>
-                                            )}
                                         </div>
                                     </button>
-                                    );
-                                })}
+                                ))}
                             </div>
                         </div>
 

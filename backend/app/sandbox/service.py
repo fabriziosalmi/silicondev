@@ -1,5 +1,7 @@
 import asyncio
+import os
 import re
+import signal
 import shutil
 import tempfile
 import time
@@ -115,6 +117,7 @@ class SandboxService:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=tmpdir,
+                preexec_fn=os.setsid,
             )
 
             if run_id:
@@ -127,8 +130,13 @@ class SandboxService:
                 )
             except asyncio.TimeoutError:
                 timed_out = True
-                process.kill()
-                stdout_bytes, stderr_bytes = await process.communicate()
+                _kill_process_group(process)
+                try:
+                    stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                        process.communicate(), timeout=5
+                    )
+                except asyncio.TimeoutError:
+                    stdout_bytes, stderr_bytes = b"", b""
 
             elapsed = round(time.monotonic() - start, 3)
 
@@ -188,14 +196,18 @@ class SandboxService:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=tmpdir,
+                preexec_fn=os.setsid,
             )
             try:
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
                     process.communicate(), timeout=15
                 )
             except asyncio.TimeoutError:
-                process.kill()
-                await process.communicate()
+                _kill_process_group(process)
+                try:
+                    await asyncio.wait_for(process.communicate(), timeout=5)
+                except asyncio.TimeoutError:
+                    pass
                 return {"valid": True, "errors": "", "language": lang, "skipped": True}
 
             errors = _ANSI_RE.sub("", stderr_bytes[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")).strip()
@@ -221,6 +233,21 @@ class SandboxService:
     async def kill(self, run_id: str) -> bool:
         process = self._running_processes.get(run_id)
         if process and process.returncode is None:
-            process.kill()
+            _kill_process_group(process)
             return True
         return False
+
+
+def _kill_process_group(process: asyncio.subprocess.Process) -> None:
+    """Kill a process and its entire process group with SIGKILL."""
+    if process.returncode is not None:
+        return
+    try:
+        pgid = os.getpgid(process.pid)
+        os.killpg(pgid, signal.SIGKILL)
+    except (OSError, ProcessLookupError):
+        # Fallback: kill just the process
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
