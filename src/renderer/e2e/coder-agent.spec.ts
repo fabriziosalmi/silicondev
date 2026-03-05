@@ -1,15 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { mockBackendAPIs, navigateTo, setupWorkspace, agentFullFlowSSE, agentTextOnlySSE } from './helpers'
 
-// Use a wide viewport so agent panel is fully visible
-test.use({ viewport: { width: 1440, height: 900 } })
-
-test.beforeEach(async ({ page }) => {
-  await mockBackendAPIs(page)
-  await page.goto('/')
-  await expect(page.locator('nav')).toBeVisible({ timeout: 15_000 })
-})
-
 /** Navigate to Code workspace and wait for agent panel header */
 async function goToCodeWorkspace(page: import('@playwright/test').Page) {
   await setupWorkspace(page)
@@ -48,6 +39,14 @@ async function getAgentInput(page: import('@playwright/test').Page, placeholderM
 }
 
 test.describe('Coder Agent — Full Flow', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test.beforeEach(async ({ page }) => {
+    await mockBackendAPIs(page)
+    await page.goto('/')
+    await expect(page.locator('nav')).toBeVisible({ timeout: 15_000 })
+  })
+
   test('agent panel shows header with model name', async ({ page }) => {
     await goToCodeWorkspace(page)
     // Agent panel header: "nanocore" label should be in the DOM

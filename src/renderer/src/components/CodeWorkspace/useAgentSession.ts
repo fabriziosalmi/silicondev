@@ -360,11 +360,15 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
 
         case 'thinking':
           aiTextIdRef.current = null
-          addFeedItem({
-            id: crypto.randomUUID(),
-            type: 'thinking',
-            content: (d.content as string) || '',
-            timestamp: Date.now(),
+          // Replace previous thinking block + remove step_label (only keep latest thinking)
+          setFeedItems((prev) => {
+            const filtered = prev.filter((it) => it.type !== 'thinking' && it.type !== 'step_label')
+            return [...filtered, {
+              id: crypto.randomUUID(),
+              type: 'thinking' as const,
+              content: (d.content as string) || '',
+              timestamp: Date.now(),
+            }]
           })
           break
 
@@ -393,9 +397,9 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           const parts: string[] = []
           if (tokens > 0) parts.push(`${tokens.toLocaleString()} tokens`)
           parts.push(`${Math.round(ms / 1000)}s`)
-          // Remove step_label and add done info
+          // Remove step_label and thinking, add done info
           setFeedItems((prev) => [
-            ...prev.filter((it) => it.type !== 'step_label'),
+            ...prev.filter((it) => it.type !== 'step_label' && it.type !== 'thinking'),
             {
               id: crypto.randomUUID(),
               type: 'info' as const,
