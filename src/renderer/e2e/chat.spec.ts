@@ -37,6 +37,8 @@ test.describe('Chat Page', () => {
   })
 
   test('search conversations input exists', async ({ page }) => {
+    // Search input is hidden until the search icon is clicked
+    await page.locator('button[title="Search conversations"]').first().click()
     await expect(
       page.locator('input[placeholder="Search conversations..."]')
     ).toBeVisible({ timeout: 5000 })

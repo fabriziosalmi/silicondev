@@ -58,4 +58,9 @@ test.describe('Settings Page', () => {
   test('shows Web Indexer section', async ({ page }) => {
     await expect(page.getByText('WEB INDEXER').or(page.getByText('Web Indexer')).first()).toBeVisible({ timeout: 5000 })
   })
+
+  test('shows Privacy section with PII Redaction toggle', async ({ page }) => {
+    await expect(page.getByText('PRIVACY').or(page.getByText('Privacy')).first()).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('PII Redaction').first()).toBeVisible({ timeout: 5000 })
+  })
 })

@@ -35,11 +35,16 @@ test.describe('Terminal Page', () => {
     await textarea.fill('echo hello')
     await textarea.press('Enter')
 
-    // Wait for the SSE mock output to appear
-    await expect(page.getByText('mock output').first()).toBeVisible({ timeout: 5000 })
+    // Wait for the "Done" info item to appear (confirms SSE was consumed)
+    await expect(page.getByText('Done — 0s').first()).toBeVisible({ timeout: 5000 })
 
-    // The done event with total_time_ms=100 renders "Done — 0s"
-    await expect(page.getByText('Done').first()).toBeVisible({ timeout: 5000 })
+    // Tool output is in a collapsed section — expand it by clicking its header
+    // The collapsible header button is outside <nav>, inside the feed area
+    const toolHeader = page.locator('button:has-text("Terminal")').last()
+    await toolHeader.click()
+
+    // Now the output text should be visible
+    await expect(page.getByText('mock output').first()).toBeVisible({ timeout: 5000 })
   })
 
   test('prompt symbol $ is green', async ({ page }) => {
