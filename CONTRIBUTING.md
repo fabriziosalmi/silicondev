@@ -40,12 +40,19 @@ make setup   # creates venv, installs Python + JS deps
 make hooks   # installs local pre-commit hook (.githooks/pre-commit)
 make run     # starts backend + frontend
 make test    # runs dependency sync check + warning-clean pytest
+make version-show
+make version-bump-patch  # bugfix
+make version-bump-minor  # new backward-compatible feature
+make version-bump-major  # breaking change
 ```
 
 The pre-commit hook blocks commits when:
+- version is not synchronized across project files
 - `backend/pyproject.toml` and `backend/constraints.txt` are out of sync
 - backend tests fail
 - backend tests emit warnings (warnings must be fixed or explicitly filtered)
+
+See [VERSIONING.md](VERSIONING.md) for the semantic versioning policy and release flow.
 
 ## How to Add a New Tab
 

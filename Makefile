@@ -30,11 +30,24 @@ run: $(DEPS) node_modules
 # ── Test ─────────────────────────────────────────────────
 
 test: $(DEPS)
+	$(PYTHON) scripts/check_version_sync.py
 	$(PYTHON) backend/scripts/check_constraints_sync.py
 	$(PYTHON) backend/scripts/run_pytest_clean.py
 
 hooks:
 	bash scripts/install_git_hooks.sh
+
+version-show:
+	$(PYTHON) scripts/version_manager.py show
+
+version-bump-major:
+	$(PYTHON) scripts/version_manager.py bump --type major --apply
+
+version-bump-minor:
+	$(PYTHON) scripts/version_manager.py bump --type minor --apply
+
+version-bump-patch:
+	$(PYTHON) scripts/version_manager.py bump --type patch --apply
 
 # ── Clean ────────────────────────────────────────────────
 

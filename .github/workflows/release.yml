@@ -36,7 +36,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/Library/Caches/pip
-          key: macos-pip-${{ hashFiles('backend/pyproject.toml') }}
+          key: macos-pip-${{ hashFiles('backend/pyproject.toml', 'backend/constraints.txt') }}
           restore-keys: macos-pip-
 
       - name: Install backend dependencies
@@ -45,9 +45,16 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -c constraints.txt -e ".[dev]"
           pip install pyinstaller
           python -m spacy download en_core_web_sm
+
+      - name: Check version sync
+        run: python scripts/check_version_sync.py
+
+      - name: Check dependency sync
+        working-directory: backend
+        run: python scripts/check_constraints_sync.py
 
       # --- Build ---
       - name: Build frontend
