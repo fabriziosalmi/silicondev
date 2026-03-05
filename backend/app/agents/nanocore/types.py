@@ -26,6 +26,7 @@ SSEEventType = Literal[
     "session_start",
     "token_stream",
     "thinking",
+    "step_label",
     "tool_start",
     "tool_log",
     "tool_done",
@@ -56,6 +57,11 @@ class FileContext(BaseModel):
     language: Optional[str] = Field(default=None, max_length=64)
 
 
+class ConversationTurn(BaseModel):
+    role: str = Field(min_length=1, max_length=20)  # "user" or "assistant"
+    content: str = Field(min_length=1, max_length=32768)
+
+
 class TerminalRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=32768)
     model_id: str = Field(min_length=1, max_length=255)
@@ -63,6 +69,7 @@ class TerminalRequest(BaseModel):
     temperature: float = Field(default=0.3, ge=0.0, le=2.0)
     max_total_tokens: int = Field(default=50000, ge=1000, le=500000)
     active_file: Optional[FileContext] = Field(default=None)
+    history: Optional[list[ConversationTurn]] = Field(default=None, max_length=20)
 
 
 class DiffDecision(BaseModel):

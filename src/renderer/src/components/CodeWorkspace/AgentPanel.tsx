@@ -8,6 +8,7 @@ import type { DiffMetadata } from '../Terminal/types'
 interface AgentPanelProps {
   onOpenFile: (path: string) => void
   onDiffProposal?: (filePath: string, meta: DiffMetadata) => void
+  onDiffSynced?: (filePath: string, approved: boolean) => void
   getActiveFile?: () => ActiveFileContext | null
 }
 
@@ -18,7 +19,7 @@ function formatMs(ms: number): string {
   return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`
 }
 
-export function AgentPanel({ onOpenFile, onDiffProposal, getActiveFile }: AgentPanelProps) {
+export function AgentPanel({ onOpenFile, onDiffProposal, onDiffSynced, getActiveFile }: AgentPanelProps) {
   const handleDiffProposal = useCallback((filePath: string, meta: { callId: string; filePath: string; oldContent: string; newContent: string; diff: string }) => {
     onOpenFile(filePath)
     onDiffProposal?.(filePath, {
@@ -39,10 +40,20 @@ export function AgentPanel({ onOpenFile, onDiffProposal, getActiveFile }: AgentP
     activeModel,
     handleSubmit,
     handleStop,
-    handleDiffDecided,
+    handleDiffDecided: rawHandleDiffDecided,
     handleEscalationResponded,
     clearHistory,
   } = useAgentSession({ onDiffProposal: handleDiffProposal, getActiveFile })
+
+  // Wrap handleDiffDecided to also sync with CodeWorkspace (DiffEditor)
+  const handleDiffDecided = useCallback((callId: string, approved: boolean, reason?: string) => {
+    rawHandleDiffDecided(callId, approved, reason)
+    // Find filePath from feed items
+    const item = feedItems.find(it => it.diffMeta?.callId === callId)
+    if (item?.diffMeta?.filePath && onDiffSynced) {
+      onDiffSynced(item.diffMeta.filePath, approved)
+    }
+  }, [rawHandleDiffDecided, feedItems, onDiffSynced])
 
   // Listen for context menu prompts from the Monaco editor
   useEffect(() => {

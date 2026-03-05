@@ -368,6 +368,21 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           })
           break
 
+        case 'step_label':
+          // Replace previous step_label or add new one
+          setFeedItems((prev) => {
+            const label = (d.label as string) || ''
+            // Remove previous step_label (only keep latest)
+            const filtered = prev.filter((it) => it.type !== 'step_label')
+            return [...filtered, {
+              id: crypto.randomUUID(),
+              type: 'step_label' as const,
+              content: label,
+              timestamp: Date.now(),
+            }]
+          })
+          break
+
         case 'error':
           addFeedItem({ id: crypto.randomUUID(), type: 'error', content: d.message as string, timestamp: Date.now() })
           break
@@ -378,12 +393,16 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           const parts: string[] = []
           if (tokens > 0) parts.push(`${tokens.toLocaleString()} tokens`)
           parts.push(`${Math.round(ms / 1000)}s`)
-          addFeedItem({
-            id: crypto.randomUUID(),
-            type: 'info',
-            content: `Done — ${parts.join(', ')}`,
-            timestamp: Date.now(),
-          })
+          // Remove step_label and add done info
+          setFeedItems((prev) => [
+            ...prev.filter((it) => it.type !== 'step_label'),
+            {
+              id: crypto.randomUUID(),
+              type: 'info' as const,
+              content: `Done — ${parts.join(', ')}`,
+              timestamp: Date.now(),
+            },
+          ])
           break
         }
       }
@@ -405,9 +424,22 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
       return
     }
 
+    // Build conversation history from previous feed items (multi-turn memory)
+    const history: { role: string; content: string }[] = []
+    for (const item of feedItems) {
+      if (item.type === 'user') {
+        history.push({ role: 'user', content: item.content })
+      } else if (item.type === 'ai_text' && item.content.trim()) {
+        history.push({ role: 'assistant', content: item.content })
+      }
+    }
+    // Keep last 10 turns to avoid overloading context
+    const recentHistory = history.slice(-10)
+
     const activeFile = options?.getActiveFile?.() ?? null
     const { url, body } = apiClient.terminal.runUrl(input, activeModel.id, {
       activeFile: activeFile ?? undefined,
+      history: recentHistory.length > 0 ? recentHistory : undefined,
     })
     await consumeSSE(url, body)
 

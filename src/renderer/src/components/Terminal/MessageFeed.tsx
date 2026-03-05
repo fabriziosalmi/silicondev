@@ -222,12 +222,19 @@ const FeedItemView = memo(function FeedItemView({
   onEscalationResponded: (escalationId: string, userMessage: string) => void
 }) {
   switch (item.type) {
-    case 'user':
+    case 'user': {
+      const hasCodeBlock = item.content.includes('```')
       return (
         <div className="flex justify-end">
           <div className="flex items-start gap-2 max-w-[80%]">
-            <div className="bg-blue-600/20 border border-blue-500/20 rounded-lg px-3 py-2 text-sm text-white select-text font-mono">
-              {item.content}
+            <div className="bg-blue-600/20 border border-blue-500/20 rounded-lg px-3 py-2 text-sm text-white select-text">
+              {hasCodeBlock ? (
+                <div className="prose prose-invert prose-sm max-w-none text-sm">
+                  <StreamingMarkdown content={item.content} />
+                </div>
+              ) : (
+                <span className="font-mono">{item.content}</span>
+              )}
             </div>
             <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center shrink-0 mt-0.5">
               <User size={14} className="text-gray-400" />
@@ -235,6 +242,7 @@ const FeedItemView = memo(function FeedItemView({
           </div>
         </div>
       )
+    }
 
     case 'ai_text': {
       const cleanContent = stripModelTags(item.content)
@@ -316,6 +324,14 @@ const FeedItemView = memo(function FeedItemView({
 
     case 'thinking':
       return <ThinkingBlock item={item} />
+
+    case 'step_label':
+      return (
+        <div className="flex items-center gap-2 py-0.5">
+          <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
+          <span className="text-[11px] text-blue-400/70 font-mono">{item.content}</span>
+        </div>
+      )
 
     case 'human_escalation':
       return item.escalationMeta ? (

@@ -81,9 +81,15 @@ async def run_terminal(request: TerminalRequest):
         ctx_parts.append(FILE_CONTEXT_INSTRUCTION)
         prompt = "\n".join(ctx_parts) + "\n\n" + prompt
 
+    # Build conversation history from prior turns
+    history = []
+    if request.history:
+        for turn in request.history[-10:]:  # keep last 10 turns max
+            history.append({"role": turn.role, "content": turn.content})
+
     async def event_generator():
         try:
-            async for event in agent.run(prompt):
+            async for event in agent.run(prompt, history=history):
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:
             logger.error(f"Terminal session error: {e}")

@@ -840,10 +840,13 @@ export const apiClient = {
         },
     },
     terminal: {
-        runUrl: (prompt: string, modelId: string, opts?: { maxIterations?: number; temperature?: number; activeFile?: { path: string; content?: string; language?: string } }) => {
-            const body: Record<string, unknown> = { prompt, model_id: modelId, max_iterations: opts?.maxIterations ?? 10, temperature: opts?.temperature ?? 0.7 }
+        runUrl: (prompt: string, modelId: string, opts?: { maxIterations?: number; temperature?: number; activeFile?: { path: string; content?: string; language?: string }; history?: { role: string; content: string }[] }) => {
+            const body: Record<string, unknown> = { prompt, model_id: modelId, max_iterations: opts?.maxIterations ?? 10, temperature: opts?.temperature ?? 0.3 }
             if (opts?.activeFile) {
                 body.active_file = opts.activeFile
+            }
+            if (opts?.history && opts.history.length > 0) {
+                body.history = opts.history
             }
             return {
                 url: `${API_BASE}/api/terminal/run`,

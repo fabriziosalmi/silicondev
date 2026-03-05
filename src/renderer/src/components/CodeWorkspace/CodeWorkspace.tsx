@@ -296,6 +296,15 @@ export function CodeWorkspace() {
     })
   }, [])
 
+  // Sync: when agent panel's HolographicDiff approve/reject fires, mirror it here
+  const handleDiffSynced = useCallback((filePath: string, approved: boolean) => {
+    if (approved) {
+      handleDiffApprove(filePath)
+    } else {
+      handleDiffReject(filePath)
+    }
+  }, [handleDiffApprove, handleDiffReject])
+
   const active = openFiles.find(f => f.path === activeFile)
   const activeDiff = activeFile ? pendingDiffs.get(activeFile) : undefined
 
@@ -473,7 +482,7 @@ export function CodeWorkspace() {
             className="w-1 shrink-0 cursor-col-resize hover:bg-blue-500/30 active:bg-blue-500/50 transition-colors"
           />
           <div style={{ width: agentWidth }} className="border-l border-white/5 shrink-0 overflow-hidden">
-            <AgentPanel onOpenFile={handleAgentOpenFile} onDiffProposal={handleDiffProposal} getActiveFile={getActiveFile} />
+            <AgentPanel onOpenFile={handleAgentOpenFile} onDiffProposal={handleDiffProposal} onDiffSynced={handleDiffSynced} getActiveFile={getActiveFile} />
           </div>
           </>
         )}

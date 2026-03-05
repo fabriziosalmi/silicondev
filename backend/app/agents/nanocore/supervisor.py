@@ -257,7 +257,7 @@ class SupervisorAgent:
             return None
         return pending.get("user_message") or None
 
-    async def run(self, prompt: str) -> AsyncGenerator[dict, None]:
+    async def run(self, prompt: str, history: list[dict] | None = None) -> AsyncGenerator[dict, None]:
         """Main agent loop. Yields SSE event dicts."""
         # Lazy import to avoid circular imports at module level
         from app.api.engine import service as engine_service
@@ -282,10 +282,18 @@ class SupervisorAgent:
 
         messages = [
             {"role": "system", "content": system_content},
-            {"role": "user", "content": prompt},
         ]
 
+        # Inject conversation history (prior turns) for multi-turn memory
+        if history:
+            for turn in history:
+                messages.append({"role": turn["role"], "content": turn["content"]})
+
+        messages.append({"role": "user", "content": prompt})
+
         iteration = 0
+        consecutive_no_tool = 0  # track iterations with no tool calls
+
         for iteration in range(1, self.max_iterations + 1):
             if self._stopped:
                 break
@@ -303,6 +311,7 @@ class SupervisorAgent:
                 break
 
             self._state = AgentState.thinking
+            yield _sse("step_label", {"label": "Thinking...", "iteration": iteration})
             yield _sse("telemetry_update", self._telemetry_data(iteration))
 
             # Fix 32: refresh repo map in system prompt if files changed
@@ -385,15 +394,25 @@ class SupervisorAgent:
             tool_calls = extract_tool_calls(cleaned)
 
             if not tool_calls:
-                # No tool calls — agent is done
+                consecutive_no_tool += 1
                 clean_remaining = _strip_think_tags(accumulated[streamed_up_to:])
                 clean_remaining = strip_tool_calls(clean_remaining, strip_whitespace=True)
                 if clean_remaining:
                     yield _sse("token_stream", {"agent": "supervisor", "text": clean_remaining})
+
+                # If 2+ iterations with no tool calls, nudge the model to act
+                if consecutive_no_tool >= 2 and iteration < self.max_iterations:
+                    messages.append({"role": "assistant", "content": cleaned})
+                    messages.append({
+                        "role": "user",
+                        "content": "[SYSTEM] You are not using your tools. You MUST use tools (patch_file, read_file, run_bash) to make changes. Do not just describe what to do — use a tool now.",
+                    })
+                    continue
                 break
 
             # --- Execute tool calls ---
             self._state = AgentState.tool_calling
+            consecutive_no_tool = 0  # reset — model used tools
             tool_results = []
 
             for tc in tool_calls:
@@ -405,6 +424,10 @@ class SupervisorAgent:
                 if tc.name == "run_bash":
                     command = tc.args.get("command", "")
                     background = tc.args.get("background", "").lower() in ("true", "1", "yes")
+
+                    # Step label for UI
+                    cmd_preview = command.split()[0] if command.split() else command
+                    yield _sse("step_label", {"label": f"Running {cmd_preview}...", "iteration": iteration})
 
                     # Fix 3: background process support
                     if background:
@@ -510,6 +533,8 @@ class SupervisorAgent:
 
                 elif tc.name == "read_file":
                     file_path = tc.args.get("path", "")
+                    fname = Path(file_path).name if file_path else "file"
+                    yield _sse("step_label", {"label": f"Reading {fname}...", "iteration": iteration})
                     max_lines = 300
                     try:
                         max_lines = int(tc.args.get("max_lines", "300"))
@@ -531,6 +556,8 @@ class SupervisorAgent:
                 elif tc.name == "edit_file":
                     file_path = tc.args.get("path", "")
                     new_content = tc.args.get("content", "")
+                    fname = Path(file_path).name if file_path else "file"
+                    yield _sse("step_label", {"label": f"Writing {fname}...", "iteration": iteration})
 
                     # Guard: redirect to patch_file for existing files
                     if Path(file_path).exists():
@@ -601,6 +628,8 @@ class SupervisorAgent:
                 elif tc.name == "patch_file":
                     # Fix 1: surgical search/replace edits
                     file_path = tc.args.get("path", "")
+                    fname = Path(file_path).name if file_path else "file"
+                    yield _sse("step_label", {"label": f"Editing {fname}...", "iteration": iteration})
                     search = tc.args.get("search", "")
                     replace = tc.args.get("replace", "")
 
@@ -693,6 +722,7 @@ class SupervisorAgent:
 
                 elif tc.name == "search_codebase":
                     query = tc.args.get("query", "")
+                    yield _sse("step_label", {"label": "Searching codebase...", "iteration": iteration})
                     yield _sse("tool_start", {"tool": "search_codebase", "args": {"query": query}, "call_id": call_id})
 
                     try:

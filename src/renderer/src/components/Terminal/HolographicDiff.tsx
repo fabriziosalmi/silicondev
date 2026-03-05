@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, X, Send } from 'lucide-react'
+import { Check, X, Send, ChevronRight } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import type { DiffMetadata } from './types'
 
@@ -14,6 +14,8 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
   const [showRejectInput, setShowRejectInput] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const isPending = meta.status === 'pending'
+  // Collapse diff body after decision
+  const [expanded, setExpanded] = useState(true)
 
   const handleDecide = async (approved: boolean, reason: string = '') => {
     if (deciding) return
@@ -26,6 +28,7 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
     } finally {
       setDeciding(false)
       setShowRejectInput(false)
+      setExpanded(false) // collapse after decision
     }
   }
 
@@ -60,8 +63,19 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
           : 'border-red-500/30'
     }`}>
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.03] border-b border-white/5">
-        <span className="text-xs text-gray-400 font-mono truncate">{meta.filePath}</span>
+      <div
+        className={`flex items-center justify-between px-3 py-1.5 bg-white/[0.03] ${expanded ? 'border-b border-white/5' : ''} ${!isPending ? 'cursor-pointer hover:bg-white/[0.05]' : ''}`}
+        onClick={() => { if (!isPending) setExpanded(!expanded) }}
+      >
+        <div className="flex items-center gap-1.5 min-w-0">
+          {!isPending && (
+            <ChevronRight
+              size={12}
+              className={`text-gray-500 transition-transform shrink-0 ${expanded ? 'rotate-90' : ''}`}
+            />
+          )}
+          <span className="text-xs text-gray-400 font-mono truncate">{meta.filePath}</span>
+        </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {isPending && !showRejectInput ? (
             <>
@@ -91,7 +105,7 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
       </div>
 
       {/* Reject reason input */}
-      {showRejectInput && (
+      {expanded && showRejectInput && (
         <div className="flex items-center gap-2 px-3 py-2 bg-red-500/5 border-b border-red-500/10">
           <input
             type="text"
@@ -118,36 +132,38 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
         </div>
       )}
 
-      {/* Reject reason display (after decision) */}
-      {meta.status === 'rejected' && meta.rejectReason && (
+      {/* Reject reason display (after decision, only when expanded) */}
+      {expanded && meta.status === 'rejected' && meta.rejectReason && (
         <div className="px-3 py-1.5 bg-red-500/5 border-b border-red-500/10">
           <span className="text-[11px] text-red-400/70">Reason: {meta.rejectReason}</span>
         </div>
       )}
 
-      {/* Diff view */}
-      <div className="overflow-x-auto max-h-80">
-        <pre className="text-[12px] leading-5 font-mono p-0 m-0 select-text">
-          {diffLines.map((line, i) => {
-            let bg = ''
-            let textColor = 'text-gray-400'
-            if (line.startsWith('+') && !line.startsWith('+++')) {
-              bg = 'bg-green-500/10'
-              textColor = 'text-green-400'
-            } else if (line.startsWith('-') && !line.startsWith('---')) {
-              bg = 'bg-red-500/10'
-              textColor = 'text-red-400'
-            } else if (line.startsWith('@@')) {
-              textColor = 'text-blue-400'
-            }
-            return (
-              <div key={i} className={`px-3 ${bg} ${textColor}`}>
-                {line || ' '}
-              </div>
-            )
-          })}
-        </pre>
-      </div>
+      {/* Diff view — collapsed after decision, clickable header to re-expand */}
+      {expanded && (
+        <div className="overflow-x-auto max-h-80">
+          <pre className="text-[12px] leading-5 font-mono p-0 m-0 select-text">
+            {diffLines.map((line, i) => {
+              let bg = ''
+              let textColor = 'text-gray-400'
+              if (line.startsWith('+') && !line.startsWith('+++')) {
+                bg = 'bg-green-500/10'
+                textColor = 'text-green-400'
+              } else if (line.startsWith('-') && !line.startsWith('---')) {
+                bg = 'bg-red-500/10'
+                textColor = 'text-red-400'
+              } else if (line.startsWith('@@')) {
+                textColor = 'text-blue-400'
+              }
+              return (
+                <div key={i} className={`px-3 ${bg} ${textColor}`}>
+                  {line || ' '}
+                </div>
+              )
+            })}
+          </pre>
+        </div>
+      )}
     </div>
   )
 }

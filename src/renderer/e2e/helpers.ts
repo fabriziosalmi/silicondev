@@ -125,6 +125,36 @@ export function agentRunSSE(text: string): string {
   ])
 }
 
+/** Agent run SSE with full tool flow: thinking → step_label → tool_start → tool_log → tool_done → text → done */
+export function agentFullFlowSSE(): string {
+  return buildSSE([
+    { data: { type: 'session_start', session_id: 's-full' } },
+    { data: { type: 'step_label', label: 'Thinking...', iteration: 1 } },
+    { data: { type: 'telemetry_update', agent: 'supervisor', state: 'thinking', tokens_used: 0, elapsed_ms: 100, iteration: 1, token_budget: 50000, budget_fraction: 0 } },
+    { data: { type: 'thinking', agent: 'supervisor', content: 'Let me read the file first to understand the code.' } },
+    { data: { type: 'step_label', label: 'Reading main.py...', iteration: 1 } },
+    { data: { type: 'tool_start', tool: 'read_file', args: { path: '/mock/project/src/main.py' }, call_id: 'c1' } },
+    { data: { type: 'tool_log', call_id: 'c1', stream: 'stdout', text: '(5 lines)\n' } },
+    { data: { type: 'tool_done', call_id: 'c1', exit_code: 0 } },
+    { data: { type: 'step_label', label: 'Editing main.py...', iteration: 1 } },
+    { data: { type: 'tool_start', tool: 'patch_file', args: { path: '/mock/project/src/main.py' }, call_id: 'c2' } },
+    { data: { type: 'tool_done', call_id: 'c2', exit_code: 0 } },
+    { data: { type: 'diff_proposal', call_id: 'c2', file_path: '/mock/project/src/main.py', old: 'print("hello world")\n', new: 'print("hello world!")\n', diff: '--- a/main.py\n+++ b/main.py\n@@ -1 +1 @@\n-print("hello world")\n+print("hello world!")\n' } },
+    { data: { type: 'telemetry_update', agent: 'supervisor', state: 'waiting_human_approval', tokens_used: 200, elapsed_ms: 2000, iteration: 1, token_budget: 50000, budget_fraction: 0.004 } },
+  ])
+}
+
+/** Agent run SSE: simple text response (no tools). */
+export function agentTextOnlySSE(text: string): string {
+  return buildSSE([
+    { data: { type: 'session_start', session_id: 's-text' } },
+    { data: { type: 'step_label', label: 'Thinking...', iteration: 1 } },
+    { data: { type: 'thinking', agent: 'supervisor', content: 'Analyzing the request...' } },
+    { data: { type: 'token_stream', text, agent: 'supervisor' } },
+    { data: { type: 'done', total_tokens: 50, total_time_ms: 800 } },
+  ])
+}
+
 /* ── Mock backend APIs ────────────────────────────────────── */
 
 /**

@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { Search, Pin, PinOff, Trash2, Edit3, Check, X, MessageSquare, GitFork } from 'lucide-react'
 import type { ConversationSummary } from '../api/client'
 
@@ -34,20 +35,49 @@ export function ConversationListPanel({
     onRenameValueChange,
     loading,
 }: ConversationListPanelProps) {
+    const [searchOpen, setSearchOpen] = useState(false)
+    const searchInputRef = useRef<HTMLInputElement>(null)
+
+    // Auto-focus input when opened
+    useEffect(() => {
+        if (searchOpen) searchInputRef.current?.focus()
+    }, [searchOpen])
+
+    // Close search when query is cleared and input loses focus
+    const handleBlur = () => {
+        if (!searchQuery) setSearchOpen(false)
+    }
+
     return (
         <div className="w-full flex flex-col gap-2 overflow-hidden">
-            {/* Search */}
-            <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
-                <input
-                    type="text"
+            {/* Search — icon only, expands on click */}
+            {searchOpen ? (
+                <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+                    <input
+                        ref={searchInputRef}
+                        type="text"
+                        title="Search conversations"
+                        placeholder="Search conversations..."
+                        value={searchQuery}
+                        onChange={(e) => onSearch(e.target.value)}
+                        onBlur={handleBlur}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Escape') { onSearch(''); setSearchOpen(false) }
+                        }}
+                        className="w-full bg-white/[0.03] border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500/50 transition-all"
+                    />
+                </div>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => setSearchOpen(true)}
+                    className="self-end p-1.5 text-gray-600 hover:text-gray-400 hover:bg-white/5 rounded-lg transition-colors"
                     title="Search conversations"
-                    placeholder="Search conversations..."
-                    value={searchQuery}
-                    onChange={(e) => onSearch(e.target.value)}
-                    className="w-full bg-white/[0.03] border border-white/10 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500/50 transition-all"
-                />
-            </div>
+                >
+                    <Search className="w-3.5 h-3.5" />
+                </button>
+            )}
 
             {/* List */}
             <div className="flex-1 overflow-y-auto space-y-1">
