@@ -32,6 +32,8 @@ export function CodeWorkspace() {
   const newFileInputRef = useRef<HTMLInputElement>(null)
   const [agentPanelOpen, setAgentPanelOpen] = useState(true)
   const [pendingDiffs, setPendingDiffs] = useState<Map<string, DiffMetadata>>(new Map())
+  // Ref to the AgentPanel's diff decider — lets DiffEditor trigger the same backend API + feed update
+  const diffDeciderRef = useRef<((callId: string, approved: boolean, reason?: string) => void) | null>(null)
 
   // --- Resizable panels ---
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -273,8 +275,8 @@ export function CodeWorkspace() {
     }
   }, [activeFile, refreshTree])
 
-  // Diff approval: apply the new content to the file
-  const handleDiffApprove = useCallback((filePath: string) => {
+  // Diff approval: apply the new content to the file + notify backend
+  const handleDiffApprove = useCallback((filePath: string, fromAgent = false) => {
     const diff = pendingDiffs.get(filePath)
     if (!diff) return
     // Update editor content with the new content
@@ -289,25 +291,38 @@ export function CodeWorkspace() {
     })
     // Auto-save
     handleSave(filePath, diff.newContent)
+    // If triggered from the DiffEditor (not from AgentPanel sync), also notify backend + update feed
+    if (!fromAgent) {
+      diffDeciderRef.current?.(diff.callId, true)
+    }
   }, [pendingDiffs, handleSave])
 
-  // Diff rejection: just remove the pending diff
-  const handleDiffReject = useCallback((filePath: string) => {
+  // Diff rejection: remove the pending diff + notify backend
+  const handleDiffReject = useCallback((filePath: string, reason?: string, fromAgent = false) => {
+    const diff = pendingDiffs.get(filePath)
     setPendingDiffs(prev => {
       const next = new Map(prev)
       next.delete(filePath)
       return next
     })
-  }, [])
+    // If triggered from the DiffEditor (not from AgentPanel sync), also notify backend + update feed
+    if (!fromAgent && diff) {
+      diffDeciderRef.current?.(diff.callId, false, reason)
+    }
+  }, [pendingDiffs])
 
-  // Sync: when agent panel's HolographicDiff approve/reject fires, mirror it here
+  // Sync: when agent panel's HolographicDiff approve/reject fires, mirror it here (fromAgent=true avoids loop)
   const handleDiffSynced = useCallback((filePath: string, approved: boolean) => {
     if (approved) {
-      handleDiffApprove(filePath)
+      handleDiffApprove(filePath, true)
     } else {
-      handleDiffReject(filePath)
+      handleDiffReject(filePath, undefined, true)
     }
   }, [handleDiffApprove, handleDiffReject])
+
+  const handleRegisterDiffDecider = useCallback((decider: (callId: string, approved: boolean, reason?: string) => void) => {
+    diffDeciderRef.current = decider
+  }, [])
 
   const active = openFiles.find(f => f.path === activeFile)
   const activeDiff = activeFile ? pendingDiffs.get(activeFile) : undefined
@@ -458,7 +473,7 @@ export function CodeWorkspace() {
                 modifiedContent={activeDiff.newContent}
                 language={active.language}
                 onApprove={() => handleDiffApprove(active.path)}
-                onReject={() => handleDiffReject(active.path)}
+                onReject={(reason) => handleDiffReject(active.path, reason)}
               />
             ) : (
               <MonacoEditor
@@ -486,7 +501,7 @@ export function CodeWorkspace() {
             className="w-1 shrink-0 cursor-col-resize hover:bg-blue-500/30 active:bg-blue-500/50 transition-colors"
           />
           <div style={{ width: agentWidth }} className="border-l border-white/5 shrink-0 overflow-hidden">
-            <AgentPanel onOpenFile={handleAgentOpenFile} onDiffProposal={handleDiffProposal} onDiffSynced={handleDiffSynced} getActiveFile={getActiveFile} getWorkspaceDir={getWorkspaceDir} />
+            <AgentPanel onOpenFile={handleAgentOpenFile} onDiffProposal={handleDiffProposal} onDiffSynced={handleDiffSynced} onRegisterDiffDecider={handleRegisterDiffDecider} getActiveFile={getActiveFile} getWorkspaceDir={getWorkspaceDir} />
           </div>
           </>
         )}

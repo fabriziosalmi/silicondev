@@ -805,22 +805,30 @@ class SupervisorAgent:
                         await apply_edit(file_path, new_content)
                         tool_results.append(f"[patch_file] Applied patch to {file_path}")
                         repo_map_cache.invalidate()
+                        # Post-edit checks — track if any issues found
+                        has_post_edit_issues = False
                         # Post-edit lint check
                         lint_err = await run_lint_check(file_path)
                         if lint_err:
+                            has_post_edit_issues = True
                             yield _sse("lint_result", {"file_path": file_path, "errors": lint_err})
                             tool_results.append(f"[lint] Issues in {file_path}:\n{lint_err}\nFix these issues.")
                         # Dependency check
                         dep_warn = await check_broken_imports(file_path, patch_result["old"], new_content)
                         if dep_warn:
+                            has_post_edit_issues = True
                             tool_results.append(f"[dependency] Warning:\n{dep_warn}\nCheck these files for broken references.")
                         # Security + performance scans
                         sec_warns = scan_security(new_content)
                         if sec_warns:
+                            has_post_edit_issues = True
                             tool_results.append("\n".join(sec_warns) + "\nReview and fix security issues above.")
                         perf_hints = scan_performance(new_content)
                         if perf_hints:
                             tool_results.append("\n".join(perf_hints))
+                        # If patch was clean, signal the model that the task may be complete
+                        if not has_post_edit_issues:
+                            tool_results.append("[DONE] Patch applied cleanly with no issues. If the user's request is fulfilled, respond with a brief summary. Do NOT make additional edits unless the original request requires more changes.")
                     else:
                         msg = f"[patch_file] User rejected patch to {file_path}"
                         if reason:

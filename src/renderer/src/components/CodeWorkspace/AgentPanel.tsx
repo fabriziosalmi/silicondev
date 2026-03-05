@@ -9,6 +9,7 @@ interface AgentPanelProps {
   onOpenFile: (path: string) => void
   onDiffProposal?: (filePath: string, meta: DiffMetadata) => void
   onDiffSynced?: (filePath: string, approved: boolean) => void
+  onRegisterDiffDecider?: (decider: (callId: string, approved: boolean, reason?: string) => void) => void
   getActiveFile?: () => ActiveFileContext | null
   getWorkspaceDir?: () => string | null
 }
@@ -20,7 +21,7 @@ function formatMs(ms: number): string {
   return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`
 }
 
-export function AgentPanel({ onOpenFile, onDiffProposal, onDiffSynced, getActiveFile, getWorkspaceDir }: AgentPanelProps) {
+export function AgentPanel({ onOpenFile, onDiffProposal, onDiffSynced, onRegisterDiffDecider, getActiveFile, getWorkspaceDir }: AgentPanelProps) {
   const handleDiffProposal = useCallback((filePath: string, meta: { callId: string; filePath: string; oldContent: string; newContent: string; diff: string }) => {
     onOpenFile(filePath)
     onDiffProposal?.(filePath, {
@@ -58,6 +59,11 @@ export function AgentPanel({ onOpenFile, onDiffProposal, onDiffSynced, getActive
       onDiffSynced(item.diffMeta.filePath, approved)
     }
   }, [rawHandleDiffDecided, feedItems, onDiffSynced])
+
+  // Register diff decider so CodeWorkspace's DiffEditor can trigger approve/reject via the same backend API call
+  useEffect(() => {
+    onRegisterDiffDecider?.(handleDiffDecided)
+  }, [handleDiffDecided, onRegisterDiffDecider])
 
   // Listen for context menu prompts from the Monaco editor
   useEffect(() => {
