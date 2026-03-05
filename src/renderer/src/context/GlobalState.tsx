@@ -108,10 +108,33 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
             }
         };
 
+        let fastInterval: ReturnType<typeof setInterval> | null = null;
+
+        const startSlowPolling = () => {
+            clearInterval(interval);
+            interval = setInterval(poll, 5000);
+        };
+
         const startPolling = () => {
             clearInterval(interval);
+            if (fastInterval) clearInterval(fastInterval);
             poll();
-            interval = setInterval(poll, 5000);
+            // Fast poll (500ms) until backend is ready, then slow (5s)
+            fastInterval = setInterval(async () => {
+                if (!mounted) return;
+                try {
+                    const ok = await apiClient.checkHealth();
+                    if (ok && fastInterval) {
+                        clearInterval(fastInterval);
+                        fastInterval = null;
+                        startSlowPolling();
+                    }
+                } catch { /* retry */ }
+            }, 500);
+            // Safety: stop fast polling after 30s regardless
+            setTimeout(() => {
+                if (fastInterval) { clearInterval(fastInterval); fastInterval = null; startSlowPolling(); }
+            }, 30000);
         };
 
         const onVisibilityChange = () => {
@@ -119,6 +142,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
                 startPolling();
             } else {
                 clearInterval(interval);
+                if (fastInterval) { clearInterval(fastInterval); fastInterval = null; }
             }
         };
 
@@ -133,6 +157,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
         return () => {
             mounted = false;
             clearInterval(interval);
+            if (fastInterval) clearInterval(fastInterval);
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
     }, []);
