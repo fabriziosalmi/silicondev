@@ -62,6 +62,7 @@ export interface ActiveFileContext {
 interface UseAgentSessionOptions {
   onDiffProposal?: (filePath: string, meta: DiffProposalMeta) => void
   getActiveFile?: () => ActiveFileContext | null
+  getWorkspaceDir?: () => string | null
 }
 
 export function useAgentSession(options?: UseAgentSessionOptions) {
@@ -70,6 +71,7 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
   const [isRunning, setIsRunning] = useState(false)
   const [sessionId, setSessionId] = useState('')
   const [telemetry, setTelemetry] = useState<TelemetryData>(loadPersistedTelemetry)
+  const [agentMode, setAgentMode] = useState<'edit' | 'review'>('edit')
 
   const aiTextIdRef = useRef<string | null>(null)
   const toolOutputIdRef = useRef<string | null>(null)
@@ -372,20 +374,38 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           })
           break
 
-        case 'step_label':
-          // Replace previous step_label or add new one
+        case 'step_label': {
+          // Replace previous step_label with progress info
+          const rawLabel = (d.label as string) || ''
+          const iter = d.iteration as number
+          const maxIter = d.max_iterations as number
+          const budgetPct = d.budget_pct as number
+          const progressSuffix = iter && maxIter ? ` (${iter}/${maxIter}, ${budgetPct ?? 0}%)` : ''
+          const fullLabel = rawLabel + progressSuffix
+
           setFeedItems((prev) => {
-            const label = (d.label as string) || ''
-            // Remove previous step_label (only keep latest)
             const filtered = prev.filter((it) => it.type !== 'step_label')
             return [...filtered, {
               id: crypto.randomUUID(),
               type: 'step_label' as const,
-              content: label,
+              content: fullLabel,
               timestamp: Date.now(),
             }]
           })
           break
+        }
+
+        case 'lint_result': {
+          const filePath = d.file_path as string
+          const errors = d.errors as string
+          addFeedItem({
+            id: crypto.randomUUID(),
+            type: 'info' as const,
+            content: `Lint: ${filePath}\n${errors}`,
+            timestamp: Date.now(),
+          })
+          break
+        }
 
         case 'error':
           addFeedItem({ id: crypto.randomUUID(), type: 'error', content: d.message as string, timestamp: Date.now() })
@@ -441,16 +461,19 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
     const recentHistory = history.slice(-10)
 
     const activeFile = options?.getActiveFile?.() ?? null
+    const workspaceDir = options?.getWorkspaceDir?.() ?? undefined
     const { url, body } = apiClient.terminal.runUrl(input, activeModel.id, {
       activeFile: activeFile ?? undefined,
       history: recentHistory.length > 0 ? recentHistory : undefined,
+      mode: agentMode,
+      workspaceDir,
     })
     await consumeSSE(url, body)
 
     setIsRunning(false)
     aiTextIdRef.current = null
     toolOutputIdRef.current = null
-  }, [isRunning, activeModel, addFeedItem, consumeSSE])
+  }, [isRunning, activeModel, addFeedItem, consumeSSE, agentMode])
 
   const handleStop = useCallback(async () => {
     abortRef.current?.abort()
@@ -463,14 +486,37 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
     }
   }, [sessionId])
 
+  const handleUndo = useCallback(async () => {
+    if (!sessionId || isRunning) return
+    try {
+      const result = await apiClient.terminal.undo(sessionId)
+      addFeedItem({
+        id: crypto.randomUUID(),
+        type: 'info' as const,
+        content: `Undone: ${result.file_path}`,
+        timestamp: Date.now(),
+      })
+    } catch {
+      addFeedItem({
+        id: crypto.randomUUID(),
+        type: 'error' as const,
+        content: 'Nothing to undo',
+        timestamp: Date.now(),
+      })
+    }
+  }, [sessionId, isRunning, addFeedItem])
+
   return {
     feedItems,
     isRunning,
     sessionId,
     telemetry,
     activeModel,
+    agentMode,
+    setAgentMode,
     handleSubmit,
     handleStop,
+    handleUndo,
     handleDiffDecided,
     handleEscalationResponded,
     clearHistory,

@@ -35,6 +35,8 @@ SSEEventType = Literal[
     "telemetry_update",
     "budget_exhausted",
     "auto_retry",
+    "undo_applied",
+    "lint_result",
     "error",
     "done",
 ]
@@ -70,6 +72,8 @@ class TerminalRequest(BaseModel):
     max_total_tokens: int = Field(default=50000, ge=1000, le=500000)
     active_file: Optional[FileContext] = Field(default=None)
     history: Optional[list[ConversationTurn]] = Field(default=None, max_length=20)
+    mode: str = Field(default="edit", pattern="^(edit|review)$")
+    workspace_dir: Optional[str] = Field(default=None, max_length=2048)
 
 
 class DiffDecision(BaseModel):
@@ -83,3 +87,7 @@ class EscalationResponse(BaseModel):
     session_id: str = Field(min_length=1)
     escalation_id: str = Field(min_length=1)
     user_message: str = Field(default="", max_length=4096)
+
+
+class UndoRequest(BaseModel):
+    session_id: str = Field(min_length=1)

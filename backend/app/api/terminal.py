@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.agents.nanocore.types import TerminalRequest, DiffDecision, EscalationResponse
+from app.agents.nanocore.types import TerminalRequest, DiffDecision, EscalationResponse, UndoRequest
 from app.agents.nanocore.supervisor import SupervisorAgent
 from app.agents.nanocore.tools import run_bash
 from app.agents.nanocore.prompts import FILE_CONTEXT_INSTRUCTION
@@ -59,6 +59,7 @@ async def exec_command(request: ExecRequest):
 async def run_terminal(request: TerminalRequest):
     """Start an agent session. Returns an SSE stream of events."""
     session_id = str(uuid.uuid4())
+    logger.info(f"Agent session created: {session_id} model={request.model_id} mode={request.mode or 'edit'}")
 
     agent = SupervisorAgent(
         session_id=session_id,
@@ -66,6 +67,8 @@ async def run_terminal(request: TerminalRequest):
         max_iterations=request.max_iterations,
         temperature=request.temperature,
         max_total_tokens=request.max_total_tokens,
+        mode=request.mode,
+        workspace_dir=request.workspace_dir,
     )
     async with _sessions_lock:
         _active_sessions[session_id] = agent
@@ -89,7 +92,8 @@ async def run_terminal(request: TerminalRequest):
 
     async def event_generator():
         try:
-            async for event in agent.run(prompt, history=history):
+            active_file_path = request.active_file.path if request.active_file else None
+            async for event in agent.run(prompt, history=history, active_file_path=active_file_path):
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:
             logger.error(f"Terminal session error: {e}")
@@ -132,6 +136,21 @@ async def respond_to_escalation(response: EscalationResponse):
         raise HTTPException(status_code=404, detail="Escalation not found or already resolved")
 
     return {"status": "resolved"}
+
+
+@router.post("/undo")
+async def undo_last_edit(request: UndoRequest):
+    """Undo the last approved edit in the given session."""
+    async with _sessions_lock:
+        agent = _active_sessions.get(request.session_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    result = await agent.undo_last()
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    return {"status": "undone", "file_path": result["file_path"]}
 
 
 @router.post("/stop")

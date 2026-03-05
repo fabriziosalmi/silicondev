@@ -153,7 +153,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SiliconDev Backend",
     description="Local-first LLM fine-tuning engine",
-    version="0.6.2",
+    version="0.7.4",
     lifespan=lifespan,
 )
 

@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import AsyncGenerator
 
 from .types import AgentState, TrajectoryEntry
-from .prompts import SYSTEM_PROMPT
+from .prompts import SYSTEM_PROMPT, REVIEW_MODE_PROMPT
 from .parser import extract_tool_calls, has_partial_tool_tag, strip_tool_calls
-from .tools import run_bash, read_file, generate_edit_diff, apply_edit, apply_patch_content
-from .validators import validate_content, detect_lazy_edit
+from .tools import run_bash, read_file, generate_edit_diff, apply_edit, apply_patch_content, git_tool, check_broken_imports
+from .validators import validate_content, detect_lazy_edit, run_lint_check, scan_security, scan_performance
 from .guardrails import LoopGuardrails
 from .context import ContextManager, count_tokens
 from .repomap import RepoMapCache
@@ -95,11 +95,15 @@ class SupervisorAgent:
         max_iterations: int = 10,
         temperature: float = 0.3,
         max_total_tokens: int = 50_000,
+        mode: str = "edit",
+        workspace_dir: str | None = None,
     ):
         self.session_id = session_id
         self.model_id = model_id
         self.max_iterations = max_iterations
         self.temperature = temperature
+        self.mode = mode  # "edit" or "review"
+        self.workspace_dir = workspace_dir
 
         self._state = AgentState.thinking
         self._stopped = False
@@ -108,6 +112,9 @@ class SupervisorAgent:
         self._trajectory: list[TrajectoryEntry] = []
         self._total_tokens = 0
         self._start_time = 0.0
+
+        # Edit history for undo support (list of {file_path, old_content, new_content})
+        self._edit_history: list[dict] = []
 
         # Self-healing loop state
         self._consecutive_bash_failures = 0
@@ -155,6 +162,29 @@ class SupervisorAgent:
         pending["user_message"] = user_message
         pending["event"].set()
         return True
+
+    async def undo_last(self) -> dict:
+        """Undo the last approved edit. Returns {file_path, ok, error}."""
+        if not self._edit_history:
+            return {"file_path": "", "ok": False, "error": "Nothing to undo"}
+        entry = self._edit_history.pop()
+        file_path = entry["file_path"]
+        old_content = entry["old_content"]
+        try:
+            ok = await apply_edit(file_path, old_content)
+            return {"file_path": file_path, "ok": ok, "error": "" if ok else "Failed to write file"}
+        except Exception as e:
+            return {"file_path": file_path, "ok": False, "error": str(e)}
+
+    def _step_label(self, label: str, iteration: int) -> dict:
+        """Build a step_label SSE event with progress info."""
+        budget_pct = round(self.guardrails.budget_fraction() * 100)
+        return _sse("step_label", {
+            "label": label,
+            "iteration": iteration,
+            "max_iterations": self.max_iterations,
+            "budget_pct": budget_pct,
+        })
 
     def _telemetry_data(self, iteration: int) -> dict:
         """Build a telemetry_update data payload."""
@@ -257,15 +287,21 @@ class SupervisorAgent:
             return None
         return pending.get("user_message") or None
 
-    async def run(self, prompt: str, history: list[dict] | None = None) -> AsyncGenerator[dict, None]:
+    async def run(self, prompt: str, history: list[dict] | None = None, active_file_path: str | None = None) -> AsyncGenerator[dict, None]:
         """Main agent loop. Yields SSE event dicts."""
         # Lazy import to avoid circular imports at module level
         from app.api.engine import service as engine_service
 
         self._start_time = time.time()
 
+        # Use workspace dir if provided, otherwise fall back to backend CWD
+        cwd = self.workspace_dir or os.getcwd()
+        if self.workspace_dir:
+            os.chdir(cwd)
+            logger.info(f"Agent workspace: {cwd}")
+
         # Fix 38: snapshot working tree before agent starts
-        snapshot_ref = _git_snapshot(os.getcwd())
+        snapshot_ref = _git_snapshot(cwd)
         snapshot_info = {}
         if snapshot_ref:
             snapshot_info["git_snapshot"] = snapshot_ref[:12]
@@ -273,12 +309,43 @@ class SupervisorAgent:
         yield _sse("session_start", {"session_id": self.session_id, **snapshot_info})
 
         # Fix 4: repo map cache (Fix 32: refreshes when files change)
-        cwd = os.getcwd()
         repo_map_cache = RepoMapCache(cwd)
         repo_map = repo_map_cache.get()
-        system_content = SYSTEM_PROMPT + f"\n\n## Environment\n\nWorking directory: {cwd}\n"
+        base_prompt = REVIEW_MODE_PROMPT if self.mode == "review" else SYSTEM_PROMPT
+
+        # Suppress reasoning for models that support /no_think (e.g. Qwen3)
+        # This dramatically speeds up agentic loops by avoiding wasted think tokens.
+        no_think_suffix = ""
+        model_lower = self.model_id.lower()
+        if any(k in model_lower for k in ("qwen", "deepseek")):
+            no_think_suffix = "\n\n/no_think"
+
+        env_lines = [f"Working directory: {cwd}"]
+        if active_file_path:
+            env_lines.append(f"Active file (open in editor): {active_file_path}")
+            env_lines.append(f"IMPORTANT: When the user asks to modify a file, use this path: {active_file_path}")
+        system_content = base_prompt + "\n\n## Environment\n\n" + "\n".join(env_lines) + "\n"
         if repo_map:
             system_content += f"\n\n## Repository Map\n\n{repo_map}\n"
+
+        # Smart file discovery: only for non-trivial prompts (>30 chars, not simple create/write)
+        _SIMPLE_PROMPT_RE = re.compile(r'^(create|write|make|add|generate)\s+(a\s+)?(simple|basic|new|empty)?\s*\w+', re.IGNORECASE)
+        if len(prompt) > 30 and not _SIMPLE_PROMPT_RE.match(prompt):
+            try:
+                from app.codebase.service import codebase_service
+                relevant = codebase_service.search(prompt, top_k=5)
+                if relevant:
+                    ctx_lines = ["## Relevant Context (auto-discovered)\n"]
+                    for r in relevant:
+                        header = f"--- {r.file_path}:{r.start_line}-{r.end_line}"
+                        if r.symbol:
+                            header += f" ({r.kind}: {r.symbol})"
+                        ctx_lines.append(f"{header}\n{r.content[:500]}")
+                    system_content += "\n" + "\n\n".join(ctx_lines) + "\n"
+            except Exception:
+                pass  # codebase may not be indexed
+
+        system_content += no_think_suffix
 
         messages = [
             {"role": "system", "content": system_content},
@@ -295,6 +362,7 @@ class SupervisorAgent:
         consecutive_no_tool = 0  # track iterations with no tool calls
 
         for iteration in range(1, self.max_iterations + 1):
+            iter_start = time.time()
             if self._stopped:
                 break
 
@@ -311,15 +379,17 @@ class SupervisorAgent:
                 break
 
             self._state = AgentState.thinking
-            yield _sse("step_label", {"label": "Thinking...", "iteration": iteration})
+            yield self._step_label("Thinking...", iteration)
             yield _sse("telemetry_update", self._telemetry_data(iteration))
 
-            # Fix 32: refresh repo map in system prompt if files changed
-            fresh_map = repo_map_cache.get()
-            updated_system = SYSTEM_PROMPT
-            if fresh_map:
-                updated_system += f"\n\n## Repository Map\n\n{fresh_map}\n"
-            messages[0] = {"role": "system", "content": updated_system}
+            # Refresh repo map only if files changed (invalidated by edit)
+            if repo_map_cache.is_dirty():
+                fresh_map = repo_map_cache.get()
+                updated_system = base_prompt + f"\n\n## Environment\n\nWorking directory: {cwd}\n"
+                if fresh_map:
+                    updated_system += f"\n\n## Repository Map\n\n{fresh_map}\n"
+                updated_system += no_think_suffix
+                messages[0] = {"role": "system", "content": updated_system}
 
             # Fix 4: fit messages into context window
             fitted_messages = self._context_mgr.fit_messages(messages)
@@ -355,12 +425,19 @@ class SupervisorAgent:
                             if "</think>" in think_buffer:
                                 in_think_block = False
                                 # Extract thinking content and send as a separate event
-                                think_content = think_buffer.split("</think>")[0].replace("<think>", "").strip()
+                                parts = think_buffer.split("</think>", 1)
+                                think_content = parts[0].replace("<think>", "").strip()
                                 if think_content:
                                     yield _sse("thinking", {"agent": "supervisor", "content": think_content})
-                                streamed_up_to = len(accumulated)
+                                # Text after </think> must not be lost
+                                after_think = parts[1] if len(parts) > 1 else ""
+                                streamed_up_to = len(accumulated) - len(after_think)
                                 think_buffer = ""
-                            continue
+                                # Fall through to stream any text after </think>
+                                if not after_think:
+                                    continue
+                            else:
+                                continue
 
                         if "<think>" in accumulated[streamed_up_to:]:
                             in_think_block = True
@@ -386,6 +463,10 @@ class SupervisorAgent:
             # Fix 2: track tokens for generation
             self._total_tokens += iter_tokens
             self.guardrails.add_tokens(count_tokens(accumulated))
+
+            # Diagnostic: log the first 200 chars of raw model output for debugging
+            if accumulated:
+                logger.debug(f"Model output (iter {iteration}, {iter_tokens} tokens): {repr(accumulated[:200])}")
 
             # Clean the accumulated text: remove think blocks before parsing
             cleaned = _strip_think_tags(accumulated)
@@ -415,11 +496,20 @@ class SupervisorAgent:
             consecutive_no_tool = 0  # reset — model used tools
             tool_results = []
 
+            # Tools blocked in review mode
+            _REVIEW_BLOCKED = {"edit_file", "patch_file", "run_bash"}
+
             for tc in tool_calls:
                 if self._stopped:
                     break
 
                 call_id = str(uuid.uuid4())[:8]
+                logger.info(f"Tool call: {tc.name} (iter {iteration}/{self.max_iterations}, session={self.session_id})")
+
+                # Block write tools in review mode
+                if self.mode == "review" and tc.name in _REVIEW_BLOCKED:
+                    tool_results.append(f"[{tc.name}] Blocked: review mode is read-only. Use read_file or search_codebase instead.")
+                    continue
 
                 if tc.name == "run_bash":
                     command = tc.args.get("command", "")
@@ -427,7 +517,7 @@ class SupervisorAgent:
 
                     # Step label for UI
                     cmd_preview = command.split()[0] if command.split() else command
-                    yield _sse("step_label", {"label": f"Running {cmd_preview}...", "iteration": iteration})
+                    yield self._step_label(f"Running {cmd_preview}...", iteration)
 
                     # Fix 3: background process support
                     if background:
@@ -534,7 +624,7 @@ class SupervisorAgent:
                 elif tc.name == "read_file":
                     file_path = tc.args.get("path", "")
                     fname = Path(file_path).name if file_path else "file"
-                    yield _sse("step_label", {"label": f"Reading {fname}...", "iteration": iteration})
+                    yield self._step_label(f"Reading {fname}...", iteration)
                     max_lines = 300
                     try:
                         max_lines = int(tc.args.get("max_lines", "300"))
@@ -557,7 +647,7 @@ class SupervisorAgent:
                     file_path = tc.args.get("path", "")
                     new_content = tc.args.get("content", "")
                     fname = Path(file_path).name if file_path else "file"
-                    yield _sse("step_label", {"label": f"Writing {fname}...", "iteration": iteration})
+                    yield self._step_label(f"Writing {fname}...", iteration)
 
                     # Guard: redirect to patch_file for existing files
                     if Path(file_path).exists():
@@ -610,9 +700,31 @@ class SupervisorAgent:
                         continue
 
                     if approved:
+                        # Track for undo
+                        self._edit_history.append({
+                            "file_path": file_path,
+                            "old_content": diff_info["old"],
+                            "new_content": new_content,
+                        })
                         await apply_edit(file_path, new_content)
                         tool_results.append(f"[edit_file] Applied changes to {file_path}")
                         repo_map_cache.invalidate()
+                        # Post-edit lint check
+                        lint_err = await run_lint_check(file_path)
+                        if lint_err:
+                            yield _sse("lint_result", {"file_path": file_path, "errors": lint_err})
+                            tool_results.append(f"[lint] Issues in {file_path}:\n{lint_err}\nFix these issues.")
+                        # Dependency check
+                        dep_warn = await check_broken_imports(file_path, diff_info["old"], new_content)
+                        if dep_warn:
+                            tool_results.append(f"[dependency] Warning:\n{dep_warn}\nCheck these files for broken references.")
+                        # Security + performance scans
+                        sec_warns = scan_security(new_content)
+                        if sec_warns:
+                            tool_results.append("\n".join(sec_warns) + "\nReview and fix security issues above.")
+                        perf_hints = scan_performance(new_content)
+                        if perf_hints:
+                            tool_results.append("\n".join(perf_hints))
                     else:
                         msg = f"[edit_file] User rejected changes to {file_path}"
                         if reason:
@@ -629,7 +741,7 @@ class SupervisorAgent:
                     # Fix 1: surgical search/replace edits
                     file_path = tc.args.get("path", "")
                     fname = Path(file_path).name if file_path else "file"
-                    yield _sse("step_label", {"label": f"Editing {fname}...", "iteration": iteration})
+                    yield self._step_label(f"Editing {fname}...", iteration)
                     search = tc.args.get("search", "")
                     replace = tc.args.get("replace", "")
 
@@ -684,9 +796,31 @@ class SupervisorAgent:
                         continue
 
                     if approved:
+                        # Track for undo
+                        self._edit_history.append({
+                            "file_path": file_path,
+                            "old_content": patch_result["old"],
+                            "new_content": new_content,
+                        })
                         await apply_edit(file_path, new_content)
                         tool_results.append(f"[patch_file] Applied patch to {file_path}")
                         repo_map_cache.invalidate()
+                        # Post-edit lint check
+                        lint_err = await run_lint_check(file_path)
+                        if lint_err:
+                            yield _sse("lint_result", {"file_path": file_path, "errors": lint_err})
+                            tool_results.append(f"[lint] Issues in {file_path}:\n{lint_err}\nFix these issues.")
+                        # Dependency check
+                        dep_warn = await check_broken_imports(file_path, patch_result["old"], new_content)
+                        if dep_warn:
+                            tool_results.append(f"[dependency] Warning:\n{dep_warn}\nCheck these files for broken references.")
+                        # Security + performance scans
+                        sec_warns = scan_security(new_content)
+                        if sec_warns:
+                            tool_results.append("\n".join(sec_warns) + "\nReview and fix security issues above.")
+                        perf_hints = scan_performance(new_content)
+                        if perf_hints:
+                            tool_results.append("\n".join(perf_hints))
                     else:
                         msg = f"[patch_file] User rejected patch to {file_path}"
                         if reason:
@@ -722,7 +856,7 @@ class SupervisorAgent:
 
                 elif tc.name == "search_codebase":
                     query = tc.args.get("query", "")
-                    yield _sse("step_label", {"label": "Searching codebase...", "iteration": iteration})
+                    yield self._step_label("Searching codebase...", iteration)
                     yield _sse("tool_start", {"tool": "search_codebase", "args": {"query": query}, "call_id": call_id})
 
                     try:
@@ -746,8 +880,72 @@ class SupervisorAgent:
                         yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
                         tool_results.append(f"[search_codebase] Error: {e}")
 
+                elif tc.name == "git":
+                    subcommand = tc.args.get("subcommand", "")
+                    args = tc.args.get("args", "")
+                    yield self._step_label(f"git {subcommand}...", iteration)
+                    yield _sse("tool_start", {"tool": "git", "args": {"subcommand": subcommand, "args": args}, "call_id": call_id})
+
+                    result = await git_tool(subcommand, args)
+                    if result["error"]:
+                        yield _sse("tool_log", {"call_id": call_id, "stream": "stderr", "text": result["error"]})
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                        tool_results.append(f"[git {subcommand}] Error: {result['error']}")
+                    else:
+                        yield _sse("tool_log", {"call_id": call_id, "stream": "stdout", "text": result["output"]})
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 0})
+                        tool_results.append(f"[git {subcommand}]\n{_truncate(result['output'])}")
+
+                elif tc.name == "batch_edit":
+                    files_str = tc.args.get("files", "")
+                    search = tc.args.get("search", "")
+                    replace = tc.args.get("replace", "")
+                    file_list = [f.strip() for f in files_str.split(",") if f.strip()]
+
+                    if len(file_list) > 10:
+                        tool_results.append("[batch_edit] Max 10 files per batch.")
+                        continue
+
+                    yield self._step_label(f"Batch editing {len(file_list)} files...", iteration)
+                    yield _sse("tool_start", {"tool": "batch_edit", "args": {"files": files_str}, "call_id": call_id})
+
+                    applied = 0
+                    for fp in file_list:
+                        patch_result = await apply_patch_content(fp, search, replace)
+                        if patch_result["error"]:
+                            tool_results.append(f"[batch_edit {fp}] Error: {patch_result['error']}")
+                            continue
+
+                        bc_id = str(uuid.uuid4())[:8]
+                        yield _sse("diff_proposal", {
+                            "call_id": bc_id,
+                            "file_path": patch_result["file_path"],
+                            "old": patch_result["old"],
+                            "new": patch_result["new"],
+                            "diff": patch_result["diff"],
+                        })
+
+                        async for heartbeat in self._wait_for_diff_approval(bc_id, iteration):
+                            yield heartbeat
+
+                        approved, reason = self._consume_diff_result(bc_id)
+                        if approved:
+                            self._edit_history.append({
+                                "file_path": fp,
+                                "old_content": patch_result["old"],
+                                "new_content": patch_result["new"],
+                            })
+                            await apply_edit(fp, patch_result["new"])
+                            applied += 1
+                            repo_map_cache.invalidate()
+
+                    yield _sse("tool_done", {"call_id": call_id, "exit_code": 0})
+                    tool_results.append(f"[batch_edit] Applied to {applied}/{len(file_list)} files")
+
                 else:
                     tool_results.append(f"[unknown tool: {tc.name}]")
+
+            logger.info(f"Iteration {iteration}/{self.max_iterations} complete in {time.time() - iter_start:.1f}s (session={self.session_id})")
 
             # Fix 2: track token cost of tool results
             tool_output_text = "\n---\n".join(tool_results)

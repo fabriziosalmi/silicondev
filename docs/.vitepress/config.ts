@@ -18,7 +18,7 @@ export default defineConfig({
       { text: 'API', link: '/api/overview' },
       { text: 'Development', link: '/development/setup' },
       {
-        text: 'v0.5.8',
+        text: 'v0.7.4',
         items: [
           { text: 'Changelog', link: '/changelog' },
           { text: 'GitHub', link: 'https://github.com/fabriziosalmi/silicondev' },
@@ -39,20 +39,31 @@ export default defineConfig({
       ],
       '/features/': [
         {
-          text: 'Features',
+          text: 'Local Server',
           items: [
-            { text: 'Chat', link: '/features/chat' },
             { text: 'Models', link: '/features/models' },
-            { text: 'Fine-Tuning', link: '/features/fine-tuning' },
-            { text: 'Data Preparation', link: '/features/data-preparation' },
-            { text: 'RAG Knowledge', link: '/features/rag' },
-            { text: 'MCP Integration', link: '/features/mcp' },
+            { text: 'Chat', link: '/features/chat' },
             { text: 'Agent Terminal', link: '/features/terminal' },
-            { text: 'Agent Workflows', link: '/features/agents' },
+            { text: 'Code Workspace', link: '/features/code-workspace' },
             { text: 'Notes', link: '/features/notes' },
+          ],
+        },
+        {
+          text: 'Advanced Tools',
+          items: [
+            { text: 'Data Preparation', link: '/features/data-preparation' },
+            { text: 'Fine-Tuning', link: '/features/fine-tuning' },
             { text: 'Model Export', link: '/features/model-export' },
-            { text: 'Deployment', link: '/features/deployment' },
             { text: 'Evaluations', link: '/features/evaluations' },
+            { text: 'RAG Knowledge', link: '/features/rag' },
+            { text: 'Agent Workflows', link: '/features/agents' },
+            { text: 'MCP Integration', link: '/features/mcp' },
+            { text: 'Deployment', link: '/features/deployment' },
+          ],
+        },
+        {
+          text: 'App',
+          items: [
             { text: 'Settings', link: '/features/settings' },
           ],
         },

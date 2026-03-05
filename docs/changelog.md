@@ -1,5 +1,79 @@
 # Changelog
 
+## v0.7.4
+
+### PII Redaction Settings
+- PII redaction toggle added to main Settings page (Privacy section)
+- Redacts emails, phone numbers, IPs, credit cards, SSNs, and API keys from chat messages
+- Disabled by default, configurable from both Settings and Chat drawer
+
+### Version Alignment
+- Synchronized version across package.json, pyproject.toml, main.py, README badge, docs config, and pre-flight check
+
+### Docs Site
+- Reordered features sidebar to match app menu (Local Server / Advanced Tools / App)
+- Added Code Workspace documentation page
+
+## v0.7.3
+
+### NanoCore Agent Improvements
+- Workspace directory passed from frontend to agent — tools run in the correct working directory
+- Active file path injected into agent system prompt — agent knows which file is open in the editor
+- Fixed think block boundary bug — text after `</think>` in the same token was silently lost
+- Diagnostic logging for raw model output (debug level)
+
+### In-App Documentation
+- Built-in documentation viewer accessible from sidebar
+- Renders all feature docs as styled markdown cards
+- Sections match sidebar menu order
+
+### Error Reporting
+- User-facing error reporting dialog with optional description
+- Copies error details to clipboard for bug reports
+
+### Log Viewer
+- Electron main process log viewer in Settings
+- Shows last 200 lines with auto-refresh and copy-to-clipboard
+
+## v0.7.2
+
+### Bug Fixes
+- Fixed sandbox process leak causing 100% CPU — orphaned `silicon-sandbox` processes are now cleaned up
+- Hidden oversized models (>available RAM) from Discover page to prevent failed loads
+- Fixed active model state sync between frontend TopBar and backend polling
+
+## v0.7.1
+
+### Security Hardening
+- Input validation on all API endpoints (Pydantic field constraints)
+- Path traversal protection on file read/write operations
+- Sandboxed command execution blocklist expanded
+
+### Stability Fixes
+- Fixed stale closures in React components (useRef pattern for callbacks)
+- Typed IPC channels between Electron main and renderer
+- Stabilized E2E test suite (reduced flakiness)
+
+## v0.7.0
+
+### Security Fixes
+- Added command blocklist for dangerous shell operations
+- Protected paths prevent writes outside workspace
+- Sandboxed code execution with timeout enforcement
+
+### E2E Test Suite
+- Comprehensive Playwright test coverage across all pages
+- Mock API routes for deterministic testing
+- Console error monitoring during navigation
+
+### Type Safety
+- TypeScript strict mode enabled for renderer
+- Typed API client with proper error handling
+
+### Honest Evaluations
+- Eval benchmarks report real scores (no inflated metrics)
+- Score history tracking with timestamps
+
 ## v0.6.2
 
 ### AI-Assisted Code Workspace

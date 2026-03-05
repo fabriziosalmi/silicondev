@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { Search, Pin, PinOff, Trash2, Edit3, Check, X, MessageSquare, GitFork } from 'lucide-react'
 import type { ConversationSummary } from '../api/client'
 
@@ -17,6 +17,8 @@ interface ConversationListPanelProps {
     onCancelRename: () => void
     onRenameValueChange: (value: string) => void
     loading: boolean
+    searchOpen: boolean
+    onCloseSearch: () => void
 }
 
 export function ConversationListPanel({
@@ -34,8 +36,9 @@ export function ConversationListPanel({
     onCancelRename,
     onRenameValueChange,
     loading,
+    searchOpen,
+    onCloseSearch,
 }: ConversationListPanelProps) {
-    const [searchOpen, setSearchOpen] = useState(false)
     const searchInputRef = useRef<HTMLInputElement>(null)
 
     // Auto-focus input when opened
@@ -43,15 +46,10 @@ export function ConversationListPanel({
         if (searchOpen) searchInputRef.current?.focus()
     }, [searchOpen])
 
-    // Close search when query is cleared and input loses focus
-    const handleBlur = () => {
-        if (!searchQuery) setSearchOpen(false)
-    }
-
     return (
         <div className="w-full flex flex-col gap-2 overflow-hidden">
-            {/* Search — icon only, expands on click */}
-            {searchOpen ? (
+            {/* Search input — controlled by parent via searchOpen prop */}
+            {searchOpen && (
                 <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
                     <input
@@ -61,22 +59,12 @@ export function ConversationListPanel({
                         placeholder="Search conversations..."
                         value={searchQuery}
                         onChange={(e) => onSearch(e.target.value)}
-                        onBlur={handleBlur}
                         onKeyDown={(e) => {
-                            if (e.key === 'Escape') { onSearch(''); setSearchOpen(false) }
+                            if (e.key === 'Escape') onCloseSearch()
                         }}
                         className="w-full bg-white/[0.03] border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500/50 transition-all"
                     />
                 </div>
-            ) : (
-                <button
-                    type="button"
-                    onClick={() => setSearchOpen(true)}
-                    className="self-end p-1.5 text-gray-600 hover:text-gray-400 hover:bg-white/5 rounded-lg transition-colors"
-                    title="Search conversations"
-                >
-                    <Search className="w-3.5 h-3.5" />
-                </button>
             )}
 
             {/* List */}

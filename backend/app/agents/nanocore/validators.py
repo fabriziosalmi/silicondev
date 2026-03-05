@@ -118,6 +118,115 @@ _ASYNC_VALIDATORS: dict[str, callable] = {
 _SKIP_EXTENSIONS = {".ts", ".tsx", ".jsx"}
 
 
+async def run_lint_check(file_path: str) -> str | None:
+    """Run a quick lint check on a file after it's been written.
+
+    Returns lint output if issues found, None if clean or unsupported.
+    This is a post-write check (unlike validate_content which is pre-write).
+    """
+    ext = Path(file_path).suffix.lower()
+
+    try:
+        if ext == ".py":
+            # Try ruff first, fall back to python -m py_compile
+            for cmd in [
+                ["ruff", "check", "--no-fix", "--output-format=text", file_path],
+                ["python", "-m", "py_compile", file_path],
+            ]:
+                try:
+                    proc = await asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+                    stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=15)
+                    if proc.returncode != 0:
+                        output = (stdout or stderr).decode(errors="replace").strip()
+                        return output[:2000] if output else None
+                    return None
+                except FileNotFoundError:
+                    continue
+            return None
+
+        if ext in (".js", ".jsx"):
+            proc = await asyncio.create_subprocess_exec(
+                "node", "--check", file_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
+            if proc.returncode != 0:
+                return stderr.decode(errors="replace").strip()[:2000]
+            return None
+
+        if ext in (".ts", ".tsx"):
+            # Quick syntax check via tsc --noEmit (if available)
+            proc = await asyncio.create_subprocess_exec(
+                "npx", "tsc", "--noEmit", "--pretty", "false", file_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+            if proc.returncode != 0:
+                output = (stdout or stderr).decode(errors="replace").strip()
+                return output[:2000] if output else None
+            return None
+
+    except (FileNotFoundError, asyncio.TimeoutError, OSError):
+        return None
+
+    return None
+
+
+# Security patterns to flag in code edits
+_SECURITY_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r'(?:password|secret|api_key|token)\s*=\s*["\'][^"\']{4,}["\']', re.IGNORECASE),
+     'Possible hardcoded secret/credential'),
+    (re.compile(r'eval\s*\(', re.IGNORECASE),
+     'eval() usage — potential code injection'),
+    (re.compile(r'innerHTML\s*=', re.IGNORECASE),
+     'innerHTML assignment — potential XSS'),
+    (re.compile(r'dangerouslySetInnerHTML', re.IGNORECASE),
+     'dangerouslySetInnerHTML — ensure input is sanitized'),
+    (re.compile(r'subprocess\.call\s*\([^)]*shell\s*=\s*True', re.IGNORECASE),
+     'subprocess with shell=True — potential command injection'),
+    (re.compile(r'os\.system\s*\(', re.IGNORECASE),
+     'os.system() — prefer subprocess with shell=False'),
+    (re.compile(r'execute\s*\(\s*["\'].*%s', re.IGNORECASE),
+     'SQL string formatting — use parameterized queries'),
+    (re.compile(r'execute\s*\(\s*f["\']', re.IGNORECASE),
+     'SQL f-string — use parameterized queries'),
+]
+
+# Performance anti-patterns
+_PERF_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r'for\s+\w+\s+in\s+.*\.all\(\)', re.IGNORECASE),
+     'Iterating over .all() — consider filtering or pagination'),
+    (re.compile(r'time\.sleep\s*\(\s*\d{2,}', re.IGNORECASE),
+     'Long sleep — consider async or event-based approach'),
+    (re.compile(r'SELECT\s+\*\s+FROM', re.IGNORECASE),
+     'SELECT * — specify needed columns for performance'),
+]
+
+
+def scan_security(content: str) -> list[str]:
+    """Scan content for security anti-patterns. Returns list of warnings."""
+    warnings = []
+    for pattern, label in _SECURITY_PATTERNS:
+        if pattern.search(content):
+            warnings.append(f"[security] {label}")
+    return warnings
+
+
+def scan_performance(content: str) -> list[str]:
+    """Scan content for performance anti-patterns. Returns list of hints."""
+    hints = []
+    for pattern, label in _PERF_PATTERNS:
+        if pattern.search(content):
+            hints.append(f"[perf] {label}")
+    return hints
+
+
 async def validate_content(file_path: str, content: str) -> str | None:
     """Validate file content based on extension.
 

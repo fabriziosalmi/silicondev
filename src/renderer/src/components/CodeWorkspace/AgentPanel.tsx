@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react'
-import { Trash2, AlertCircle, Bot, Cpu, Clock } from 'lucide-react'
+import { Trash2, AlertCircle, Bot, Cpu, Clock, Undo2, Eye, Pencil } from 'lucide-react'
 import { useAgentSession, type ActiveFileContext } from './useAgentSession'
 import { AgentInputBar } from './AgentInputBar'
 import { MessageFeed } from '../Terminal/MessageFeed'
@@ -10,6 +10,7 @@ interface AgentPanelProps {
   onDiffProposal?: (filePath: string, meta: DiffMetadata) => void
   onDiffSynced?: (filePath: string, approved: boolean) => void
   getActiveFile?: () => ActiveFileContext | null
+  getWorkspaceDir?: () => string | null
 }
 
 function formatMs(ms: number): string {
@@ -19,7 +20,7 @@ function formatMs(ms: number): string {
   return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`
 }
 
-export function AgentPanel({ onOpenFile, onDiffProposal, onDiffSynced, getActiveFile }: AgentPanelProps) {
+export function AgentPanel({ onOpenFile, onDiffProposal, onDiffSynced, getActiveFile, getWorkspaceDir }: AgentPanelProps) {
   const handleDiffProposal = useCallback((filePath: string, meta: { callId: string; filePath: string; oldContent: string; newContent: string; diff: string }) => {
     onOpenFile(filePath)
     onDiffProposal?.(filePath, {
@@ -42,8 +43,11 @@ export function AgentPanel({ onOpenFile, onDiffProposal, onDiffSynced, getActive
     handleStop,
     handleDiffDecided: rawHandleDiffDecided,
     handleEscalationResponded,
+    handleUndo,
+    agentMode,
+    setAgentMode,
     clearHistory,
-  } = useAgentSession({ onDiffProposal: handleDiffProposal, getActiveFile })
+  } = useAgentSession({ onDiffProposal: handleDiffProposal, getActiveFile, getWorkspaceDir })
 
   // Wrap handleDiffDecided to also sync with CodeWorkspace (DiffEditor)
   const handleDiffDecided = useCallback((callId: string, approved: boolean, reason?: string) => {
@@ -80,6 +84,28 @@ export function AgentPanel({ onOpenFile, onDiffProposal, onDiffSynced, getActive
             {isRunning && <span className="inline-block w-1.5 h-3 bg-blue-400 animate-pulse rounded-sm" />}
           </div>
           <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => setAgentMode(agentMode === 'edit' ? 'review' : 'edit')}
+              className={`p-1 rounded-lg transition-colors ${
+                agentMode === 'review'
+                  ? 'text-emerald-400 bg-emerald-500/10'
+                  : 'text-gray-600 hover:text-blue-400 hover:bg-white/5'
+              }`}
+              title={agentMode === 'review' ? 'Review mode (read-only)' : 'Edit mode'}
+            >
+              {agentMode === 'review' ? <Eye size={12} /> : <Pencil size={12} />}
+            </button>
+            {feedItems.length > 0 && !isRunning && sessionId && (
+              <button
+                type="button"
+                onClick={handleUndo}
+                className="p-1 text-gray-600 hover:text-amber-400 hover:bg-white/5 rounded-lg transition-colors"
+                title="Undo last edit"
+              >
+                <Undo2 size={12} />
+              </button>
+            )}
             {feedItems.length > 0 && !isRunning && (
               <button
                 type="button"

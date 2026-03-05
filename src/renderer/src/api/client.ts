@@ -260,6 +260,11 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to fetch storage info');
             return res.json();
         },
+        getLogs: async (lines: number = 200): Promise<{ lines: string[] }> => {
+            const res = await fetch(`${API_BASE}/api/monitor/logs?lines=${lines}`);
+            await throwIfNotOk(res, 'Failed to fetch logs');
+            return res.json();
+        },
         cleanupStorage: async (targets: string[]): Promise<{ freed_bytes: number; cleaned: string[] }> => {
             const res = await fetch(`${API_BASE}/api/monitor/storage/cleanup`, {
                 method: 'POST',
@@ -840,13 +845,19 @@ export const apiClient = {
         },
     },
     terminal: {
-        runUrl: (prompt: string, modelId: string, opts?: { maxIterations?: number; temperature?: number; activeFile?: { path: string; content?: string; language?: string }; history?: { role: string; content: string }[] }) => {
+        runUrl: (prompt: string, modelId: string, opts?: { maxIterations?: number; temperature?: number; activeFile?: { path: string; content?: string; language?: string }; history?: { role: string; content: string }[]; mode?: string; workspaceDir?: string }) => {
             const body: Record<string, unknown> = { prompt, model_id: modelId, max_iterations: opts?.maxIterations ?? 10, temperature: opts?.temperature ?? 0.3 }
             if (opts?.activeFile) {
                 body.active_file = opts.activeFile
             }
             if (opts?.history && opts.history.length > 0) {
                 body.history = opts.history
+            }
+            if (opts?.mode) {
+                body.mode = opts.mode
+            }
+            if (opts?.workspaceDir) {
+                body.workspace_dir = opts.workspaceDir
             }
             return {
                 url: `${API_BASE}/api/terminal/run`,
@@ -882,6 +893,15 @@ export const apiClient = {
                 body: JSON.stringify({ session_id: sessionId })
             });
             await throwIfNotOk(res, 'Failed to stop terminal session');
+        },
+        undo: async (sessionId: string): Promise<{ file_path: string }> => {
+            const res = await fetch(`${API_BASE}/api/terminal/undo`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId })
+            });
+            await throwIfNotOk(res, 'Failed to undo');
+            return res.json();
         },
     },
     checkHealth: async (): Promise<boolean> => {

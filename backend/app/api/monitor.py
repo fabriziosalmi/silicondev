@@ -1,7 +1,8 @@
 import shutil
 import logging
+from collections import deque
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from app.monitor.system import SystemMonitor
 
@@ -9,6 +10,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _DATA_DIR = Path.home() / ".silicon-studio"
+_LOG_FILE = _DATA_DIR / "logs" / "app.log"
 
 
 @router.get("/stats")
@@ -75,3 +77,17 @@ async def cleanup_storage(request: CleanupRequest):
             logger.error(f"Failed to clean {target}: {e}")
 
     return {"freed_bytes": freed, "cleaned": cleaned}
+
+
+@router.get("/logs")
+async def get_logs(lines: int = Query(200, ge=1, le=2000)):
+    """Return the last N lines of the backend log file."""
+    if not _LOG_FILE.exists():
+        return {"lines": []}
+    try:
+        with open(_LOG_FILE, "r", encoding="utf-8", errors="replace") as f:
+            tail = deque(f, maxlen=lines)
+        return {"lines": [line.rstrip("\n") for line in tail]}
+    except OSError as e:
+        logger.error(f"Failed to read log file: {e}")
+        return {"lines": [f"Error reading log: {e}"]}

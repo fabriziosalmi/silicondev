@@ -102,7 +102,10 @@ function startBackend() {
 
     if (backendProcess && backendProcess.stderr) {
         backendProcess.stderr.on('data', (data) => {
-            log.error(`[Backend Error]: ${data.toString()}`);
+            const text = data.toString();
+            // macOS noise — not a real error
+            if (text.includes('MallocStackLogging')) return;
+            log.error(`[Backend Error]: ${text}`);
         });
     }
 

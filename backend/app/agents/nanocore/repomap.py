@@ -171,6 +171,10 @@ class RepoMapCache:
         """Mark the cache as stale. Next get() will regenerate."""
         self._dirty = True
 
+    def is_dirty(self) -> bool:
+        """Return True if the cache needs regeneration."""
+        return self._dirty
+
     def get(self) -> str:
         """Return the repo map, regenerating if dirty."""
         if self._dirty:

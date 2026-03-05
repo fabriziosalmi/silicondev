@@ -142,7 +142,8 @@ class MLXEngineService:
         logger.info(f"Models config at: {self.models_config_path}")
                 
         self.models_config = self._load_models_config()
-        self._run_auto_discovery()
+        # Run auto-discovery in background to avoid blocking startup
+        threading.Thread(target=self._run_auto_discovery, daemon=True).start()
 
     def _run_auto_discovery(self):
         """Scan known local model directories (LM Studio, Ollama, HuggingFace cache)."""
@@ -341,7 +342,7 @@ class MLXEngineService:
                     "id": str(dir_path),
                     "name": dir_path.name,
                     "path": str(dir_path),
-                    "size": self._get_dir_size_str(dir_path),
+                    "size": "",  # computed lazily on first API request
                     "architecture": meta.get("architecture"),
                     "context_window": meta.get("context_window"),
                     "quantization": meta.get("quantization")

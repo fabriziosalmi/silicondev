@@ -100,6 +100,10 @@ export function CodeWorkspace() {
     return { path: f.path, content: f.content, language: f.language }
   }, [])
 
+  const workspaceDirRef = useRef(workspaceDir)
+  workspaceDirRef.current = workspaceDir
+  const getWorkspaceDir = useCallback(() => workspaceDirRef.current, [])
+
   // Listen for workspace directory changes from Settings
   useEffect(() => {
     const handler = (e: Event) => {
@@ -482,7 +486,7 @@ export function CodeWorkspace() {
             className="w-1 shrink-0 cursor-col-resize hover:bg-blue-500/30 active:bg-blue-500/50 transition-colors"
           />
           <div style={{ width: agentWidth }} className="border-l border-white/5 shrink-0 overflow-hidden">
-            <AgentPanel onOpenFile={handleAgentOpenFile} onDiffProposal={handleDiffProposal} onDiffSynced={handleDiffSynced} getActiveFile={getActiveFile} />
+            <AgentPanel onOpenFile={handleAgentOpenFile} onDiffProposal={handleDiffProposal} onDiffSynced={handleDiffSynced} getActiveFile={getActiveFile} getWorkspaceDir={getWorkspaceDir} />
           </div>
           </>
         )}

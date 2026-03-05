@@ -11,6 +11,7 @@ import { AgentWorkflows } from './components/AgentWorkflows'
 import { Deployment } from './components/Deployment'
 import { Workspace } from './components/Workspace'
 import { Settings } from './components/Settings'
+import { Documentation } from './components/Documentation'
 import { ModelExport } from './components/ModelExport'
 import { AgentTerminal } from './components/Terminal/AgentTerminal'
 import { TopBar } from './components/TopBar'
@@ -19,16 +20,17 @@ import { NoteListPanel } from './components/NoteListPanel'
 import { useGlobalState } from './context/GlobalState'
 import { useConversations } from './context/ConversationContext'
 import { useNotes } from './context/NotesContext'
-import { apiClient } from './api/client'
+// apiClient imported in GlobalState — App uses backendReady from context
 import { CodeWorkspace } from './components/CodeWorkspace/CodeWorkspace'
-import { Database, Cpu, MessageSquare, BarChart2, TestTube, Brain, Zap, Rocket, FileText, ChevronsLeft, ChevronsRight, Plus, ChevronDown, ChevronRight, Settings as SettingsIcon, Package, TerminalSquare, Code } from 'lucide-react'
+import { Database, Cpu, MessageSquare, BarChart2, TestTube, Brain, Zap, Rocket, FileText, ChevronsLeft, ChevronsRight, Plus, ChevronDown, ChevronRight, Settings as SettingsIcon, Package, TerminalSquare, Code, BookOpen, Search } from 'lucide-react'
 
 function App() {
   const [activeTab, setActiveTab] = useState('models')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true')
   const [historyExpanded, setHistoryExpanded] = useState(false)
+  const [chatSearchOpen, setChatSearchOpen] = useState(false)
   const [notesExpanded, setNotesExpanded] = useState(false)
-  const { backendReady, setBackendReady, pendingChatInput } = useGlobalState()
+  const { backendReady, pendingChatInput } = useGlobalState()
   const conversations = useConversations()
   const notes = useNotes()
   const [loadingMessage, setLoadingMessage] = useState('Initializing backend...')
@@ -113,35 +115,12 @@ function App() {
     return () => document.removeEventListener('keydown', handler);
   }, [conversations, toggleSidebar]);
 
-  // Poll backend health until ready
+  // Update loading message after a few seconds if backend isn't ready yet
   useEffect(() => {
-    let cancelled = false;
-    let attempts = 0;
-
-    const checkBackend = async () => {
-      try {
-        const ok = await apiClient.checkHealth();
-        if (ok && !cancelled) {
-          setBackendReady(true);
-          return;
-        }
-      } catch {
-        // Network error
-      }
-      // Backend not ready yet — retry
-      if (!cancelled) {
-        attempts++;
-        if (attempts > 5) {
-          setLoadingMessage('Starting MLX engine...');
-        }
-        setTimeout(checkBackend, 500);
-      }
-    };
-
-    checkBackend();
-
-    return () => { cancelled = true; };
-  }, []);
+    if (backendReady) return;
+    const timer = setTimeout(() => setLoadingMessage('Starting MLX engine...'), 3000);
+    return () => clearTimeout(timer);
+  }, [backendReady]);
 
 
 
@@ -211,6 +190,14 @@ function App() {
                         <div className="flex items-center gap-0.5 shrink-0">
                           <button
                             type="button"
+                            onClick={(e) => { e.stopPropagation(); setChatSearchOpen(!chatSearchOpen); if (!chatSearchOpen && !historyExpanded) { setHistoryExpanded(true); conversations.fetchConversations(); } }}
+                            className={`p-1 rounded transition-colors ${chatSearchOpen ? 'text-blue-400 bg-blue-500/10' : 'text-gray-500 hover:text-white hover:bg-white/10'}`}
+                            title="Search conversations"
+                          >
+                            <Search size={14} />
+                          </button>
+                          <button
+                            type="button"
                             onClick={(e) => { e.stopPropagation(); conversations.setActiveConversationId(null); }}
                             className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
                             title="New conversation"
@@ -246,6 +233,8 @@ function App() {
                         onCancelRename={conversations.cancelRename}
                         onRenameValueChange={conversations.setRenameValue}
                         loading={conversations.listLoading}
+                        searchOpen={chatSearchOpen}
+                        onCloseSearch={() => { setChatSearchOpen(false); conversations.handleSearch(''); }}
                       />
                     </div>
                   )}
@@ -371,9 +360,16 @@ function App() {
 
           </nav>
 
-          {/* Settings — bottom of sidebar */}
+          {/* Docs & Settings — bottom of sidebar */}
           <div className={`${sidebarCollapsed ? 'px-1.5' : 'px-4'} mb-2`}>
-            <div className="border-t border-white/5 pt-2">
+            <div className="border-t border-white/5 pt-2 space-y-1">
+              <SidebarItem
+                label="Documentation"
+                active={activeTab === 'docs'}
+                onClick={() => setActiveTab('docs')}
+                icon={<BookOpen size={18} />}
+                collapsed={sidebarCollapsed}
+              />
               <SidebarItem
                 label="Settings"
                 active={activeTab === 'settings'}
@@ -419,6 +415,7 @@ function App() {
             {activeTab === 'deployment' && <Deployment />}
             {activeTab === 'workspace' && <Workspace />}
             {activeTab === 'export' && <ModelExport />}
+            {activeTab === 'docs' && <Documentation />}
             {activeTab === 'settings' && <Settings />}
           </div>
         </div>

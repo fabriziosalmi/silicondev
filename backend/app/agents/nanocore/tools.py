@@ -492,3 +492,88 @@ async def apply_edit(file_path: str, new_content: str) -> bool:
     except Exception as e:
         logger.error(f"Failed to apply edit to {file_path}: {e}")
         return False
+
+
+# --- Git tools ---
+
+# Git commands the agent is NOT allowed to run
+_BLOCKED_GIT_OPS = {"push", "reset", "clean", "rebase", "merge", "pull", "fetch", "remote"}
+
+
+async def git_tool(subcommand: str, args: str = "") -> dict:
+    """Run a safe git subcommand. Returns {output, error}."""
+    sub = subcommand.strip().lower()
+    if sub in _BLOCKED_GIT_OPS:
+        return {"output": "", "error": f"Blocked: git {sub} is not allowed for safety"}
+
+    # Also block --force/--hard flags
+    full_args = f"{sub} {args}".strip()
+    if "--force" in full_args or "--hard" in full_args:
+        return {"output": "", "error": "Blocked: --force and --hard flags are not allowed"}
+
+    cmd = f"git {full_args}"
+    try:
+        proc = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0", "PAGER": "cat"},
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+        output = stdout.decode(errors="replace").strip()
+        err = stderr.decode(errors="replace").strip()
+        if proc.returncode != 0:
+            return {"output": output, "error": err or f"git exited with code {proc.returncode}"}
+        return {"output": output, "error": ""}
+    except asyncio.TimeoutError:
+        return {"output": "", "error": "git command timed out"}
+    except Exception as e:
+        return {"output": "", "error": str(e)}
+
+
+async def check_broken_imports(file_path: str, old_content: str, new_content: str) -> str | None:
+    """Check if an edit broke imports/exports that other files depend on.
+
+    Looks for removed exports (Python: def/class, JS/TS: export) and
+    greps the codebase for importers. Returns a warning string or None.
+    """
+    ext = Path(file_path).suffix.lower()
+    removed_symbols = []
+
+    if ext == ".py":
+        # Find removed function/class definitions
+        import re as _re
+        old_defs = set(_re.findall(r'^(?:def|class)\s+(\w+)', old_content, _re.MULTILINE))
+        new_defs = set(_re.findall(r'^(?:def|class)\s+(\w+)', new_content, _re.MULTILINE))
+        removed_symbols = list(old_defs - new_defs)
+
+    elif ext in (".ts", ".tsx", ".js", ".jsx"):
+        import re as _re
+        old_exports = set(_re.findall(r'export\s+(?:function|class|const|let|var|type|interface)\s+(\w+)', old_content))
+        new_exports = set(_re.findall(r'export\s+(?:function|class|const|let|var|type|interface)\s+(\w+)', new_content))
+        removed_symbols = list(old_exports - new_exports)
+
+    if not removed_symbols:
+        return None
+
+    # Quick grep for importers
+    warnings = []
+    for sym in removed_symbols[:5]:  # limit to 5 symbols
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "grep", "-rl", sym, ".", "--include=*.py", "--include=*.ts",
+                "--include=*.tsx", "--include=*.js", "--include=*.jsx",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
+            importers = [
+                f for f in stdout.decode().strip().split("\n")
+                if f and f != file_path and os.path.realpath(f) != os.path.realpath(file_path)
+            ]
+            if importers:
+                warnings.append(f"'{sym}' removed but referenced in: {', '.join(importers[:3])}")
+        except (asyncio.TimeoutError, Exception):
+            continue
+
+    return "\n".join(warnings) if warnings else None

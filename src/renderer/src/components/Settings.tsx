@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { Card } from './ui/Card'
 import { ToggleSwitch } from './ui/ToggleSwitch'
 import { apiClient } from '../api/client'
-import { Settings2, MessageSquare, Brain, RotateCcw, Info, Server, Plus, Trash2, Loader2, Gauge, Globe, Play, Square, RefreshCcw, HardDrive, FolderSearch, FolderOpen } from 'lucide-react'
+import { Settings2, MessageSquare, Brain, RotateCcw, Info, Server, Plus, Trash2, Loader2, Gauge, Globe, Play, Square, RefreshCcw, HardDrive, FolderSearch, FolderOpen, Bug, ScrollText, Copy, RefreshCw, Shield } from 'lucide-react'
+import { useGlobalState } from '../context/GlobalState'
 import type { IndexerSource, IndexerStatus } from '../api/client'
 
 const CHAT_SETTINGS_KEY = 'silicon-studio-chat-settings'
@@ -567,7 +568,76 @@ function CodebaseIndexSection() {
     )
 }
 
+function LogViewerSection() {
+    const [logs, setLogs] = useState<string[]>([])
+    const [expanded, setExpanded] = useState(false)
+    const [loading, setLoading] = useState(false)
+
+    const fetchLogs = async () => {
+        setLoading(true)
+        try {
+            const data = await apiClient.monitor.getLogs(300)
+            setLogs(data.lines)
+        } catch { setLogs(['Failed to fetch logs']) }
+        finally { setLoading(false) }
+    }
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(logs.join('\n')).catch(() => {})
+    }
+
+    return (
+        <Card className="p-5">
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                    <span className="text-blue-400"><ScrollText size={16} /></span>
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wide">Debug Logs</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                    {expanded && logs.length > 0 && (
+                        <button onClick={handleCopy} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                            <Copy size={14} /> Copy
+                        </button>
+                    )}
+                    {expanded && (
+                        <button onClick={fetchLogs} disabled={loading} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50">
+                            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                            Refresh
+                        </button>
+                    )}
+                    <button
+                        onClick={() => { if (!expanded) fetchLogs(); setExpanded(!expanded) }}
+                        className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                    >
+                        {expanded ? 'Hide' : 'Show Logs'}
+                    </button>
+                </div>
+            </div>
+            {!expanded && (
+                <p className="text-sm text-gray-500">View backend logs for debugging. Useful when reporting bugs.</p>
+            )}
+            {expanded && (
+                <div className="mt-2 max-h-80 overflow-y-auto bg-black/40 border border-white/5 rounded-lg p-3 font-mono text-[11px] text-gray-400 leading-relaxed">
+                    {loading && logs.length === 0 ? (
+                        <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-gray-500" /></div>
+                    ) : logs.length === 0 ? (
+                        <span className="text-gray-600">No log entries found.</span>
+                    ) : (
+                        logs.map((line, i) => (
+                            <div key={i} className={`whitespace-pre-wrap break-all ${line.includes('ERROR') ? 'text-red-400' : line.includes('WARNING') ? 'text-yellow-400' : ''}`}>
+                                {line}
+                            </div>
+                        ))
+                    )}
+                </div>
+            )}
+        </Card>
+    )
+}
+
 export function Settings() {
+    const { systemStats } = useGlobalState()
+
     const [chat, setChat] = useState<ChatDefaults>(() => {
         try {
             const saved = localStorage.getItem(CHAT_SETTINGS_KEY)
@@ -614,6 +684,24 @@ export function Settings() {
         localStorage.setItem(TOPBAR_SETTINGS_KEY, JSON.stringify(topBar))
     }, [topBar])
 
+    // PII redaction toggle (stored in CHAT_SETTINGS_KEY alongside chat settings)
+    const [piiRedaction, setPiiRedaction] = useState(() => {
+        try {
+            const saved = localStorage.getItem(CHAT_SETTINGS_KEY)
+            if (saved) return JSON.parse(saved).piiRedaction ?? false
+        } catch { /* ignore */ }
+        return false
+    })
+
+    useEffect(() => {
+        try {
+            const existing = localStorage.getItem(CHAT_SETTINGS_KEY)
+            const merged = existing ? { ...JSON.parse(existing), piiRedaction } : { piiRedaction }
+            localStorage.setItem(CHAT_SETTINGS_KEY, JSON.stringify(merged))
+            window.dispatchEvent(new CustomEvent('silicon-studio-settings-changed', { detail: { piiRedaction } }))
+        } catch { /* ignore */ }
+    }, [piiRedaction])
+
     const updateChat = <K extends keyof ChatDefaults>(key: K, value: ChatDefaults[K]) => {
         setChat(prev => ({ ...prev, [key]: value }))
     }
@@ -623,6 +711,7 @@ export function Settings() {
         setChat({ ...defaultChat })
         setRag({ ...defaultRag })
         setTopBar({ ...defaultTopBar })
+        setPiiRedaction(false)
         localStorage.removeItem(CHAT_SETTINGS_KEY)
         localStorage.removeItem(RAG_SETTINGS_KEY)
         localStorage.removeItem(TOPBAR_SETTINGS_KEY)
@@ -672,6 +761,22 @@ export function Settings() {
                     <Settings2 size={20} className="text-blue-400" />
                     <h2 className="text-lg font-bold text-white">Settings</h2>
                 </div>
+                <button
+                    type="button"
+                    onClick={() => {
+                        const platform = systemStats?.platform
+                        const sysInfo = platform ? `${platform.system} ${platform.release} (${platform.processor})` : 'Unknown'
+                        const params = new URLSearchParams({
+                            title: '[Bug] ',
+                            body: `## Description\n\nDescribe the bug...\n\n## System Info\n\n- OS: ${sysInfo}\n- App Version: 0.7.2\n\n## Steps to Reproduce\n\n1. \n2. \n3. \n\n## Expected Behavior\n\n\n## Logs\n\nPaste relevant logs from Settings > Debug Logs\n`,
+                        })
+                        window.open(`https://github.com/fabriziosalmi/Silicon-Studio/issues/new?${params.toString()}`, '_blank')
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors"
+                >
+                    <Bug size={14} />
+                    Report a Bug
+                </button>
             </div>
 
             {/* General */}
@@ -762,6 +867,23 @@ export function Settings() {
                 </div>
             </Card>
 
+            {/* Privacy */}
+            <Card className="p-5">
+                <SectionHeader icon={<Shield size={16} />} title="Privacy" />
+                <div className="flex items-center justify-between">
+                    <div>
+                        <span className="text-sm text-gray-300">PII Redaction</span>
+                        <p className="text-[10px] text-gray-600 mt-0.5">Redact emails, phone numbers, IPs, credit cards, SSNs, and API keys from chat messages</p>
+                    </div>
+                    <ToggleSwitch
+                        enabled={piiRedaction}
+                        onChange={setPiiRedaction}
+                        size="sm"
+                        label="PII Redaction"
+                    />
+                </div>
+            </Card>
+
             {/* MCP Servers */}
             <MCPServersSection />
 
@@ -830,6 +952,9 @@ export function Settings() {
                     </button>
                 )}
             </Card>
+
+            {/* Debug Logs */}
+            <LogViewerSection />
 
             <Card className="p-5">
                 <div className="flex items-center justify-between">
