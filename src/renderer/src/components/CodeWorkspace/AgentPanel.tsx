@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react'
-import { Trash2, AlertCircle, Bot, Cpu, Clock, Undo2, Eye, Pencil, Brain, Zap, Search, ShieldCheck } from 'lucide-react'
+import { Trash2, AlertCircle, Bot, Cpu, Clock, Undo2, Eye, Pencil, Brain, Zap, Search, ShieldCheck, Database } from 'lucide-react'
 import { type ActiveFileContext } from './useAgentSession'
 import { AgentInputBar } from './AgentInputBar'
 import { MessageFeed } from '../Terminal/MessageFeed'
@@ -37,6 +37,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
     setAgentMode,
     clearHistory,
     activeAgencyRole,
+    contextHealth,
   } = session
 
   // Wrap handleDiffDecided to also sync with CodeWorkspace (DiffEditor)
@@ -93,6 +94,20 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
             {isRunning && <span className="inline-block w-1.5 h-3 bg-blue-400 animate-pulse rounded-sm" />}
           </div>
           <div className="flex items-center gap-2">
+            {contextHealth && (
+              <div
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/40 border border-white/10"
+                title={`Context Usage: ${contextHealth.used_tokens} / ${contextHealth.max_tokens} tokens`}
+              >
+                <Database size={10} className={contextHealth.used_tokens / contextHealth.max_tokens > 0.8 ? "text-red-400" : "text-gray-400"} />
+                <div className="w-16 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 ${contextHealth.used_tokens / contextHealth.max_tokens > 0.8 ? "bg-red-500" : "bg-blue-500"}`}
+                    style={{ width: `${Math.min(100, Math.max(0, (contextHealth.used_tokens / contextHealth.max_tokens) * 100))}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-bold text-emerald-400 uppercase tracking-tight">
               <ShieldCheck size={10} />
               <span>Local Execution Only</span>

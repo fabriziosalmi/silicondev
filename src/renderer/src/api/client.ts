@@ -873,8 +873,11 @@ export const apiClient = {
         },
     },
     terminal: {
-        runUrl: (prompt: string, modelId: string, opts?: { maxIterations?: number; temperature?: number; activeFile?: { path: string; content?: string; language?: string }; history?: { role: string; content: string }[]; mode?: string; workspaceDir?: string }) => {
-            const body: Record<string, unknown> = { prompt, model_id: modelId, max_iterations: opts?.maxIterations ?? 10, temperature: opts?.temperature ?? 0.3 }
+        runUrl: (prompt: string, modelId: string, opts?: { maxIterations?: number; temperature?: number; activeFile?: { path: string; content?: string; language?: string }; history?: { role: string; content: string }[]; mode?: string; workspaceDir?: string; enableMoA?: boolean; airGappedMode?: boolean; enablePythonSandbox?: boolean }) => {
+            const body: Record<string, unknown> = {
+                prompt, model_id: modelId, max_iterations: opts?.maxIterations ?? 10, temperature: opts?.temperature ?? 0.3,
+                enable_moa: opts?.enableMoA, air_gapped_mode: opts?.airGappedMode, enable_python_sandbox: opts?.enablePythonSandbox
+            }
             if (opts?.activeFile) {
                 body.active_file = opts.activeFile
             }

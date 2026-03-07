@@ -99,6 +99,7 @@ export function CodeWorkspace() {
     togglePin,
     pinnedItems, // Restored pinnedItems
     scoutIssues,
+    contextHealth,
   } = useAgentSession({
     onDiffProposal: (path, meta) => {
       handleFileSelect(path)
@@ -664,6 +665,7 @@ export function CodeWorkspace() {
                   clearHistory,
                   pinnedItems,
                   togglePin,
+                  contextHealth,
                 }}
               />
             </div>

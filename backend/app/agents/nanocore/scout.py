@@ -67,7 +67,12 @@ class ScoutAgent:
 
                 if not all_files:
                     # Fallback to limited glob if not a git repo
-                    all_files = list(self.workspace_dir.glob("*.py")) + list((self.workspace_dir / "app").glob("**/*.py"))
+                    def _discover_files():
+                        try:
+                            return list(self.workspace_dir.glob("*.py")) + list((self.workspace_dir / "app").glob("**/*.py"))
+                        except Exception:
+                            return []
+                    all_files = await asyncio.to_thread(_discover_files)
                 
                 # 3. Sample files to avoid CPU bomb (max 20 files per scan)
                 if all_files:

@@ -76,6 +76,7 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
   const [agentMode, setAgentMode] = useState<'edit' | 'review'>('edit')
   const [pinnedItems, setPinnedItems] = useState<{ id: string; type: 'file' | 'text'; name: string; content: string }[]>([])
   const [scoutIssues, setScoutIssues] = useState<ScoutAlertMetadata['issues']>([])
+  const [contextHealth, setContextHealth] = useState<{ used_tokens: number; max_tokens: number } | null>(null)
 
   const aiTextIdRef = useRef<string | null>(null)
   const toolOutputIdRef = useRef<string | null>(null)
@@ -221,6 +222,13 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           setActiveAgencyRole({ role: d.role as 'architetto' | 'operaio' | 'ispettore', status: d.status as string })
           break
 
+        case 'context_health':
+          setContextHealth({
+            used_tokens: d.used_tokens as number,
+            max_tokens: d.max_tokens as number,
+          })
+          break
+
         case 'token_stream': {
           const text = d.text as string
           if (!aiTextIdRef.current) {
@@ -241,7 +249,10 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           const tool = d.tool as string
           const cmd = (d.args as Record<string, string>)?.command || ''
           const callId = d.call_id as string
-          const label = tool === 'run_bash' ? `$ ${cmd}` : `${tool}`
+          let label = tool === 'run_bash' ? `$ ${cmd}` : `${tool}`
+          if (tool === 'ask_swarm_experts') {
+            label = `Consulting Mixture of Agents (MoA)...`
+          }
           addFeedItem({
             id: crypto.randomUUID(),
             type: 'tool_start',
@@ -268,7 +279,7 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
               type: 'tool_output',
               content: text,
               timestamp: Date.now(),
-              toolMeta: { callId, tool: 'bash' },
+              toolMeta: { callId, tool: d.tool as string || 'system' },
             })
           } else {
             updateFeedItem(toolOutputIdRef.current, (it) => ({ ...it, content: it.content + text }))
@@ -502,6 +513,7 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
     toolOutputIdRef.current = null
     setActiveAgencyRole(null) // Reset active agency role on new submission
     setScoutIssues([]) // Reset scout issues on new submission
+    setContextHealth(null) // Reset context health on new submission
 
     if (!activeModel) {
       addFeedItem({ id: crypto.randomUUID(), type: 'error', content: 'No model loaded. Load a model from the Models tab first.', timestamp: Date.now() })
@@ -533,11 +545,16 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
 
     const activeFile = options?.getActiveFile?.() ?? null
     const workspaceDir = options?.getWorkspaceDir?.() ?? undefined
+    const chatSettings = JSON.parse(localStorage.getItem('silicon-studio-chat-settings') || '{}')
+
     const { url, body } = apiClient.terminal.runUrl(input, activeModel.id, {
       activeFile: activeFile ?? undefined,
       history: recentHistory.length > 0 ? recentHistory : undefined,
       mode: agentMode,
       workspaceDir,
+      enableMoA: chatSettings.enableMoA ?? true,
+      airGappedMode: chatSettings.airGappedMode ?? false,
+      enablePythonSandbox: chatSettings.enablePythonSandbox ?? false,
     })
     await consumeSSE(url, body)
 
@@ -596,5 +613,6 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
     pinnedItems,
     togglePin,
     scoutIssues,
+    contextHealth,
   }
 }

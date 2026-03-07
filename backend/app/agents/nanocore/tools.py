@@ -329,72 +329,75 @@ async def generate_codemap(root_dir: str) -> str:
     """Scan the codebase and generate a CODEMAP.md with Mermaid architecture diagram."""
     from app.codebase.chunker import TEXT_EXTENSIONS, _should_skip_dir
 
-    deps = {}  # module -> set(dependencies)
-    root = Path(root_dir).resolve()
+    def _do_generate():
+        deps = {}  # module -> set(dependencies)
+        root = Path(root_dir).resolve()
 
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if not _should_skip_dir(d)]
-        for fname in filenames:
-            fpath = Path(dirpath) / fname
-            if fpath.suffix not in (".py", ".js", ".ts", ".tsx"):
-                continue
-            
-            rel_path = fpath.relative_to(root)
-            mod_name = str(rel_path).replace(os.sep, ".").replace(fpath.suffix, "")
-            if mod_name not in deps:
-                deps[mod_name] = set()
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if not _should_skip_dir(d)]
+            for fname in filenames:
+                fpath = Path(dirpath) / fname
+                if fpath.suffix not in (".py", ".js", ".ts", ".tsx"):
+                    continue
+                
+                rel_path = fpath.relative_to(root)
+                mod_name = str(rel_path).replace(os.sep, ".").replace(fpath.suffix, "")
+                if mod_name not in deps:
+                    deps[mod_name] = set()
 
-            try:
-                content = fpath.read_text(errors="ignore")
-                if fpath.suffix == ".py":
-                    tree = ast.parse(content)
-                    for node in ast.walk(tree):
-                        if isinstance(node, ast.Import):
-                            for alias in node.names:
-                                deps[mod_name].add(alias.name.split(".")[0])
-                        elif isinstance(node, ast.ImportFrom):
-                            if node.module:
-                                deps[mod_name].add(node.module.split(".")[0])
-                else:
-                    # Simple regex for JS/TS imports
-                    imports = re.findall(r"from\s+['\"](.+?)['\"]", content)
-                    imports += re.findall(r"import\s+['\"](.+?)['\"]", content)
-                    for imp in imports:
-                        if imp.startswith("."):
-                            # Resolve relative import to "module" style
-                            target = (rel_path.parent / imp).resolve()
-                            try:
-                                imp_rel = target.relative_to(root)
-                                deps[mod_name].add(str(imp_rel).replace(os.sep, "."))
-                            except ValueError:
-                                pass
-                        else:
-                            deps[mod_name].add(imp.split("/")[0])
-            except Exception:
-                continue
+                try:
+                    content = fpath.read_text(errors="ignore")
+                    if fpath.suffix == ".py":
+                        tree = ast.parse(content)
+                        for node in ast.walk(tree):
+                            if isinstance(node, ast.Import):
+                                for alias in node.names:
+                                    deps[mod_name].add(alias.name.split(".")[0])
+                            elif isinstance(node, ast.ImportFrom):
+                                if node.module:
+                                    deps[mod_name].add(node.module.split(".")[0])
+                    else:
+                        # Simple regex for JS/TS imports
+                        imports = re.findall(r"from\s+['\"](.+?)['\"]", content)
+                        imports += re.findall(r"import\s+['\"](.+?)['\"]", content)
+                        for imp in imports:
+                            if imp.startswith("."):
+                                # Resolve relative import to "module" style
+                                target = (rel_path.parent / imp).resolve()
+                                try:
+                                    imp_rel = target.relative_to(root)
+                                    deps[mod_name].add(str(imp_rel).replace(os.sep, "."))
+                                except ValueError:
+                                    pass
+                            else:
+                                deps[mod_name].add(imp.split("/")[0])
+                except Exception:
+                    continue
 
-    # Build Mermaid graph
-    lines = ["# Codebase Architecture Map\n", "```mermaid", "graph TD"]
-    # Filter only internal dependencies (those that exist as keys in deps)
-    internal_mods = set(deps.keys())
-    for mod, targets in deps.items():
-        # Shorten module names for better graph readability
-        short_mod = mod.split(".")[-1]
-        for t in targets:
-            # Check if t is an internal module or a sub-part of one
-            is_internal = any(t == m or m.startswith(t + ".") for m in internal_mods)
-            if is_internal and t != mod:
-                short_t = t.split(".")[-1]
-                lines.append(f"  {short_mod} --> {short_t}")
+        # Build Mermaid graph
+        lines = ["# Codebase Architecture Map\n", "```mermaid", "graph TD"]
+        # Filter only internal dependencies (those that exist as keys in deps)
+        internal_mods = set(deps.keys())
+        for mod, targets in deps.items():
+            # Shorten module names for better graph readability
+            short_mod = mod.split(".")[-1]
+            for t in targets:
+                # Check if t is an internal module or a sub-part of one
+                is_internal = any(t == m or m.startswith(t + ".") for m in internal_mods)
+                if is_internal and t != mod:
+                    short_t = t.split(".")[-1]
+                    lines.append(f"  {short_mod} --> {short_t}")
 
-    lines.append("```\n")
-    output_path = root / "CODEMAP.md"
-    content = "\n".join(lines)
-    
-    with open(output_path, "w") as f:
-        f.write(content)
-    
-    return f"Successfully generated architecture map at {output_path}"
+        lines.append("```\n")
+        output_path = root / "CODEMAP.md"
+        content = "\n".join(lines)
+        
+        with open(output_path, "w") as f:
+            f.write(content)
+        
+        return f"Successfully generated architecture map at {output_path}"
+
+    return await asyncio.to_thread(_do_generate)
 
 
 async def generate_edit_diff(file_path: str, new_content: str) -> dict:
@@ -667,3 +670,65 @@ async def check_broken_imports(file_path: str, old_content: str = None, new_cont
             continue
 
     return "\n".join(warnings) if warnings else None
+
+
+async def execute_python_script(script_code: str, timeout: int = 15, air_gapped: bool = False) -> dict:
+    """Executes a Python script in an isolated subprocess.
+    If air_gapped is True, network access is theoretically disabled (via environment/mocks, or just logged as such
+    since true air-gapping requires OS-level namespaces or sandboxing not uniformly available on macOS, 
+    but we will drop standard proxy/network env vars just in case).
+    """
+    import tempfile
+    import os
+    import sys
+    
+    # Strip dangerous imports if air_gapped is strict (Best effort for this quick win)
+    if air_gapped:
+        blocked_imports = ["urllib", "requests", "http.client", "socket", "ftplib", "aiohttp", "httpx"]
+        for bi in blocked_imports:
+            if f"import {bi}" in script_code or f"from {bi}" in script_code:
+                return {
+                    "output": "",
+                    "error": f"Security Error: Air-gapped mode is ENABLED. Import of '{bi}' is blocked."
+                }
+    
+    # Write script to temporary file
+    fd, tmp_path = tempfile.mkstemp(suffix=".py", prefix="nanocore_sandbox_")
+    try:
+        os.write(fd, script_code.encode("utf-8"))
+        os.close(fd)
+        
+        env = os.environ.copy()
+        if air_gapped:
+            # Drop proxy environments to hinder unintentional network access
+            env.pop("HTTP_PROXY", None)
+            env.pop("HTTPS_PROXY", None)
+            env.pop("http_proxy", None)
+            env.pop("https_proxy", None)
+            
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable, tmp_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env
+        )
+        
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        output = stdout.decode("utf-8", errors="replace").strip()
+        err = stderr.decode("utf-8", errors="replace").strip()
+        
+        if proc.returncode != 0:
+            return {"output": output, "error": err or f"Process exited with code {proc.returncode}"}
+        return {"output": output, "error": ""}
+        
+    except asyncio.TimeoutError:
+        try:
+            proc.kill()
+        except OSError:
+            pass
+        return {"output": "", "error": f"Execution timed out after {timeout} seconds."}
+    except Exception as e:
+        return {"output": "", "error": str(e)}
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)

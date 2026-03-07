@@ -13,7 +13,13 @@ from typing import AsyncGenerator
 from .types import AgentState, TrajectoryEntry
 from .prompts import SYSTEM_PROMPT, REVIEW_MODE_PROMPT, INSPECTOR_PROMPT
 from .parser import extract_tool_calls, has_partial_tool_tag, strip_tool_calls
-from .tools import run_bash, read_file, generate_edit_diff, apply_edit, apply_patch_content, git_tool, check_broken_imports, generate_codemap
+from .tools import (
+    run_bash, apply_patch_content,
+    git_tool, apply_edit, read_file as read_file_paged,
+    execute_python_script,
+    check_broken_imports, generate_codemap
+)
+from .swarm import MapReduceSwarm
 from .validators import validate_content, detect_lazy_edit, run_lint_check, scan_security, scan_performance
 from .guardrails import LoopGuardrails
 from .context import ContextManager, count_tokens
@@ -97,13 +103,20 @@ class SupervisorAgent:
         max_total_tokens: int = 50_000,
         mode: str = "edit",
         workspace_dir: str | None = None,
+        enable_moa: bool = True,
+        air_gapped_mode: bool = False,
+        enable_python_sandbox: bool = False,
     ):
         self.session_id = session_id
         self.model_id = model_id
         self.max_iterations = max_iterations
         self.temperature = temperature
-        self.mode = mode  # "edit" or "review"
+        self.mode = mode
         self.workspace_dir = workspace_dir
+        
+        self.enable_moa = enable_moa
+        self.air_gapped_mode = air_gapped_mode
+        self.enable_python_sandbox = enable_python_sandbox
 
         self._state = AgentState.thinking
         self._stopped = False
@@ -136,13 +149,17 @@ class SupervisorAgent:
             engine_service.stop_generation()
         except Exception:
             pass
-        # Schedule background process cleanup
+        # Schedule background process cleanup safely
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                loop.create_task(self.process_manager.cleanup_all())
-        except Exception:
-            pass
+                # Avoid fire-and-forget without a reference; log errors if it fails
+                task = loop.create_task(self.process_manager.cleanup_all())
+                task.add_done_callback(
+                    lambda t: logger.error(f"Cleanup error: {t.exception()}") if t.exception() else None
+                )
+        except Exception as e:
+            logger.error(f"Error scheduling cleanup during stop: {e}")
 
     def resolve_diff(self, call_id: str, approved: bool, reason: str = "") -> bool:
         """Resolve a pending diff decision. Returns False if call_id not found."""
@@ -329,9 +346,9 @@ class SupervisorAgent:
         linter_addition = ""
         if active_file_path and os.path.exists(active_file_path):
             try:
-                with open(active_file_path, 'r') as f:
-                    content = f.read()
-                linter_res = run_lint_check(content, active_file_path)
+                # Commandment 14: Linter Injection is async and only takes file_path
+                # We don't need to read the content ourselves, run_lint_check does it
+                linter_res = await run_lint_check(active_file_path)
                 if linter_res:
                     linter_addition = f"\n\n## Current Linter Errors in {os.path.basename(active_file_path)} (Fix these if relevant):\n{linter_res}"
             except Exception:
@@ -345,15 +362,28 @@ class SupervisorAgent:
         elif mem.percent > 80:
             yield _sse("info", {"content": "Note: System memory pressure detected. Scaling down background tasks."})
 
-        # --- Commandment 18: Project Rules (.nanocore_rules) ---
+        # --- Commandment 18: Project Rules & Steering (.nanocore/) ---
         user_rules = ""
-        rules_path = os.path.join(cwd, ".nanocore_rules")
-        if os.path.exists(rules_path):
+        # Legacy .nanocore_rules
+        legacy_rules_path = os.path.join(cwd, ".nanocore_rules")
+        if os.path.exists(legacy_rules_path):
             try:
-                with open(rules_path, 'r') as f:
-                    user_rules = f"\n\n## Project Specific Rules (.nanocore_rules)\n{f.read()}"
+                with open(legacy_rules_path, 'r', encoding='utf-8') as f:
+                    user_rules += f"\n\n## Project Specific Rules (.nanocore_rules)\n{f.read()}"
             except Exception as e:
                 logger.warning(f"Error reading .nanocore_rules: {e}")
+                
+        # Agent Steering Directory (.nanocore/)
+        steering_dir = os.path.join(cwd, ".nanocore")
+        if os.path.isdir(steering_dir):
+            for file_name in ["instructions.md", "stack.md"]:
+                file_path = os.path.join(steering_dir, file_name)
+                if os.path.exists(file_path):
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            user_rules += f"\n\n## Steering Context ({file_name})\n{f.read()}"
+                    except Exception as e:
+                        logger.warning(f"Error reading {file_path}: {e}")
 
         # Suppress reasoning for models that support /no_think (e.g. Qwen3)
         # This dramatically speeds up agentic loops by avoiding wasted think tokens.
@@ -399,13 +429,27 @@ class SupervisorAgent:
         system_content += no_think_suffix
 
         messages = [
-            {"role": "system", "content": system_content},
+            # {"role": "system", "content": system_content}, # This will be inserted later after filtering
         ]
 
         # Inject conversation history (prior turns) for multi-turn memory
         if history:
             for turn in history:
                 messages.append({"role": turn["role"], "content": turn["content"]})
+
+        # Filter out disabled capabilities from the system prompt dynamically
+        system_prompt_content = system_content.strip()
+        
+        if not self.enable_python_sandbox:
+            # Strip execute_python_script block roughly
+            import re
+            system_prompt_content = re.sub(r'### execute_python_script.*?(?=###|$)', '', system_prompt_content, flags=re.DOTALL)
+            
+        if not self.enable_moa:
+            import re
+            system_prompt_content = re.sub(r'### ask_swarm_experts.*?(?=###|$)', '', system_prompt_content, flags=re.DOTALL)
+            
+        messages.insert(0, {"role": "system", "content": system_prompt_content})
 
         messages.append({"role": "user", "content": prompt})
 
@@ -441,10 +485,28 @@ class SupervisorAgent:
                 if fresh_map:
                     updated_system += f"\n\n## Repository Map\n\n{fresh_map}\n"
                 updated_system += no_think_suffix
+                
+                # Re-apply filtering for dynamic tools
+                if not self.enable_python_sandbox:
+                    updated_system = re.sub(r'### execute_python_script.*?(?=###|$)', '', updated_system, flags=re.DOTALL)
+                if not self.enable_moa:
+                    updated_system = re.sub(r'### ask_swarm_experts.*?(?=###|$)', '', updated_system, flags=re.DOTALL)
+
                 messages[0] = {"role": "system", "content": updated_system}
 
             # Fix 4: fit messages into context window
             fitted_messages = self._context_mgr.fit_messages(messages)
+
+            # Phase 11 Win: Emit context health UI
+            try:
+                from .context import count_tokens
+                used_tokens = sum(count_tokens(str(m.get("content", ""))) for m in fitted_messages)
+                yield _sse("context_health", {
+                    "used_tokens": used_tokens,
+                    "max_tokens": self._context_mgr.max_context_tokens
+                })
+            except Exception as e:
+                logger.warning(f"Error emitting context health: {e}")
 
             # --- Generate from model ---
             accumulated = ""
@@ -687,7 +749,7 @@ class SupervisorAgent:
 
                     yield _sse("tool_start", {"tool": "read_file", "args": {"path": file_path}, "call_id": call_id})
 
-                    result = await read_file(file_path, max_lines=max_lines)
+                    result = await read_file_paged(file_path, max_lines=max_lines)
                     if result["error"]:
                         yield _sse("tool_log", {"call_id": call_id, "stream": "stderr", "text": result["error"]})
                         yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
@@ -725,7 +787,7 @@ class SupervisorAgent:
                             tool_results.append(self.guardrails.fix_limit_message(file_path))
                         continue
 
-                    diff_info = await generate_edit_diff(file_path, new_content)
+                    diff_info = await apply_patch_content(file_path, "", new_content, is_create=True) # Use apply_patch_content for diff generation
 
                     # Check if blocked
                     if diff_info["diff"].startswith("Blocked:"):
@@ -977,6 +1039,8 @@ class SupervisorAgent:
                 elif tc.name == "git":
                     subcommand = tc.args.get("subcommand", "")
                     args = tc.args.get("args", "")
+                    full_command = f"git {subcommand} {args}".strip()
+
                     yield self._step_label(f"git {subcommand}...", iteration)
                     yield _sse("tool_start", {"tool": "git", "args": {"subcommand": subcommand, "args": args}, "call_id": call_id})
 
@@ -1045,7 +1109,56 @@ class SupervisorAgent:
                         tool_results.append(f"[generate_codemap] {result}")
                     except Exception as e:
                         yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
-                        tool_results.append(f"[generate_codemap] Error: {e}")
+                        
+                elif tc.name == "execute_python_script":
+                    script_code = tc.args.get("script", "")
+                    yield self._step_label("Executing Python Sandbox...", iteration)
+                    yield _sse("tool_start", {"tool": "execute_python_script", "args": {"script": script_code}, "call_id": call_id})
+                    
+                    if not self.enable_python_sandbox:
+                        yield _sse("tool_log", {"call_id": call_id, "stream": "stderr", "text": "Feature disabled in settings."})
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                        tool_results.append("[execute_python_script] Error: Sandbox is disabled in Settings.")
+                        continue
+                        
+                    try:
+                        result = await execute_python_script(script_code, timeout=15, air_gapped=self.air_gapped_mode)
+                        
+                        if result["error"]:
+                            yield _sse("tool_log", {"call_id": call_id, "stream": "stderr", "text": result["error"]})
+                            yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                        else:
+                            yield _sse("tool_log", {"call_id": call_id, "stream": "stdout", "text": result["output"]})
+                            yield _sse("tool_done", {"call_id": call_id, "exit_code": 0})
+                            
+                        tool_results.append(f"[execute_python_script]\nSTDOUT: {result['output']}\nSTDERR: {result['error']}")
+                    except Exception as e:
+                        logger.error(f"Sandbox failure: {e}", exc_info=True)
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                        tool_results.append(f"[execute_python_script] Error: {e}")
+                elif tc.name == "ask_swarm_experts":
+                    topic = tc.args.get("topic", "")
+                    context = tc.args.get("context", "")
+                    yield self._step_label("Consulting Swarm Experts (MoA)...", iteration)
+                    yield _sse("tool_start", {"tool": "ask_swarm_experts", "args": {"topic": topic, "context": context}, "call_id": call_id})
+                    
+                    if not self.enable_moa:
+                        yield _sse("tool_log", {"call_id": call_id, "stream": "stderr", "text": "Feature disabled in settings."})
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                        tool_results.append("[ask_swarm_experts] Error: MoA is disabled in Settings.")
+                        continue
+                        
+                    try:
+                        # Instantiate the swarm using the supervisor's active model
+                        swarm = MapReduceSwarm(self.model_id)
+                        # Map-Reduce invocation
+                        result = await swarm.run_swarm(topic=topic, context=context)
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 0})
+                        tool_results.append(f"[ask_swarm_experts]\n{result}")
+                    except Exception as e:
+                        logger.error(f"Swarm failure: {e}", exc_info=True)
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                        tool_results.append(f"[ask_swarm_experts] Error: {e}")
 
                 else:
                     tool_results.append(f"Unknown tool: {tc.name}")

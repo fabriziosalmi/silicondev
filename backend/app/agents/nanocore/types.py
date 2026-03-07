@@ -74,6 +74,9 @@ class TerminalRequest(BaseModel):
     history: Optional[list[ConversationTurn]] = Field(default=None, max_length=20)
     mode: str = Field(default="edit", pattern="^(edit|review)$")
     workspace_dir: Optional[str] = Field(default=None, max_length=2048)
+    enable_moa: bool = Field(default=True)
+    air_gapped_mode: bool = Field(default=False)
+    enable_python_sandbox: bool = Field(default=False)
 
 
 class DiffDecision(BaseModel):

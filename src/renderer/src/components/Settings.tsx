@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card } from './ui/Card'
 import { ToggleSwitch } from './ui/ToggleSwitch'
 import { apiClient } from '../api/client'
-import { Settings2, MessageSquare, Brain, RotateCcw, Info, Server, Plus, Trash2, Loader2, Gauge, Globe, Play, Square, RefreshCcw, HardDrive, FolderSearch, FolderOpen, Bug, ScrollText, Copy, RefreshCw, Shield } from 'lucide-react'
+import { Settings2, MessageSquare, Brain, RotateCcw, Info, Server, Plus, Trash2, Loader2, Gauge, Globe, Play, Square, RefreshCcw, HardDrive, FolderSearch, FolderOpen, Bug, ScrollText, Copy, RefreshCw, Shield, Bot } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
 import type { IndexerSource, IndexerStatus } from '../api/client'
 
@@ -19,6 +19,9 @@ interface ChatDefaults {
     repetitionPenalty: number
     reasoningMode: 'off' | 'auto' | 'low' | 'high'
     webSearchEnabled: boolean
+    enableMoA: boolean
+    airGappedMode: boolean
+    enablePythonSandbox: boolean
 }
 
 interface RagDefaults {
@@ -35,6 +38,9 @@ const defaultChat: ChatDefaults = {
     repetitionPenalty: 1.1,
     reasoningMode: 'auto',
     webSearchEnabled: false,
+    enableMoA: true,
+    airGappedMode: false,
+    enablePythonSandbox: false,
 }
 
 const defaultRag: RagDefaults = {
@@ -583,7 +589,7 @@ function LogViewerSection() {
     }
 
     const handleCopy = () => {
-        navigator.clipboard.writeText(logs.join('\n')).catch(() => {})
+        navigator.clipboard.writeText(logs.join('\n')).catch(() => { })
     }
 
     return (
@@ -804,13 +810,13 @@ export function Settings() {
                         </select>
                     </div>
                     {logPath && (
-                    <div className="flex flex-col gap-1 col-span-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Log File</label>
-                        <div className="flex items-center px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-gray-400 truncate">
-                            {logPath}
+                        <div className="flex flex-col gap-1 col-span-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase">Log File</label>
+                            <div className="flex items-center px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-gray-400 truncate">
+                                {logPath}
+                            </div>
+                            <span className="text-[10px] text-gray-600">Share this file when reporting bugs.</span>
                         </div>
-                        <span className="text-[10px] text-gray-600">Share this file when reporting bugs.</span>
-                    </div>
                     )}
                 </div>
             </Card>
@@ -881,6 +887,66 @@ export function Settings() {
                         size="sm"
                         label="PII Redaction"
                     />
+                </div>
+            </Card>
+
+            {/* Agent Capabilities & Security */}
+            <Card className="p-5">
+                <SectionHeader icon={<Bot size={16} />} title="Agent Capabilities & Security" />
+                <div className="space-y-4">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-300 font-bold">Mixture of Agents (MoA) Swarm</span>
+                                <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold">NEW</span>
+                            </div>
+                            <p className="text-[10px] text-gray-600 mt-1 max-w-sm">
+                                Allows the Agent to spawn 3 specialized parallel personas (Security, Performance, Syntax) to tackle complex tasks with extremely high reasoning capabilities.
+                            </p>
+                        </div>
+                        <ToggleSwitch
+                            enabled={chat.enableMoA}
+                            onChange={(v) => updateChat('enableMoA', v)}
+                            size="sm"
+                            label="Enable Mixture of Agents"
+                        />
+                    </div>
+
+                    <div className="flex items-start justify-between border-t border-white/5 pt-4">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-300 font-bold">Air-Gapped Mode</span>
+                                <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-bold">SECURITY</span>
+                            </div>
+                            <p className="text-[10px] text-gray-600 mt-1 max-w-sm">
+                                Strictly blocks the Agent from accessing the internet using curl, wget, or python requests. Forces 100% offline local operation.
+                            </p>
+                        </div>
+                        <ToggleSwitch
+                            enabled={chat.airGappedMode}
+                            onChange={(v) => updateChat('airGappedMode', v)}
+                            size="sm"
+                            label="Enable Air-Gapped Mode"
+                        />
+                    </div>
+
+                    <div className="flex items-start justify-between border-t border-white/5 pt-4">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-300 font-bold">Programmatic Sandboxing</span>
+                                <span className="px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 text-[10px] font-bold">EXPERIMENTAL</span>
+                            </div>
+                            <p className="text-[10px] text-gray-600 mt-1 max-w-sm">
+                                Allows the Agent to write and execute isolated Python scripts to process data, parse strings, and compute logic before returning answers.
+                            </p>
+                        </div>
+                        <ToggleSwitch
+                            enabled={chat.enablePythonSandbox}
+                            onChange={(v) => updateChat('enablePythonSandbox', v)}
+                            size="sm"
+                            label="Enable Python Sandbox"
+                        />
+                    </div>
                 </div>
             </Card>
 

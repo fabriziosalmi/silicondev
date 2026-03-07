@@ -70,6 +70,9 @@ async def run_terminal(request: TerminalRequest):
         max_total_tokens=request.max_total_tokens,
         mode=request.mode,
         workspace_dir=request.workspace_dir,
+        enable_moa=request.enable_moa,
+        air_gapped_mode=request.air_gapped_mode,
+        enable_python_sandbox=request.enable_python_sandbox,
     )
     async with _sessions_lock:
         _active_sessions[session_id] = agent

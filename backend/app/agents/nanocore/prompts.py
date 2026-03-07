@@ -39,6 +39,17 @@ Call tools using XML tags on their own line, after a brief explanation.
 ```
 Use background="true" for servers/watchers.
 
+### execute_python_script — Run isolated Python logic
+```
+<tool name="execute_python_script">
+<arg name="script">
+import json
+print(json.dumps({"test": True}))
+</arg>
+</tool>
+```
+Executes Python scripts safely to compute data, parse text, or transform files. Variables don't persist between runs — print output to return it.
+
 ### search_codebase — Search code by query
 ```
 <tool name="search_codebase">
@@ -82,6 +93,15 @@ Max 10 files per batch. Each file gets its own diff approval.
 </tool>
 ```
 Scans the codebase and generates a `CODEMAP.md` with Mermaid diagrams. Use this when the user asks about the architecture or how modules interact.
+
+### ask_swarm_experts — Map-Reduce / Mixture of Agents
+```
+<tool name="ask_swarm_experts">
+<arg name="topic">Write a highly concurrent file downloader</arg>
+<arg name="context">src/downloader.py</arg>
+</tool>
+```
+Spawns 3 specialized expert personas (Security, Performance, Syntax) in parallel to analyze your topic, then synthesizes their advice into a perfect final plan/code. Use this heavily for complex logic, big architectural decisions, or deep debugging where you want a multi-perspective consensus.
 
 ## Critical Rules
 
