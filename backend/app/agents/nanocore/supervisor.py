@@ -988,7 +988,19 @@ class SupervisorAgent:
                             tool_results.append("\n".join(perf_hints))
                         # If patch was clean, signal the model that the task may be complete
                         if not has_post_edit_issues:
-                            tool_results.append("[DONE] Patch applied cleanly with no issues. If the user's request is fulfilled, respond with a brief summary. Do NOT make additional edits unless the original request requires more changes.")
+                            tool_results.append("[DONE] Patch applied cleanly with no issues.")
+                            # Fast-close: if this was the only tool call, end immediately
+                            if len(tool_calls) == 1:
+                                self._state = AgentState.done
+                                elapsed_ms = (time.time() - self._start_time) * 1000
+                                yield _sse("done", {
+                                    "summary": f"Completed in {iteration} iteration(s)",
+                                    "total_tokens": self._total_tokens,
+                                    "total_time_ms": round(elapsed_ms),
+                                    "iterations": iteration,
+                                    "edits": len(self._edit_history),
+                                })
+                                return
                     else:
                         msg = f"[patch_file] User rejected patch to {file_path}"
                         if reason:
