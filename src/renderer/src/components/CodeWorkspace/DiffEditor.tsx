@@ -95,7 +95,7 @@ export function DiffEditor({ filePath, originalContent, modifiedContent, languag
               type="button"
               onClick={handleReject}
               disabled={deciding}
-              className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-[11px] font-medium rounded transition-colors disabled:opacity-50"
+              className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-[11px] font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Reject
             </button>
@@ -113,7 +113,7 @@ export function DiffEditor({ filePath, originalContent, modifiedContent, languag
               type="button"
               onClick={handleApprove}
               disabled={deciding}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 text-[11px] font-medium rounded transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 text-[11px] font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Check size={12} />
               Apply Changes
@@ -122,7 +122,7 @@ export function DiffEditor({ filePath, originalContent, modifiedContent, languag
               type="button"
               onClick={() => setShowRejectInput(true)}
               disabled={deciding}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[11px] font-medium rounded transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[11px] font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X size={12} />
               Reject

@@ -184,7 +184,7 @@ export function TopBar() {
                         <button
                             onClick={toggleMenu}
                             disabled={!backendReady}
-                            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-dashed border-white/10 hover:border-white/20 hover:bg-white/[0.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-dashed border-white/10 hover:border-white/20 hover:bg-white/[0.03] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Load a model"
                         >
                             <DatabaseZap size={11} className="text-gray-600" />
@@ -229,7 +229,7 @@ export function TopBar() {
                                             className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${isActive
                                                 ? 'bg-blue-500/8 border-l-2 border-blue-500'
                                                 : 'border-l-2 border-transparent hover:bg-white/[0.04]'
-                                                } disabled:opacity-60`}
+                                                } disabled:opacity-50 disabled:cursor-not-allowed`}
                                         >
                                             {isLoading ? (
                                                 <Loader2 size={13} className="animate-spin text-blue-400 shrink-0" />

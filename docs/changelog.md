@@ -369,10 +369,10 @@ Initial release. Based on [Silicon-Studio](https://github.com/rileycleavenger/Si
 - Tool execution
 - Dataset generation from tool schemas
 
-### Agent Workflows
+### Pipelines & Jobs
 
-- Workflow CRUD with nodes and edges
-- Node types: input, llm, tool, condition, output
+- Pipeline CRUD with sequential steps
+- Step types: LLM inference, shell command, keyword filter
 - Execution is mocked (placeholder results)
 
 ### Notes

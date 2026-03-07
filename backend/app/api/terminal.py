@@ -10,8 +10,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.agents.nanocore.types import TerminalRequest, DiffDecision, EscalationResponse, UndoRequest
+from app.agents.nanocore.types import TerminalRequest, DiffDecision, EscalationResponse, UndoRequest, PlanRequest, PlanDecision
 from app.agents.nanocore.supervisor import SupervisorAgent
+from app.agents.nanocore.planner import PlannerEditor
 from app.agents.nanocore.tools import run_bash
 from app.agents.nanocore.prompts import FILE_CONTEXT_INSTRUCTION
 from app.agents.nanocore.scout import ScoutAgent
@@ -20,9 +21,21 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Active sessions keyed by session_id
-_active_sessions: dict[str, SupervisorAgent] = {}
+# Active sessions keyed by session_id (SupervisorAgent or PlannerEditor)
+_active_sessions: dict[str, SupervisorAgent | PlannerEditor] = {}
+# Finished sessions kept for undo — maps session_id to (agent, finish_time)
+_finished_sessions: dict[str, tuple[SupervisorAgent | PlannerEditor, float]] = {}
 _sessions_lock = asyncio.Lock()
+
+SESSION_TTL = 600  # 10 minutes
+
+
+async def _cleanup_expired_sessions():
+    """Remove finished sessions older than SESSION_TTL."""
+    now = time.time()
+    expired = [sid for sid, (_, t) in _finished_sessions.items() if now - t > SESSION_TTL]
+    for sid in expired:
+        _finished_sessions.pop(sid, None)
 
 
 class ExecRequest(BaseModel):
@@ -133,7 +146,9 @@ async def run_terminal(request: TerminalRequest):
             await agent.process_manager.cleanup_all()
             async with _sessions_lock:
                 _active_sessions.pop(session_id, None)
-            logger.info(f"Terminal session {session_id} cleaned up")
+                _finished_sessions[session_id] = (agent, time.time())
+                await _cleanup_expired_sessions()
+            logger.info(f"Terminal session {session_id} moved to finished (undo available for {SESSION_TTL}s)")
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -168,11 +183,20 @@ async def respond_to_escalation(response: EscalationResponse):
     return {"status": "resolved"}
 
 
+async def _find_agent(session_id: str) -> SupervisorAgent | PlannerEditor | None:
+    """Find agent in active or finished sessions."""
+    async with _sessions_lock:
+        agent = _active_sessions.get(session_id)
+        if not agent:
+            finished = _finished_sessions.get(session_id)
+            agent = finished[0] if finished else None
+    return agent
+
+
 @router.post("/undo")
 async def undo_last_edit(request: UndoRequest):
     """Undo the last approved edit in the given session."""
-    async with _sessions_lock:
-        agent = _active_sessions.get(request.session_id)
+    agent = await _find_agent(request.session_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -181,6 +205,41 @@ async def undo_last_edit(request: UndoRequest):
         raise HTTPException(status_code=400, detail=result["error"])
 
     return {"status": "undone", "file_path": result["file_path"]}
+
+
+@router.get("/checkpoints/{session_id}")
+async def get_checkpoints(session_id: str):
+    """List edit checkpoints for a session."""
+    agent = await _find_agent(session_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if not hasattr(agent, "get_checkpoints"):
+        return {"checkpoints": []}
+
+    return {"checkpoints": agent.get_checkpoints()}
+
+
+class RollbackRequest(BaseModel):
+    session_id: str = Field(min_length=1)
+    index: int = Field(ge=-1)
+
+
+@router.post("/rollback")
+async def rollback_to_checkpoint(request: RollbackRequest):
+    """Rollback all edits after the given checkpoint index. Index -1 = undo everything."""
+    agent = await _find_agent(request.session_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if not hasattr(agent, "rollback_to"):
+        raise HTTPException(status_code=400, detail="Rollback not supported for this session type")
+
+    result = await agent.rollback_to(request.index)
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail="; ".join(result.get("errors", ["Unknown error"])))
+
+    return {"status": "rolled_back", "files": result["rolled_back"]}
 
 
 @router.post("/stop")
@@ -194,3 +253,53 @@ async def stop_terminal(body: dict = {}):
 
     agent.stop()
     return {"status": "stopping"}
+
+
+# ── Planner/Editor endpoints ───────────────────────────────────
+
+@router.post("/plan")
+async def run_plan(request: PlanRequest):
+    """Start a planner/editor session. Returns an SSE stream."""
+    session_id = str(uuid.uuid4())
+    logger.info(f"Plan session created: {session_id} model={request.model_id}")
+
+    planner = PlannerEditor(
+        session_id=session_id,
+        model_id=request.model_id,
+        workspace_dir=request.workspace_dir,
+        temperature=request.temperature,
+        max_edit_tokens=request.max_edit_tokens,
+    )
+    async with _sessions_lock:
+        _active_sessions[session_id] = planner
+
+    async def event_generator():
+        try:
+            async for event in planner.run(request.prompt):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            logger.error(f"Plan session error: {e}")
+            yield f"data: {json.dumps({'event': 'error', 'data': {'message': str(e)}})}\n\n"
+        finally:
+            async with _sessions_lock:
+                _active_sessions.pop(session_id, None)
+                _finished_sessions[session_id] = (planner, time.time())
+                await _cleanup_expired_sessions()
+            logger.info(f"Plan session {session_id} moved to finished")
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.post("/plan/decide")
+async def decide_plan(decision: PlanDecision):
+    """Approve, modify, or reject a pending plan."""
+    async with _sessions_lock:
+        session = _active_sessions.get(decision.session_id)
+    if not session or not isinstance(session, PlannerEditor):
+        raise HTTPException(status_code=404, detail="Plan session not found")
+
+    ok = session.resolve_plan(decision.approved, decision.modifications)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Failed to resolve plan")
+
+    return {"status": "resolved", "approved": decision.approved}

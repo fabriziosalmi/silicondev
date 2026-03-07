@@ -3,12 +3,13 @@ import { ArrowUp, Square } from 'lucide-react'
 
 interface AgentInputBarProps {
   onSubmit: (prompt: string) => void
+  onPlanSubmit?: (prompt: string) => void
   onStop: () => void
   isRunning: boolean
   disabled?: boolean
 }
 
-export function AgentInputBar({ onSubmit, onStop, isRunning, disabled }: AgentInputBarProps) {
+export function AgentInputBar({ onSubmit, onPlanSubmit, onStop, isRunning, disabled }: AgentInputBarProps) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -20,10 +21,16 @@ export function AgentInputBar({ onSubmit, onStop, isRunning, disabled }: AgentIn
     el.style.height = Math.min(el.scrollHeight, 160) + 'px'
   }, [value])
 
+  const isPlanMode = value.trimStart().startsWith('/plan ')
+
   const handleSubmit = () => {
     const trimmed = value.trim()
     if (!trimmed || isRunning || disabled) return
-    onSubmit(trimmed)
+    if (isPlanMode && onPlanSubmit) {
+      onPlanSubmit(trimmed.replace(/^\/plan\s+/, ''))
+    } else {
+      onSubmit(trimmed)
+    }
     setValue('')
     textareaRef.current?.focus()
   }
@@ -54,9 +61,9 @@ export function AgentInputBar({ onSubmit, onStop, isRunning, disabled }: AgentIn
         }
       }}
     >
-      <div className="flex items-end gap-2 bg-white/[0.04] border border-white/[0.06] rounded-xl px-3 py-2 focus-within:border-blue-500/30 transition-colors">
-        <span className="text-sm font-mono shrink-0 pb-0.5 select-none text-blue-400/60">
-          &gt;
+      <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.06] rounded-xl px-3 py-2 focus-within:border-blue-500/30 transition-colors">
+        <span className={`text-[11px] font-mono shrink-0 select-none ${isPlanMode ? 'text-amber-400/80' : 'text-blue-400/60'}`}>
+          {isPlanMode ? '⚡' : '>'}
         </span>
 
         <textarea
@@ -66,11 +73,11 @@ export function AgentInputBar({ onSubmit, onStop, isRunning, disabled }: AgentIn
           onKeyDown={handleKeyDown}
           onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
-          placeholder={disabled ? 'Load a model first...' : 'Ask the agent to edit code...'}
+          placeholder={disabled ? 'Load a model first...' : 'Edit code... /plan for multi-file'}
           disabled={disabled || isRunning}
           rows={1}
           style={{ WebkitAppRegion: 'no-drag', WebkitUserSelect: 'text' } as React.CSSProperties}
-          className="flex-1 resize-none bg-transparent text-[11px] text-white placeholder-gray-500 focus:outline-none disabled:opacity-50 select-text font-mono leading-relaxed"
+          className="flex-1 resize-none bg-transparent text-[11px] text-white placeholder-gray-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed select-text font-mono leading-relaxed"
         />
 
         {isRunning ? (

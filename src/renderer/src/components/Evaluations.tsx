@@ -149,7 +149,7 @@ export function Evaluations() {
                 {/* Active Model Banner */}
                 <div className="bg-black/20 border border-white/10 rounded-xl p-4 flex items-center justify-between">
                     <div>
-                        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-1">Target Model</h3>
+                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">Target Model</h3>
                         {activeModel ? (
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-green-500" />

@@ -5,8 +5,8 @@ import { mockBackendAPIs, navigateTo, setupWorkspace, agentFullFlowSSE, agentTex
 async function goToCodeWorkspace(page: import('@playwright/test').Page) {
   await setupWorkspace(page)
   await navigateTo(page, 'Code')
-  // Wait for the agent panel header to be in the DOM
-  await page.locator('text=nanocore').first().waitFor({ state: 'attached', timeout: 10_000 })
+  // Wait for the agent panel to be in the DOM (bot icon or input bar)
+  await page.locator('[title="Local execution"]').first().waitFor({ state: 'attached', timeout: 10_000 })
   await page.waitForTimeout(300)
 }
 
@@ -47,19 +47,16 @@ test.describe('Coder Agent — Full Flow', () => {
     await expect(page.locator('nav')).toBeVisible({ timeout: 15_000 })
   })
 
-  test('agent panel shows header with model name', async ({ page }) => {
+  test('agent panel shows header with bot icon', async ({ page }) => {
     await goToCodeWorkspace(page)
-    // Agent panel header: "nanocore" label should be in the DOM
-    const header = page.locator('span.text-blue-400:has-text("nanocore")')
-    await expect(header).toBeAttached({ timeout: 5000 })
-    // Verify text content
-    const text = await header.textContent()
-    expect(text).toContain('nanocore')
+    // Agent panel header should have the local execution indicator
+    const indicator = page.locator('[title="Local execution"]')
+    await expect(indicator).toBeAttached({ timeout: 5000 })
   })
 
   test('agent input bar placeholder when no model loaded', async ({ page }) => {
     await goToCodeWorkspace(page)
-    const input = await getAgentInput(page, 'Load a model')
+    const input = await getAgentInput(page, 'Load a model first')
     await expect(input).toBeAttached({ timeout: 5000 })
     await expect(input).toBeDisabled()
   })
@@ -82,7 +79,7 @@ test.describe('Coder Agent — Full Flow', () => {
     await page.waitForTimeout(500)
 
     // Agent input should be enabled now
-    const input = await getAgentInput(page, 'Ask the agent')
+    const input = await getAgentInput(page, 'Edit code')
     await expect(input).toBeAttached({ timeout: 5000 })
 
     // Type a prompt and submit
@@ -128,15 +125,15 @@ test.describe('Coder Agent — Full Flow', () => {
     await page.waitForTimeout(500)
 
     // Send prompt
-    const input = await getAgentInput(page, 'Ask the agent')
+    const input = await getAgentInput(page, 'Edit code')
     await input.fill('fix the code', { force: true })
     await input.press('Enter')
 
     // Thinking block should appear
     await page.locator('text=Thinking').first().waitFor({ state: 'attached', timeout: 10_000 })
 
-    // Tool start should show read_file
-    await page.locator('text=read_file').first().waitFor({ state: 'attached', timeout: 5000 })
+    // Tool start should show read file (underscores replaced with spaces)
+    await page.locator('text=read file').first().waitFor({ state: 'attached', timeout: 5000 })
 
     // Diff proposal should appear with Approve/Reject buttons
     const approveBtn = page.locator('button:has-text("Approve")').first()
@@ -164,7 +161,7 @@ test.describe('Coder Agent — Full Flow', () => {
     await page.getByText('main.py', { exact: true }).first().click()
     await page.waitForTimeout(500)
 
-    const input = await getAgentInput(page, 'Ask the agent')
+    const input = await getAgentInput(page, 'Edit code')
     await input.fill('fix it', { force: true })
     await input.press('Enter')
 
@@ -198,7 +195,7 @@ test.describe('Coder Agent — Full Flow', () => {
     await page.getByText('main.py', { exact: true }).first().click()
     await page.waitForTimeout(500)
 
-    const input = await getAgentInput(page, 'Ask the agent')
+    const input = await getAgentInput(page, 'Edit code')
     await input.fill('fix it', { force: true })
     await input.press('Enter')
 
@@ -225,7 +222,7 @@ test.describe('Coder Agent — Full Flow', () => {
 
     await goToCodeWorkspace(page)
 
-    const input = await getAgentInput(page, 'Ask the agent')
+    const input = await getAgentInput(page, 'Edit code')
     await input.fill('hello', { force: true })
     await input.press('Enter')
 
@@ -246,7 +243,7 @@ test.describe('Coder Agent — Full Flow', () => {
 
     await goToCodeWorkspace(page)
 
-    const input = await getAgentInput(page, 'Ask the agent')
+    const input = await getAgentInput(page, 'Edit code')
     await input.fill('test', { force: true })
     await input.press('Enter')
 
@@ -291,7 +288,7 @@ test.describe('Coder Agent — Full Flow', () => {
 
     await goToCodeWorkspace(page)
 
-    const input = await getAgentInput(page, 'Ask the agent')
+    const input = await getAgentInput(page, 'Edit code')
 
     // First prompt — no history
     await input.fill('first question', { force: true })

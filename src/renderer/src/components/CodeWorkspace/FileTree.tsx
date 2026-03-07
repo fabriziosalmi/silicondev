@@ -217,7 +217,7 @@ const TreeItem = memo(function TreeItem({
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick() }}
-        className={`group flex items-center gap-1.5 py-[3px] pr-1 cursor-pointer text-[12px] transition-colors hover:bg-white/5 ${isActive ? 'bg-blue-500/15 text-blue-300' : 'text-gray-400'
+        className={`group flex items-center gap-1.5 py-[3px] pr-1 cursor-pointer text-xs transition-colors hover:bg-white/5 ${isActive ? 'bg-blue-500/15 text-blue-300' : 'text-gray-400'
           } ${hasScoutIssue ? 'animate-pulse bg-orange-500/10' : ''}`}
         style={{ paddingLeft }}
       >

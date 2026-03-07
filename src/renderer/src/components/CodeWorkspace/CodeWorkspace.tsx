@@ -97,9 +97,12 @@ export function CodeWorkspace() {
     setAgentMode,
     clearHistory,
     togglePin,
-    pinnedItems, // Restored pinnedItems
+    pinnedItems,
     scoutIssues,
     contextHealth,
+    handlePlanSubmit,
+    handlePlanDecision,
+    activeAgencyRole,
   } = useAgentSession({
     onDiffProposal: (path, meta) => {
       handleFileSelect(path)
@@ -579,7 +582,7 @@ export function CodeWorkspace() {
                     </div>
                     <button
                       onClick={() => handleDiffApprove(active.path)}
-                      className="flex items-center gap-1.5 px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-[11px] font-bold rounded transiton-all"
+                      className="flex items-center gap-1.5 px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-[11px] font-bold rounded transition-all"
                     >
                       Accept
                     </button>
@@ -656,6 +659,8 @@ export function CodeWorkspace() {
                   telemetry,
                   activeModel,
                   handleSubmit,
+                  handlePlanSubmit,
+                  handlePlanDecision,
                   handleStop,
                   handleDiffDecided: rawHandleDiffDecided,
                   handleEscalationResponded,
@@ -666,6 +671,7 @@ export function CodeWorkspace() {
                   pinnedItems,
                   togglePin,
                   contextHealth,
+                  activeAgencyRole,
                 }}
               />
             </div>

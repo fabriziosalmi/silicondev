@@ -1,81 +1,53 @@
-# Agent Workflows
+# Pipelines & Jobs
 
-Source: `src/renderer/src/components/AgentWorkflows.tsx`
+Source: `src/renderer/src/components/PipelinesJobs.tsx`
 
 ## Overview
 
-Visual workflow builder for defining multi-step agent pipelines. Workflows are composed of nodes connected by edges.
+Build and run sequential processing pipelines. Each pipeline chains steps that pass output to the next: LLM inference, shell commands, and text filters.
 
-## Current State
+## Pipeline Definition
 
-Agent execution via the visual workflow builder is currently **mocked**. The backend processes nodes sequentially and returns placeholder results without real LLM calls or tool execution.
+| Field   | Description               |
+| ------- | ------------------------- |
+| `id`    | UUID                      |
+| `name`  | Display name              |
+| `nodes` | Array of processing steps |
 
-*Note: In contrast, the [Agent Terminal](/features/terminal) uses a fully functional `SupervisorAgent` with real LLM inference and tool integration. The visual workflow builder is planned to migrate to this infrastructure.*
+### Step Types
 
-## Workflow Definition
+| Type        | Description                                    |
+| ----------- | ---------------------------------------------- |
+| `llm`       | Run input through the loaded model             |
+| `tool`      | Execute a shell command (`$NODE_INPUT` env var) |
+| `condition` | Match keyword, output ifTrue/ifFalse text      |
 
-A workflow consists of:
-
-| Field         | Description               |
-| ------------- | ------------------------- |
-| `id`          | UUID                      |
-| `name`        | Display name              |
-| `description` | Optional description      |
-| `nodes`       | Array of processing steps |
-| `edges`       | Connections between nodes |
-
-### Node Types
-
-| Type        | Description                      |
-| ----------- | -------------------------------- |
-| `input`     | Entry point, receives user input |
-| `llm`       | (Mocked) LLM inference step      |
-| `tool`      | (Mocked) Tool execution step     |
-| `condition` | (Mocked) Branching logic         |
-| `output`    | Terminal node, returns result    |
-
-### Edges
-
-Each edge connects a source node to a target node, defining the execution order.
+Steps run sequentially — each step's output feeds into the next as input.
 
 ## Operations
 
-| Action  | Description                                |
-| ------- | ------------------------------------------ |
-| Create  | Define a new workflow with nodes and edges |
-| Edit    | Modify an existing workflow                |
-| Delete  | Remove a workflow                          |
-| Execute | Run the workflow with an input string      |
+| Action  | Description                           |
+| ------- | ------------------------------------- |
+| Create  | Define a new pipeline with steps      |
+| Edit    | Modify name, reorder, configure steps |
+| Delete  | Remove a pipeline                     |
+| Execute | Run the pipeline with an input string |
 
 ## Execution
 
 `POST /api/agents/{id}/execute` with `{ input: "..." }`.
 
-The backend iterates nodes in order. For each node, it returns a placeholder string:
-
-```
-Processed "{input}" via {node_type} node
-```
-
-No real LLM calls, tool executions, or conditional branching are implemented.
+The backend runs each node in order. LLM nodes use the currently loaded model. Tool nodes run shell commands with a 30-second timeout. Results show per-step status and output.
 
 ## Storage
 
-Workflows are stored in `~/.silicon-studio/agents/agents.json`.
+Pipelines are stored in `~/.silicon-studio/agents/agents.json`.
 
 ## API
 
-| Endpoint                   | Method | Description            |
-| -------------------------- | ------ | ---------------------- |
-| `/api/agents/`             | GET    | List all workflows     |
-| `/api/agents/`             | POST   | Create/update workflow |
-| `/api/agents/{id}`         | DELETE | Delete workflow        |
-| `/api/agents/{id}/execute` | POST   | Execute workflow       |
-
-## Planned Improvements
-
-- Real LLM inference at `llm` nodes using the loaded model
-- MCP tool binding at `tool` nodes
-- Conditional branching evaluation
-- Visual canvas/graph editor
-- Step-by-step execution with intermediate results
+| Endpoint                   | Method | Description             |
+| -------------------------- | ------ | ----------------------- |
+| `/api/agents/`             | GET    | List all pipelines      |
+| `/api/agents/`             | POST   | Create/update pipeline  |
+| `/api/agents/{id}`         | DELETE | Delete pipeline         |
+| `/api/agents/{id}/execute` | POST   | Execute pipeline        |

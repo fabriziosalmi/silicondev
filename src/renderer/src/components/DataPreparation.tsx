@@ -263,7 +263,7 @@ export function DataPreparation() {
                             <button
                                 onClick={handleGenerateMcp}
                                 disabled={mcpGenerating || !outputPath || !activeModel}
-                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-6 rounded-lg transition-all text-sm disabled:opacity-50 flex items-center gap-2"
+                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-6 rounded-lg transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {mcpGenerating ? (
                                     <>
@@ -312,7 +312,7 @@ export function DataPreparation() {
                             <button
                                 onClick={handleConvertFile}
                                 disabled={loading || !outputPath}
-                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-4 rounded-lg transition-all text-sm disabled:opacity-50 flex items-center gap-2"
+                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-4 rounded-lg transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {loading ? 'Processing...' : 'Save JSONL'}
                                 {!loading && <Sparkles className="w-3.5 h-3.5" />}

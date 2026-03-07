@@ -69,7 +69,7 @@ export function InlineRewriteUI({ selection, onClose, onSubmit, isRunning }: Inl
                     <button
                         onClick={handleSubmit}
                         disabled={!value.trim()}
-                        className="p-1 rounded bg-blue-500 text-white hover:bg-blue-400 disabled:opacity-50 transition-colors"
+                        className="p-1 rounded bg-blue-500 text-white hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <ArrowUp size={14} />
                     </button>

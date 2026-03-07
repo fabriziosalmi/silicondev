@@ -251,7 +251,7 @@ export function EngineInterface() {
                                                 const path = await window.electronAPI?.selectFile?.();
                                                 if (path) setDatasetPath(path);
                                             }}
-                                            className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl transition-colors text-sm font-medium"
+                                            className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
                                         >
                                             Select
                                         </button>
@@ -337,7 +337,7 @@ export function EngineInterface() {
                                 <button
                                     onClick={startTraining}
                                     disabled={loading || (jobStatus?.status === 'training')}
-                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
                                 >
                                     {loading ? (
                                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

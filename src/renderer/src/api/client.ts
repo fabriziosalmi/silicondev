@@ -956,6 +956,41 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to undo');
             return res.json();
         },
+        planUrl: (prompt: string, modelId: string, workspaceDir: string, opts?: { temperature?: number; maxEditTokens?: number }) => {
+            return {
+                url: `${API_BASE}/api/terminal/plan`,
+                body: {
+                    prompt,
+                    model_id: modelId,
+                    workspace_dir: workspaceDir,
+                    temperature: opts?.temperature ?? 0.3,
+                    max_edit_tokens: opts?.maxEditTokens ?? 8192,
+                },
+            }
+        },
+        decidePlan: async (sessionId: string, approved: boolean, modifications?: Array<{ file: string; action: string; description: string }>): Promise<void> => {
+            const res = await fetch(`${API_BASE}/api/terminal/plan/decide`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId, approved, modifications: modifications ?? null })
+            });
+            await throwIfNotOk(res, 'Failed to decide plan');
+        },
+        getCheckpoints: async (sessionId: string): Promise<Array<{ index: number; file_path: string; tool: string; timestamp: number }>> => {
+            const res = await fetch(`${API_BASE}/api/terminal/checkpoints/${encodeURIComponent(sessionId)}`);
+            await throwIfNotOk(res, 'Failed to get checkpoints');
+            const data = await res.json();
+            return data.checkpoints;
+        },
+        rollbackTo: async (sessionId: string, index: number): Promise<{ files: string[] }> => {
+            const res = await fetch(`${API_BASE}/api/terminal/rollback`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId, index })
+            });
+            await throwIfNotOk(res, 'Failed to rollback');
+            return res.json();
+        },
     },
     checkHealth: async (): Promise<boolean> => {
         try {

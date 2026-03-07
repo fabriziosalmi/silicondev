@@ -53,7 +53,7 @@ export function InputBar({ onSubmit, onStop, isRunning }: InputBarProps) {
           placeholder="Enter command..."
           disabled={isRunning}
           rows={1}
-          className="flex-1 resize-none bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none disabled:opacity-50 select-text font-mono leading-relaxed"
+          className="flex-1 resize-none bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed select-text font-mono leading-relaxed"
         />
 
         {isRunning ? (

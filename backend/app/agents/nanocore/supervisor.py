@@ -14,7 +14,7 @@ from .types import AgentState, TrajectoryEntry
 from .prompts import SYSTEM_PROMPT, REVIEW_MODE_PROMPT, INSPECTOR_PROMPT
 from .parser import extract_tool_calls, has_partial_tool_tag, strip_tool_calls
 from .tools import (
-    run_bash, apply_patch_content,
+    run_bash, apply_patch_content, generate_edit_diff,
     git_tool, apply_edit, read_file as read_file_paged,
     execute_python_script,
     check_broken_imports, generate_codemap
@@ -136,8 +136,10 @@ class SupervisorAgent:
         self._total_tokens = 0
         self._start_time = 0.0
 
-        # Edit history for undo support (list of {file_path, old_content, new_content})
+        # Edit history for undo/rollback (list of {file_path, old_content, new_content, timestamp, tool})
         self._edit_history: list[dict] = []
+        # Conversation history reference (set in run(), used by undo/rollback)
+        self._history: list[dict] = []
 
         # Self-healing loop state
         self._consecutive_bash_failures = 0
@@ -200,8 +202,6 @@ class SupervisorAgent:
         try:
             ok = await apply_edit(file_path, old_content)
             if ok:
-                # Commandment 15: AI-Specific Undo
-                # Inject a message into history so the agent knows the user rejected the change
                 self._history.append({
                     "role": "user",
                     "content": f"[SYSTEM: User undid your last change to {file_path}. This means your previous approach was incorrect or unwanted. PLEASE PROPOSE AN ALTERNATIVE APPROACH.]"
@@ -209,6 +209,51 @@ class SupervisorAgent:
             return {"file_path": file_path, "ok": ok, "error": "" if ok else "Failed to write file"}
         except Exception as e:
             return {"file_path": file_path, "ok": False, "error": str(e)}
+
+    def get_checkpoints(self) -> list[dict]:
+        """Return the edit history as checkpoint list (without file contents)."""
+        return [
+            {
+                "index": i,
+                "file_path": e["file_path"],
+                "tool": e.get("tool", "edit"),
+                "timestamp": e.get("timestamp", 0),
+            }
+            for i, e in enumerate(self._edit_history)
+        ]
+
+    async def rollback_to(self, index: int) -> dict:
+        """Rollback all edits after the given index (restore files to state at checkpoint index).
+        Index -1 means undo everything."""
+        if index < -1 or index >= len(self._edit_history):
+            return {"ok": False, "error": f"Invalid checkpoint index {index}"}
+
+        # Undo from the end back to index+1
+        errors = []
+        rolled_back = []
+        while len(self._edit_history) > index + 1:
+            entry = self._edit_history.pop()
+            try:
+                ok = await apply_edit(entry["file_path"], entry["old_content"])
+                if ok:
+                    rolled_back.append(entry["file_path"])
+                else:
+                    errors.append(f"Failed to restore {entry['file_path']}")
+            except Exception as e:
+                errors.append(f"{entry['file_path']}: {e}")
+
+        if rolled_back:
+            files_str = ", ".join(set(rolled_back))
+            self._history.append({
+                "role": "user",
+                "content": f"[SYSTEM: User rolled back {len(rolled_back)} edits affecting: {files_str}. Previous changes were unwanted.]"
+            })
+
+        return {
+            "ok": len(errors) == 0,
+            "rolled_back": rolled_back,
+            "errors": errors,
+        }
 
     def _step_label(self, label: str, iteration: int, agent_role: str = "architetto") -> dict:
         """Build a step_label SSE event with progress info and agent role."""
@@ -459,6 +504,7 @@ class SupervisorAgent:
         messages.insert(0, {"role": "system", "content": system_prompt_content})
 
         messages.append({"role": "user", "content": prompt})
+        self._history = messages
 
         iteration = 0
         consecutive_no_tool = 0  # track iterations with no tool calls
@@ -588,6 +634,15 @@ class SupervisorAgent:
             except Exception as e:
                 yield _sse("error", {"message": str(e)})
                 return
+
+            # Flush unclosed think/talk blocks — small models often forget to close them
+            if in_think_block and think_buffer:
+                think_content = think_buffer.replace(f"<{think_tag}>", "").strip()
+                if think_content:
+                    yield _sse("thinking", {"agent": "supervisor", "content": think_content})
+                in_think_block = False
+                think_buffer = ""
+                think_tag = ""
 
             # Fix 2: track tokens for generation
             self._total_tokens += iter_tokens
@@ -800,7 +855,7 @@ class SupervisorAgent:
                             tool_results.append(self.guardrails.fix_limit_message(file_path))
                         continue
 
-                    diff_info = await apply_patch_content(file_path, "", new_content, is_create=True) # Use apply_patch_content for diff generation
+                    diff_info = await generate_edit_diff(file_path, new_content)
 
                     # Check if blocked
                     if diff_info["diff"].startswith("Blocked:"):
@@ -865,6 +920,8 @@ class SupervisorAgent:
                             "file_path": file_path,
                             "old_content": diff_info["old"],
                             "new_content": new_content,
+                            "timestamp": time.time(),
+                            "tool": "edit_file",
                         })
                         await apply_edit(file_path, new_content)
                         tool_results.append(f"[edit_file] Applied changes to {file_path}")
@@ -966,6 +1023,8 @@ class SupervisorAgent:
                             "file_path": file_path,
                             "old_content": patch_result["old"],
                             "new_content": new_content,
+                            "timestamp": time.time(),
+                            "tool": "patch_file",
                         })
                         await apply_edit(file_path, new_content)
                         tool_results.append(f"[patch_file] Applied patch to {file_path}")
@@ -1122,6 +1181,8 @@ class SupervisorAgent:
                                 "file_path": fp,
                                 "old_content": patch_result["old"],
                                 "new_content": patch_result["new"],
+                                "timestamp": time.time(),
+                                "tool": "batch_edit",
                             })
                             await apply_edit(fp, patch_result["new"])
                             applied += 1

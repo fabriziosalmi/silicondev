@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useGlobalState } from '../../context/GlobalState'
 import { apiClient } from '../../api/client'
-import type { FeedItem, TelemetryData, SSEEvent, ScoutAlertMetadata } from '../Terminal/types'
+import type { FeedItem, TelemetryData, SSEEvent, ScoutAlertMetadata, PlanStep } from '../Terminal/types'
 
 const EMPTY_TELEMETRY: TelemetryData = {
   agent: '',
@@ -497,6 +497,99 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           break
         }
 
+        case 'plan_proposal': {
+          const steps = (d.steps as PlanStep[]) || []
+          const planSessionId = d.session_id as string
+          addFeedItem({
+            id: crypto.randomUUID(),
+            type: 'plan_proposal',
+            content: `Plan: ${steps.length} step(s)`,
+            timestamp: Date.now(),
+            planMeta: {
+              sessionId: planSessionId,
+              steps: steps.map(s => ({ ...s, status: 'pending' as const })),
+              planTokens: (d.plan_tokens as number) || 0,
+              status: 'pending',
+            },
+          })
+          break
+        }
+
+        case 'plan_status': {
+          const phase = d.phase as string
+          const message = d.message as string
+          if (phase === 'executing') {
+            // Update plan_proposal item to 'executing' status
+            setFeedItems((prev) =>
+              prev.map((it) =>
+                it.type === 'plan_proposal' && it.planMeta?.status === 'pending'
+                  ? { ...it, planMeta: { ...it.planMeta!, status: 'executing' as const } }
+                  : it
+              )
+            )
+          } else if (phase === 'rejected') {
+            setFeedItems((prev) =>
+              prev.map((it) =>
+                it.type === 'plan_proposal' && it.planMeta
+                  ? { ...it, planMeta: { ...it.planMeta!, status: 'rejected' as const } }
+                  : it
+              )
+            )
+          } else if (phase === 'done') {
+            setFeedItems((prev) =>
+              prev.map((it) =>
+                it.type === 'plan_proposal' && it.planMeta
+                  ? { ...it, planMeta: { ...it.planMeta!, status: 'done' as const } }
+                  : it
+              )
+            )
+          }
+          if (message) {
+            addFeedItem({ id: crypto.randomUUID(), type: 'info', content: message, timestamp: Date.now() })
+          }
+          break
+        }
+
+        case 'plan_step_start': {
+          const stepIndex = d.step_index as number
+          // Update the plan step status to 'running'
+          setFeedItems((prev) =>
+            prev.map((it) => {
+              if (it.type !== 'plan_proposal' || !it.planMeta) return it
+              const updatedSteps = it.planMeta.steps.map((s, i) =>
+                i === stepIndex ? { ...s, status: 'running' as const } : s
+              )
+              return { ...it, planMeta: { ...it.planMeta, steps: updatedSteps } }
+            })
+          )
+          addFeedItem({
+            id: crypto.randomUUID(),
+            type: 'plan_step',
+            content: `[${d.step_index as number + 1}/${d.total_steps as number}] ${d.action as string}: ${d.file as string}`,
+            timestamp: Date.now(),
+          })
+          break
+        }
+
+        case 'plan_step_done': {
+          const stepIndex = d.step_index as number
+          const status = d.status as string
+          setFeedItems((prev) =>
+            prev.map((it) => {
+              if (it.type !== 'plan_proposal' || !it.planMeta) return it
+              const updatedSteps = it.planMeta.steps.map((s, i) =>
+                i === stepIndex ? { ...s, status: status as PlanStep['status'], editTokens: d.edit_tokens as number } : s
+              )
+              return { ...it, planMeta: { ...it.planMeta, steps: updatedSteps } }
+            })
+          )
+          break
+        }
+
+        case 'plan_step_progress':
+          // Optional: could update a progress indicator. For now, ignore.
+          break
+
         case 'error':
           addFeedItem({ id: crypto.randomUUID(), type: 'error', content: d.message as string, timestamp: Date.now() })
           break
@@ -588,6 +681,47 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
     setActiveAgencyRole(null) // Clear active agency role when session ends
   }, [isRunning, activeModel, addFeedItem, consumeSSE, agentMode])
 
+  const handlePlanSubmit = useCallback(async (input: string) => {
+    if (isRunning) return
+
+    addFeedItem({ id: crypto.randomUUID(), type: 'user', content: `[Plan] ${input}`, timestamp: Date.now() })
+    setIsRunning(true)
+    setTelemetry(EMPTY_TELEMETRY)
+    aiTextIdRef.current = null
+    toolOutputIdRef.current = null
+    setActiveAgencyRole(null)
+    setContextHealth(null)
+
+    if (!activeModel) {
+      addFeedItem({ id: crypto.randomUUID(), type: 'error', content: 'No model loaded.', timestamp: Date.now() })
+      setIsRunning(false)
+      return
+    }
+
+    const workspaceDir = options?.getWorkspaceDir?.()
+    if (!workspaceDir) {
+      addFeedItem({ id: crypto.randomUUID(), type: 'error', content: 'No workspace directory set. Go to Settings → Codebase Index first.', timestamp: Date.now() })
+      setIsRunning(false)
+      return
+    }
+
+    const { url, body } = apiClient.terminal.planUrl(input, activeModel.id, workspaceDir)
+    await consumeSSE(url, body)
+
+    setIsRunning(false)
+    aiTextIdRef.current = null
+    toolOutputIdRef.current = null
+    setActiveAgencyRole(null)
+  }, [isRunning, activeModel, addFeedItem, consumeSSE, options])
+
+  const handlePlanDecision = useCallback(async (sessionId: string, approved: boolean, modifications?: PlanStep[]) => {
+    try {
+      await apiClient.terminal.decidePlan(sessionId, approved, modifications)
+    } catch {
+      addFeedItem({ id: crypto.randomUUID(), type: 'error', content: 'Failed to send plan decision', timestamp: Date.now() })
+    }
+  }, [addFeedItem])
+
   const handleStop = useCallback(async () => {
     abortRef.current?.abort()
     if (sessionId) {
@@ -628,6 +762,8 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
     agentMode,
     setAgentMode,
     handleSubmit,
+    handlePlanSubmit,
+    handlePlanDecision,
     handleStop,
     handleUndo,
     activeAgencyRole,

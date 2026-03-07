@@ -153,7 +153,7 @@ export function ModelExport() {
                             <button
                                 onClick={handleExport}
                                 disabled={exporting || !outputPath || !selectedId}
-                                className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-sm transition-all disabled:opacity-50"
+                                className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {exporting ? (
                                     <><Loader2 size={16} className="animate-spin" /> Exporting...</>

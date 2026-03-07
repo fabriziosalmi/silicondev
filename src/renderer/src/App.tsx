@@ -7,7 +7,8 @@ import { EngineInterface } from './components/EngineInterface'
 import { ModelsInterface } from './components/ModelsInterface'
 import { Evaluations } from './components/Evaluations'
 import { RagKnowledge } from './components/RagKnowledge'
-import { AgentWorkflows } from './components/AgentWorkflows'
+import { MCPServers } from './components/MCPServers'
+import { PipelinesJobs } from './components/PipelinesJobs'
 import { Deployment } from './components/Deployment'
 import { Workspace } from './components/Workspace'
 import { Settings } from './components/Settings'
@@ -22,7 +23,7 @@ import { useConversations } from './context/ConversationContext'
 import { useNotes } from './context/NotesContext'
 // apiClient imported in GlobalState — App uses backendReady from context
 import { CodeWorkspace } from './components/CodeWorkspace/CodeWorkspace'
-import { Database, Cpu, MessageSquare, BarChart2, TestTube, Brain, Zap, Rocket, FileText, ChevronsLeft, ChevronsRight, Plus, ChevronDown, ChevronRight, Settings as SettingsIcon, Package, TerminalSquare, Code, BookOpen, Search } from 'lucide-react'
+import { Database, Cpu, MessageSquare, BarChart2, TestTube, Brain, Rocket, FileText, ChevronsLeft, ChevronsRight, Plus, ChevronDown, ChevronRight, Settings as SettingsIcon, Package, TerminalSquare, Code, BookOpen, Search, Server, Workflow } from 'lucide-react'
 
 function App() {
   const [activeTab, setActiveTab] = useState('chat')
@@ -432,10 +433,17 @@ function App() {
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
-                  label="Agent Workflows"
-                  active={activeTab === 'agents'}
-                  onClick={() => setActiveTab('agents')}
-                  icon={<Zap size={18} />}
+                  label="MCP Servers"
+                  active={activeTab === 'mcp'}
+                  onClick={() => setActiveTab('mcp')}
+                  icon={<Server size={18} />}
+                  collapsed={sidebarCollapsed}
+                />
+                <SidebarItem
+                  label="Pipelines & Jobs"
+                  active={activeTab === 'pipelines'}
+                  onClick={() => setActiveTab('pipelines')}
+                  icon={<Workflow size={18} />}
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
@@ -501,7 +509,8 @@ function App() {
             {activeTab === 'models' && <ModelsInterface />}
             {activeTab === 'evaluations' && <Evaluations />}
             {activeTab === 'rag' && <RagKnowledge />}
-            {activeTab === 'agents' && <AgentWorkflows />}
+            {activeTab === 'mcp' && <MCPServers />}
+            {activeTab === 'pipelines' && <PipelinesJobs />}
             {activeTab === 'deployment' && <Deployment />}
             {activeTab === 'workspace' && <Workspace />}
             {activeTab === 'export' && <ModelExport />}

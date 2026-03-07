@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, memo, useCallback } from 'react'
-import { User, Bot, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, RefreshCw, XCircle, CheckCircle2, ChevronRight, Brain } from 'lucide-react'
+import { User, Bot, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, RefreshCw, XCircle, CheckCircle2, ChevronRight, Brain, FileEdit } from 'lucide-react'
 import { StreamingMarkdown } from './StreamingMarkdown'
 import { HolographicDiff } from './HolographicDiff'
+import { PlanCard } from './PlanCard'
 import { apiClient } from '../../api/client'
 import type { FeedItem } from './types'
 
@@ -29,6 +30,7 @@ interface MessageFeedProps {
   sessionId: string
   onDiffDecided: (callId: string, approved: boolean, reason?: string) => void
   onEscalationResponded: (escalationId: string, userMessage: string) => void
+  onPlanDecision?: (sessionId: string, approved: boolean) => void
 }
 
 /**
@@ -95,7 +97,7 @@ const EscalationCard = memo(function EscalationCard({
           type="button"
           onClick={handleSubmit}
           disabled={!input.trim() || sending}
-          className="px-2 py-1.5 bg-yellow-600/20 hover:bg-yellow-600/30 border border-yellow-500/30 rounded text-xs text-yellow-400 disabled:opacity-40 transition-colors flex items-center gap-1"
+          className="px-2 py-1.5 bg-yellow-600/20 hover:bg-yellow-600/30 border border-yellow-500/30 rounded text-xs text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
         >
           <Send size={10} />
           Send
@@ -182,8 +184,8 @@ function CollapsibleToolOutput({ item }: { item: FeedItem }) {
 /**
  * Collapsible thinking/reasoning block — collapsed by default.
  */
-function ThinkingBlock({ item }: { item: FeedItem }) {
-  const [open, setOpen] = useState(false)
+function ThinkingBlock({ item, autoExpand }: { item: FeedItem; autoExpand?: boolean }) {
+  const [open, setOpen] = useState(autoExpand ?? false)
   const preview = item.content.slice(0, 80).replace(/\n/g, ' ')
 
   return (
@@ -277,35 +279,47 @@ function RAGSearchBlock({ item }: { item: FeedItem }) {
   const meta = item.ragSearchMeta
   if (!meta) return null
 
+  // Group results by method for compact summary
+  const methodCounts = new Map<string, number>()
+  for (const r of meta.results) {
+    methodCounts.set(r.method, (methodCounts.get(r.method) || 0) + 1)
+  }
+  const methodSummary = Array.from(methodCounts.entries()).map(([m, c]) => `${c} ${m}`).join(', ')
+
   return (
-    <div className="rounded-[10px] overflow-hidden border border-blue-500/10 bg-blue-500/[0.03]">
+    <div className="rounded-[10px] overflow-hidden border border-white/[0.06] bg-white/[0.02]">
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-blue-500/[0.05] transition-colors cursor-pointer"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-white/[0.04] transition-colors cursor-pointer"
       >
         <ChevronRight
           size={12}
-          className={`text-blue-400/60 transition-transform shrink-0 ${open ? 'rotate-90' : ''}`}
+          className={`text-gray-500 transition-transform shrink-0 ${open ? 'rotate-90' : ''}`}
         />
-        <Info size={12} className="text-blue-400/60 shrink-0" />
-        <span className="text-[11px] font-medium text-blue-300/70">
-          Context Discovery: {meta.results.length} snippets found
+        <Info size={11} className="text-blue-400/60 shrink-0" />
+        <span className="text-[10px] text-gray-400 font-mono">
+          {meta.results.length} snippets
         </span>
+        {methodSummary && (
+          <span className="text-[9px] text-gray-600 font-mono truncate">
+            ({methodSummary})
+          </span>
+        )}
         {!open && (
-          <span className="text-[11px] text-gray-500 truncate flex-1 italic ml-2">
+          <span className="text-[10px] text-gray-600 truncate flex-1 italic ml-1">
             "{meta.query}"
           </span>
         )}
       </button>
 
       {open && (
-        <div className="border-t border-blue-500/10 px-3 py-2 max-h-40 overflow-y-auto">
-          <div className="space-y-1.5">
+        <div className="border-t border-white/[0.04] px-3 py-2 max-h-40 overflow-y-auto">
+          <div className="space-y-1">
             {meta.results.map((r, i) => (
               <div key={i} className="flex items-center justify-between text-[10px] font-mono">
-                <span className="text-blue-400/90 truncate mr-4">{r.file_path}</span>
-                <span className="text-gray-600 shrink-0">{(r.score * 100).toFixed(0)}% match ({r.method})</span>
+                <span className="text-gray-300 truncate mr-4">{r.file_path}</span>
+                <span className="text-gray-600 shrink-0">{(r.score * 100).toFixed(0)}% · {r.method}</span>
               </div>
             ))}
           </div>
@@ -323,11 +337,15 @@ const FeedItemView = memo(function FeedItemView({
   sessionId,
   onDiffDecided,
   onEscalationResponded,
+  onPlanDecision,
+  isLastThinking,
 }: {
   item: FeedItem
   sessionId: string
   onDiffDecided: (callId: string, approved: boolean, reason?: string) => void
   onEscalationResponded: (escalationId: string, userMessage: string) => void
+  onPlanDecision?: (sessionId: string, approved: boolean) => void
+  isLastThinking?: boolean
 }) {
   switch (item.type) {
     case 'user': {
@@ -364,10 +382,10 @@ const FeedItemView = memo(function FeedItemView({
 
     case 'tool_start':
       return (
-        <div className="flex items-center gap-2 mt-1">
-          <Cpu size={11} className="text-yellow-500/70 shrink-0" />
-          <span className="text-[10px] text-yellow-500/60 font-mono">
-            {item.toolMeta?.tool === 'run_bash' ? `$ ${item.toolMeta?.command || ''}` : item.toolMeta?.tool || 'NanoCore Executed'}
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <Cpu size={10} className="text-gray-500 shrink-0" />
+          <span className="text-[10px] text-gray-500 font-mono truncate">
+            {item.toolMeta?.tool === 'run_bash' ? `$ ${item.toolMeta?.command || ''}` : item.toolMeta?.tool?.replace(/_/g, ' ') || 'tool'}
           </span>
         </div>
       )
@@ -385,6 +403,23 @@ const FeedItemView = memo(function FeedItemView({
           onDecided={onDiffDecided}
         />
       ) : null
+
+    case 'plan_proposal':
+      return item.planMeta ? (
+        <PlanCard
+          meta={item.planMeta}
+          onApprove={(sid) => onPlanDecision?.(sid, true)}
+          onReject={(sid) => onPlanDecision?.(sid, false)}
+        />
+      ) : null
+
+    case 'plan_step':
+      return (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/5 border border-blue-500/10 rounded-lg">
+          <FileEdit size={11} className="text-blue-400 shrink-0" />
+          <span className="text-[10px] text-blue-400 font-mono">{item.content}</span>
+        </div>
+      )
 
     case 'auto_retry': {
       const meta = item.autoRetryMeta
@@ -426,7 +461,7 @@ const FeedItemView = memo(function FeedItemView({
     }
 
     case 'thinking':
-      return <ThinkingBlock item={item} />
+      return <ThinkingBlock item={item} autoExpand={isLastThinking} />
 
     case 'step_label':
       return (
@@ -456,8 +491,8 @@ const FeedItemView = memo(function FeedItemView({
     case 'error':
       return (
         <div className="flex items-start gap-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
-          <AlertCircle size={14} className="text-red-400 shrink-0 mt-0.5" />
-          <span className="text-sm text-red-300 select-text">{item.content}</span>
+          <AlertCircle size={12} className="text-red-400 shrink-0 mt-0.5" />
+          <span className="text-[11px] text-red-300 font-mono select-text">{item.content}</span>
         </div>
       )
 
@@ -499,7 +534,7 @@ const FeedItemView = memo(function FeedItemView({
   }
 })
 
-export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationResponded }: MessageFeedProps) {
+export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationResponded, onPlanDecision }: MessageFeedProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const userScrolledUpRef = useRef(false)
@@ -516,6 +551,12 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
   onEscalationRef.current = onEscalationResponded
   const stableEscalationResponded = useCallback((escalationId: string, userMessage: string) => {
     onEscalationRef.current(escalationId, userMessage)
+  }, [])
+
+  const onPlanDecisionRef = useRef(onPlanDecision)
+  onPlanDecisionRef.current = onPlanDecision
+  const stablePlanDecision = useCallback((sid: string, approved: boolean) => {
+    onPlanDecisionRef.current?.(sid, approved)
   }, [])
 
   // Track whether user has scrolled up manually
@@ -548,7 +589,7 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
             <Bot size={20} className="text-blue-400/60" />
           </div>
           <div className="space-y-1">
-            <p className="text-[12px] text-gray-400 font-medium">What would you like to build?</p>
+            <p className="text-xs text-gray-400 font-medium">What would you like to build?</p>
             <p className="text-[10px] text-gray-600">Describe a task or select code and right-click for quick actions.</p>
           </div>
         </div>
@@ -556,15 +597,26 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
     )
   }
 
+  // Auto-expand thinking block if no ai_text follows it (model put answer inside think tags)
+  const lastThinkingIdx = (() => {
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (items[i].type === 'thinking') return i
+      if (items[i].type === 'ai_text') return -1
+    }
+    return -1
+  })()
+
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-      {items.map((item) => (
+      {items.map((item, idx) => (
         <FeedItemView
           key={item.id}
           item={item}
           sessionId={sessionId}
           onDiffDecided={stableDiffDecided}
           onEscalationResponded={stableEscalationResponded}
+          onPlanDecision={stablePlanDecision}
+          isLastThinking={item.type === 'thinking' && idx === lastThinkingIdx}
         />
       ))}
       <div ref={bottomRef} />

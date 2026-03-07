@@ -1,10 +1,13 @@
 import { test, expect } from '@playwright/test'
-import { mockBackendAPIs } from './helpers'
+import { mockBackendAPIs, navigateTo } from './helpers'
 
 test.beforeEach(async ({ page }) => {
   await mockBackendAPIs(page)
   await page.goto('/')
   await expect(page.locator('nav')).toBeVisible({ timeout: 15_000 })
+  // Default tab is Chat — navigate to Models for these tests
+  await navigateTo(page, 'Models')
+  await expect(page.getByText('My Models').first()).toBeVisible({ timeout: 5000 })
 })
 
 test.describe('Models Page', () => {

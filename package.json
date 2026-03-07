@@ -1,7 +1,7 @@
 {
     "name": "silicondev",
     "productName": "SiliconDev",
-    "version": "0.9.3",
+    "version": "0.9.4",
     "description": "Local AI development environment for Apple Silicon",
     "main": "dist/main/main.js",
     "author": "SiliconDev",

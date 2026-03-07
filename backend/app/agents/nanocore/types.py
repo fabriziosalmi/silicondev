@@ -92,5 +92,19 @@ class EscalationResponse(BaseModel):
     user_message: str = Field(default="", max_length=4096)
 
 
+class PlanRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=32768)
+    model_id: str = Field(min_length=1, max_length=255)
+    workspace_dir: str = Field(min_length=1, max_length=2048)
+    temperature: float = Field(default=0.3, ge=0.0, le=2.0)
+    max_edit_tokens: int = Field(default=8192, ge=1000, le=32768)
+
+
+class PlanDecision(BaseModel):
+    session_id: str = Field(min_length=1)
+    approved: bool
+    modifications: Optional[list[dict]] = Field(default=None)
+
+
 class UndoRequest(BaseModel):
     session_id: str = Field(min_length=1)

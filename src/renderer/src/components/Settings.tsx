@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Card } from './ui/Card'
 import { ToggleSwitch } from './ui/ToggleSwitch'
 import { apiClient } from '../api/client'
-import { Settings2, MessageSquare, Brain, RotateCcw, Info, Server, Plus, Trash2, Loader2, Gauge, Globe, Play, Square, RefreshCcw, HardDrive, FolderSearch, FolderOpen, Bug, ScrollText, Copy, RefreshCw, Shield, Bot, ChevronRight } from 'lucide-react'
+import { Settings2, MessageSquare, Brain, RotateCcw, Info, Plus, Trash2, Loader2, Gauge, Globe, Play, Square, RefreshCcw, HardDrive, FolderSearch, FolderOpen, Bug, ScrollText, Copy, RefreshCw, Shield, Bot, ChevronRight } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
 import type { IndexerSource, IndexerStatus } from '../api/client'
 
@@ -20,7 +20,6 @@ const NAV_ITEMS: SettingsNavItem[] = [
     { id: 'rag', label: 'RAG Defaults', icon: <Brain size={14} />, group: 'App' },
     { id: 'privacy', label: 'Privacy', icon: <Shield size={14} />, group: 'Security' },
     { id: 'agents', label: 'Agents', icon: <Bot size={14} />, group: 'Security' },
-    { id: 'mcp', label: 'MCP Servers', icon: <Server size={14} />, group: 'Integrations' },
     { id: 'codebase', label: 'Codebase Index', icon: <FolderSearch size={14} />, group: 'Integrations' },
     { id: 'web-indexer', label: 'Web Indexer', icon: <Globe size={14} />, group: 'Integrations' },
     { id: 'storage', label: 'Storage', icon: <HardDrive size={14} />, group: 'System' },
@@ -122,168 +121,6 @@ function SliderField({ label, value, onChange, min, max, step = 1, hint }: {
     )
 }
 
-interface MCPServer {
-    id: string
-    name: string
-    command: string
-    args: string[]
-    env: Record<string, string>
-    transport: string
-}
-
-function MCPServersSection() {
-    const [servers, setServers] = useState<MCPServer[]>([])
-    const [loading, setLoading] = useState(true)
-    const [showAdd, setShowAdd] = useState(false)
-    const [newName, setNewName] = useState('')
-    const [newCommand, setNewCommand] = useState('')
-    const [newArgs, setNewArgs] = useState('')
-    const [adding, setAdding] = useState(false)
-    const [testing, setTesting] = useState<string | null>(null)
-    const [testResult, setTestResult] = useState<{ id: string; msg: string; ok: boolean } | null>(null)
-
-    const fetchServers = async () => {
-        try {
-            const list = await apiClient.mcp.listServers()
-            setServers(list)
-        } catch { setServers([]) }
-        finally { setLoading(false) }
-    }
-
-    useEffect(() => { fetchServers() }, [])
-
-    const handleAdd = async () => {
-        if (!newName.trim() || !newCommand.trim()) return
-        setAdding(true)
-        try {
-            await apiClient.mcp.addServer({
-                name: newName.trim(),
-                command: newCommand.trim(),
-                args: newArgs.trim() ? newArgs.split(/\s+/) : [],
-            })
-            setNewName('')
-            setNewCommand('')
-            setNewArgs('')
-            setShowAdd(false)
-            fetchServers()
-        } catch { /* ignore */ }
-        finally { setAdding(false) }
-    }
-
-    const handleRemove = async (id: string) => {
-        try {
-            await apiClient.mcp.removeServer(id)
-            setServers(prev => prev.filter(s => s.id !== id))
-        } catch { /* ignore */ }
-    }
-
-    const handleTest = async (id: string) => {
-        setTesting(id)
-        setTestResult(null)
-        try {
-            const res = await apiClient.mcp.listTools(id)
-            setTestResult({ id, msg: `Connected — ${res.tools.length} tool(s) found`, ok: true })
-        } catch (err) {
-            setTestResult({ id, msg: err instanceof Error ? err.message : 'Connection failed', ok: false })
-        } finally { setTesting(null) }
-    }
-
-    return (
-        <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                    <span className="text-blue-400"><Server size={16} /></span>
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wide">MCP Servers</h3>
-                </div>
-                <button
-                    onClick={() => setShowAdd(!showAdd)}
-                    className="flex items-center gap-1 px-2 py-1 rounded text-xs text-blue-400 hover:bg-blue-500/10 transition-colors"
-                >
-                    <Plus size={14} /> Add Server
-                </button>
-            </div>
-
-            {showAdd && (
-                <div className="mb-4 p-3 rounded-lg bg-black/30 border border-white/5 space-y-3">
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase">Name</label>
-                            <input
-                                value={newName}
-                                onChange={(e) => setNewName(e.target.value)}
-                                placeholder="my-server"
-                                className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase">Command</label>
-                            <input
-                                value={newCommand}
-                                onChange={(e) => setNewCommand(e.target.value)}
-                                placeholder="npx or python"
-                                className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase">Args (space-separated)</label>
-                            <input
-                                value={newArgs}
-                                onChange={(e) => setNewArgs(e.target.value)}
-                                placeholder="-y @modelcontextprotocol/server-filesystem /tmp"
-                                className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <button onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors">Cancel</button>
-                        <button
-                            onClick={handleAdd}
-                            disabled={adding || !newName.trim() || !newCommand.trim()}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded transition-all disabled:opacity-50"
-                        >
-                            {adding ? 'Adding...' : 'Add'}
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {loading ? (
-                <div className="flex justify-center py-4">
-                    <Loader2 size={16} className="animate-spin text-gray-500" />
-                </div>
-            ) : servers.length === 0 ? (
-                <p className="text-sm text-gray-500">No MCP servers configured. Click "Add Server" to connect to an MCP server.</p>
-            ) : (
-                <div className="space-y-2">
-                    {servers.map(s => (
-                        <div key={s.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-black/20 border border-white/5">
-                            <Server size={14} className="text-gray-500 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                                <div className="text-sm text-white font-medium">{s.name}</div>
-                                <div className="text-[10px] text-gray-600 truncate">{s.command} {s.args.join(' ')}</div>
-                            </div>
-                            <button
-                                onClick={() => handleTest(s.id)}
-                                disabled={testing === s.id}
-                                className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
-                            >
-                                {testing === s.id ? 'Testing...' : 'Test'}
-                            </button>
-                            <button onClick={() => handleRemove(s.id)} title="Remove server" className="text-gray-600 hover:text-red-400 transition-colors">
-                                <Trash2 size={14} />
-                            </button>
-                        </div>
-                    ))}
-                    {testResult && (
-                        <div className={`text-xs px-3 py-2 rounded ${testResult.ok ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10'}`}>
-                            {testResult.msg}
-                        </div>
-                    )}
-                </div>
-            )}
-        </Card>
-    )
-}
 
 function WebIndexerSection() {
     const [sources, setSources] = useState<IndexerSource[]>([])
@@ -369,7 +206,7 @@ function WebIndexerSection() {
                     <button
                         onClick={handleCrawl}
                         disabled={crawling || sources.filter(s => s.enabled).length === 0}
-                        className="flex items-center gap-1 px-2 py-1 rounded text-xs text-green-400 hover:bg-green-500/10 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1 px-2 py-1 rounded text-xs text-green-400 hover:bg-green-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {crawling ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
                         {crawling ? 'Crawling...' : 'Crawl Now'}
@@ -431,7 +268,7 @@ function WebIndexerSection() {
                         <button
                             onClick={handleAdd}
                             disabled={!newUrl.trim()}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded transition-all disabled:opacity-50"
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Add
                         </button>
@@ -482,6 +319,8 @@ function CodebaseIndexSection() {
     const [loading, setLoading] = useState(true)
     const [indexing, setIndexing] = useState(false)
     const [indexResult, setIndexResult] = useState<string | null>(null)
+    const [showManualPath, setShowManualPath] = useState(false)
+    const [manualPath, setManualPath] = useState("")
 
     const fetchStatus = async () => {
         try {
@@ -500,9 +339,7 @@ function CodebaseIndexSection() {
                 handleIndex(dir)
             }
         } catch {
-            // Fallback: prompt for path
-            const dir = prompt('Enter absolute path to your project directory:')
-            if (dir?.trim()) handleIndex(dir.trim())
+            setShowManualPath(true)
         }
     }
 
@@ -589,6 +426,38 @@ function CodebaseIndexSection() {
                 </p>
             )}
 
+            {showManualPath && (
+                <div className="mt-3 flex items-center gap-2">
+                    <input
+                        type="text"
+                        value={manualPath}
+                        onChange={e => setManualPath(e.target.value)}
+                        onKeyDown={e => {
+                            if (e.key === 'Enter' && manualPath.trim()) { handleIndex(manualPath.trim()); setShowManualPath(false); setManualPath(""); }
+                            if (e.key === 'Escape') { setShowManualPath(false); setManualPath(""); }
+                        }}
+                        placeholder="/absolute/path/to/project"
+                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500/50 font-mono"
+                        autoFocus
+                    />
+                    <button
+                        type="button"
+                        onClick={() => { if (manualPath.trim()) { handleIndex(manualPath.trim()); setShowManualPath(false); setManualPath(""); } }}
+                        disabled={!manualPath.trim()}
+                        className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Index
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { setShowManualPath(false); setManualPath(""); }}
+                        className="px-2 py-1.5 text-gray-500 hover:text-gray-300 text-xs transition-colors"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            )}
+
             {indexResult && (
                 <div className="mt-3 text-xs text-gray-400 bg-black/20 rounded px-3 py-2">
                     {indexResult}
@@ -630,7 +499,7 @@ function LogViewerSection() {
                         </button>
                     )}
                     {expanded && (
-                        <button onClick={fetchLogs} disabled={loading} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50">
+                        <button onClick={fetchLogs} disabled={loading} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                             Refresh
                         </button>
@@ -1057,11 +926,6 @@ export function Settings() {
             </Card>
             </div>
 
-            {/* MCP Servers */}
-            <div id="mcp" ref={setSectionRef('mcp')}>
-            <MCPServersSection />
-            </div>
-
             {/* Codebase Index */}
             <div id="codebase" ref={setSectionRef('codebase')}>
             <CodebaseIndexSection />
@@ -1103,7 +967,7 @@ export function Settings() {
                                     type="button"
                                     onClick={() => handleCleanup(['logs'])}
                                     disabled={storageCleaning}
-                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-[11px] hover:bg-white/10 transition-colors disabled:opacity-50"
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-[11px] hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <Trash2 size={12} />
                                     Clear Logs
@@ -1112,7 +976,7 @@ export function Settings() {
                                     type="button"
                                     onClick={() => handleCleanup(['logs', 'conversations', 'notes'])}
                                     disabled={storageCleaning}
-                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {storageCleaning ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                                     Clear All Data

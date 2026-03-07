@@ -177,7 +177,7 @@ print(response.choices[0].message.content)`
                         <button
                             onClick={toggleServer}
                             disabled={loading}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${serverRunning
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${serverRunning
                                 ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20'
                                 : 'bg-blue-600 hover:bg-blue-500 text-white'
                                 }`}
@@ -217,7 +217,7 @@ print(response.choices[0].message.content)`
                                     value={host}
                                     onChange={(e) => setHost(e.target.value)}
                                     disabled={serverRunning}
-                                    className="bg-transparent text-xs text-gray-400 outline-none cursor-pointer hover:text-gray-300 disabled:opacity-50"
+                                    className="bg-transparent text-xs text-gray-400 outline-none cursor-pointer hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <option value="127.0.0.1" className="bg-[#18181B]">localhost</option>
                                     <option value="0.0.0.0" className="bg-[#18181B]">0.0.0.0</option>
@@ -230,7 +230,7 @@ print(response.choices[0].message.content)`
                                 disabled={serverRunning}
                                 value={port}
                                 onChange={(e) => setPort(e.target.value)}
-                                className="w-16 bg-transparent border-b border-white/10 text-xs text-gray-400 outline-none focus:border-white/30 disabled:opacity-50 font-mono text-center"
+                                className="w-16 bg-transparent border-b border-white/10 text-xs text-gray-400 outline-none focus:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed font-mono text-center"
                             />
                         </div>
                     </div>

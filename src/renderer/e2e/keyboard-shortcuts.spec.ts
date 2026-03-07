@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { mockBackendAPIs } from './helpers'
+import { mockBackendAPIs, navigateTo } from './helpers'
 
 test.beforeEach(async ({ page }) => {
   await mockBackendAPIs(page)
@@ -9,12 +9,15 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('Keyboard Shortcuts', () => {
   test('Cmd+K navigates to Chat', async ({ page }) => {
-    // Start on Models (default)
+    // Navigate to Models first (default is Chat)
+    await navigateTo(page, 'Models')
     await expect(page.getByText('My Models').first()).toBeVisible({ timeout: 5000 })
 
+    // Cmd+K should go back to Chat
     await page.keyboard.press('Meta+k')
-    // Chat tab should show its content
-    await expect(page.getByText('No model loaded').first()).toBeVisible({ timeout: 5000 })
+    await expect(
+      page.locator('textarea:visible').or(page.getByText('No model loaded')).first()
+    ).toBeVisible({ timeout: 5000 })
   })
 
   test('Cmd+E navigates to Code workspace', async ({ page }) => {

@@ -16,6 +16,8 @@ export type FeedItemType =
   | 'rag_search'
   | 'scout_alert'
   | 'swarm_progress'
+  | 'plan_proposal'
+  | 'plan_step'
 
 export interface DiffMetadata {
   callId: string
@@ -71,6 +73,21 @@ export interface ScoutAlertMetadata {
   }>
 }
 
+export interface PlanStep {
+  file: string
+  action: 'modify' | 'create' | 'delete'
+  description: string
+  status?: 'pending' | 'running' | 'approved' | 'rejected' | 'error'
+  editTokens?: number
+}
+
+export interface PlanProposalMetadata {
+  sessionId: string
+  steps: PlanStep[]
+  planTokens: number
+  status: 'pending' | 'approved' | 'rejected' | 'executing' | 'done'
+}
+
 export interface FeedItem {
   id: string
   type: FeedItemType
@@ -83,6 +100,7 @@ export interface FeedItem {
   agencyTraceMeta?: AgencyTraceMetadata
   ragSearchMeta?: RAGSearchMetadata
   scoutAlertMeta?: ScoutAlertMetadata
+  planMeta?: PlanProposalMetadata
 }
 
 export interface TelemetryAction {

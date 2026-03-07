@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { PageHeader } from './ui/PageHeader'
 import { Card } from './ui/Card'
 import { Brain, Database, Upload, FileText, Trash2, Search, Plus, BarChart3, TrendingUp, Clock, Zap } from 'lucide-react'
@@ -23,6 +23,12 @@ export function RagKnowledge() {
     const [analytics, setAnalytics] = useState<RagAnalytics | null>(null)
     const [analyticsCollectionId, setAnalyticsCollectionId] = useState("")
     const [loadingAnalytics, setLoadingAnalytics] = useState(false)
+
+    // Inline retrieval test state
+    const [testingCollectionId, setTestingCollectionId] = useState<string | null>(null)
+    const [testQuery, setTestQuery] = useState("")
+    const [testResults, setTestResults] = useState<{ text: string; score: number; boosted?: boolean }[] | null>(null)
+    const [testLoading, setTestLoading] = useState(false)
 
     useEffect(() => {
         fetchCollections()
@@ -196,8 +202,25 @@ export function RagKnowledge() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {collections.map(c => (
-                                        <tr key={c.id} className="hover:bg-white/[0.03] transition-colors group">
+                                    {collections.map(c => {
+                                        const isTesting = testingCollectionId === c.id;
+                                        const handleRunQuery = () => {
+                                            if (!testQuery.trim()) return;
+                                            setTestLoading(true);
+                                            setTestResults(null);
+                                            apiClient.rag.query(c.id, testQuery.trim(), 3)
+                                                .then(data => {
+                                                    const results = data.results || [];
+                                                    setTestResults(results);
+                                                    if (results.length > 0) {
+                                                        apiClient.rag.recordUsage(c.id, results.map((r: { index: number }) => r.index)).catch(() => {});
+                                                    }
+                                                })
+                                                .catch(() => toast('Retrieval failed', 'error'))
+                                                .finally(() => setTestLoading(false));
+                                        };
+                                        return (<Fragment key={c.id}>
+                                        <tr className="hover:bg-white/[0.03] transition-colors group">
                                             <td className="px-5 py-3.5">
                                                 <div className="text-[13px] font-semibold text-gray-200 flex items-center gap-3">
                                                     <FileText className="w-4 h-4 text-blue-400" />
@@ -212,24 +235,17 @@ export function RagKnowledge() {
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            const query = prompt('Enter a test query to search this collection:')
-                                                            if (query?.trim()) {
-                                                                apiClient.rag.query(c.id, query.trim(), 3)
-                                                                    .then(data => {
-                                                                        const results = data.results || []
-                                                                        const msg = results.length > 0
-                                                                            ? `Found ${results.length} result(s):\n\n${results.map((r: { text: string; score: number; boosted?: boolean }, i: number) => `${i + 1}. (score: ${r.score.toFixed(3)}${r.boosted ? ' +boosted' : ''}) ${r.text.slice(0, 120)}...`).join('\n')}`
-                                                                            : 'No results found for this query.'
-                                                                        alert(msg)
-                                                                        // Record usage for returned chunks
-                                                                        if (results.length > 0) {
-                                                                            apiClient.rag.recordUsage(c.id, results.map((r: { index: number }) => r.index)).catch(() => {})
-                                                                        }
-                                                                    })
-                                                                    .catch(() => toast('Retrieval failed', 'error'))
+                                                            if (isTesting) {
+                                                                setTestingCollectionId(null);
+                                                                setTestQuery("");
+                                                                setTestResults(null);
+                                                            } else {
+                                                                setTestingCollectionId(c.id);
+                                                                setTestQuery("");
+                                                                setTestResults(null);
                                                             }
                                                         }}
-                                                        className="p-1.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg transition-colors"
+                                                        className={`p-1.5 rounded-lg transition-colors ${isTesting ? 'bg-blue-500/20 text-blue-400' : 'bg-white/5 hover:bg-white/10 text-gray-300'}`}
                                                         title="Test Retrieval"
                                                     >
                                                         <Search className="w-4 h-4" />
@@ -244,7 +260,47 @@ export function RagKnowledge() {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                        {isTesting && (
+                                            <tr key={`${c.id}-test`}>
+                                                <td colSpan={5} className="px-5 py-3 bg-white/[0.02] border-t border-white/5">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <input
+                                                            type="text"
+                                                            value={testQuery}
+                                                            onChange={e => setTestQuery(e.target.value)}
+                                                            onKeyDown={e => { if (e.key === 'Enter') handleRunQuery(); if (e.key === 'Escape') { setTestingCollectionId(null); setTestQuery(""); setTestResults(null); } }}
+                                                            placeholder="Enter a test query..."
+                                                            className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500/50"
+                                                            autoFocus
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleRunQuery}
+                                                            disabled={!testQuery.trim() || testLoading}
+                                                            className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            {testLoading ? 'Searching...' : 'Search'}
+                                                        </button>
+                                                    </div>
+                                                    {testResults !== null && (
+                                                        <div className="space-y-1.5">
+                                                            {testResults.length === 0 ? (
+                                                                <p className="text-xs text-gray-500 py-1">No results found.</p>
+                                                            ) : testResults.map((r, i) => (
+                                                                <div key={i} className="flex gap-2 p-2 rounded-lg bg-black/20 border border-white/5">
+                                                                    <span className="text-[10px] text-gray-600 font-mono shrink-0 mt-0.5">
+                                                                        {r.score.toFixed(3)}{r.boosted ? ' +boost' : ''}
+                                                                    </span>
+                                                                    <p className="text-xs text-gray-300 leading-relaxed">{r.text.slice(0, 200)}{r.text.length > 200 ? '...' : ''}</p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        )}
+                                        </Fragment>);
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -284,7 +340,7 @@ export function RagKnowledge() {
                                 <button
                                     onClick={handleIngest}
                                     disabled={uploading || collections.length === 0}
-                                    className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
+                                    className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                 >
                                     {uploading ? (
                                         <>
@@ -535,7 +591,7 @@ export function RagKnowledge() {
                             <button
                                 onClick={handleCreateCollection}
                                 disabled={!newCollectionName}
-                                className="px-6 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50"
+                                className="px-6 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Create
                             </button>

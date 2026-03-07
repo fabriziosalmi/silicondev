@@ -30,6 +30,18 @@ _STRAY_TAGS_RE = re.compile(r'</?(?:tool|arg)\b[^>]*>', re.DOTALL)
 _TOOL_TAG_START = "<tool "
 
 
+def _unescape_arg(value: str) -> str:
+    """Unescape literal \\n, \\t, \\\\  that small models emit inside arg tags."""
+    # Only unescape if value contains literal backslash-n sequences but no actual newlines
+    # (i.e. the model wrote "\\n" instead of a real newline)
+    if "\\n" in value and "\n" not in value:
+        value = value.replace("\\n", "\n")
+    if "\\t" in value and "\t" not in value:
+        value = value.replace("\\t", "\t")
+    value = value.replace("\\\\", "\\")
+    return value
+
+
 def extract_tool_calls(text: str) -> list[ParsedToolCall]:
     """Extract all complete tool calls from text.
 
@@ -42,7 +54,7 @@ def extract_tool_calls(text: str) -> list[ParsedToolCall]:
         args = {}
         for arg_match in _ARG_RE.finditer(body):
             arg_name = arg_match.group(1)
-            arg_value = arg_match.group(2).strip()
+            arg_value = _unescape_arg(arg_match.group(2).strip())
             args[arg_name] = arg_value
         results.append(ParsedToolCall(name=tool_name, args=args, raw=match.group(0)))
     return results

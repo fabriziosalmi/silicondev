@@ -28,7 +28,8 @@ silicondev/
           EngineInterface.tsx     # Fine-tuning configuration and monitoring
           DataPreparation.tsx     # CSV/JSONL conversion, MCP generation
           RagKnowledge.tsx        # Knowledge base management
-          AgentWorkflows.tsx      # Workflow builder
+          MCPServers.tsx          # MCP server management
+          PipelinesJobs.tsx       # Pipeline builder
           Deployment.tsx          # Model server deployment
           Evaluations.tsx         # Benchmark runner
           Workspace.tsx           # Markdown note editor

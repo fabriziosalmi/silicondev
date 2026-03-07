@@ -49,7 +49,7 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
           </button>
         </div>
       </div>
-      <pre className="px-3 py-2 bg-white/[0.02] text-[12px] font-mono text-gray-200 leading-relaxed overflow-x-auto">
+      <pre className="px-3 py-2 bg-white/[0.02] text-xs font-mono text-gray-200 leading-relaxed overflow-x-auto">
         <code>{code}</code>
       </pre>
     </div>
@@ -107,7 +107,7 @@ const markdownComponents: ComponentProps<typeof ReactMarkdown>['components'] = {
       return <CodeBlock lang={lang} code={codeText} />
     }
     return (
-      <code className="bg-white/[0.06] px-1.5 py-0.5 rounded text-[12px] font-mono text-blue-300" {...props}>
+      <code className="bg-white/[0.06] px-1.5 py-0.5 rounded text-xs font-mono text-blue-300" {...props}>
         {children}
       </code>
     )

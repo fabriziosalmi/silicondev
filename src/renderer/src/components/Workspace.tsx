@@ -272,7 +272,7 @@ export function Workspace() {
                         type="button"
                         onClick={() => handleExport('md')}
                         disabled={!documentBody.trim()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-40"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Export as Markdown"
                     >
                         <Download className="w-3.5 h-3.5" />
@@ -282,7 +282,7 @@ export function Workspace() {
                         type="button"
                         onClick={() => handleExport('txt')}
                         disabled={!documentBody.trim()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-40"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Export as plain text"
                     >
                         <FileText className="w-3.5 h-3.5" />
@@ -292,7 +292,7 @@ export function Workspace() {
                         type="button"
                         onClick={handleExportPdf}
                         disabled={!documentBody.trim()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-40"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Export as PDF (via print)"
                     >
                         <Printer className="w-3.5 h-3.5" />
@@ -340,7 +340,7 @@ export function Workspace() {
                 {/* AI Commands sidebar */}
                 <div className="w-64 flex flex-col gap-3 shrink-0">
                     <div className="bg-[#18181B] border border-white/10 rounded-xl p-4 flex flex-col gap-2.5">
-                        <h3 className="text-xs font-medium text-gray-400 mb-1">AI Commands</h3>
+                        <h3 className="text-xs font-medium text-gray-500 mb-1">AI Commands</h3>
                         <p className="text-[10px] text-gray-600 mb-1">
                             {activeModel ? `Using ${cleanModelName(activeModel.name)}` : 'Load a model to enable'}
                         </p>
@@ -369,7 +369,7 @@ export function Workspace() {
                     </div>
 
                     <div className="bg-[#18181B] border border-white/10 rounded-xl p-4 flex flex-col gap-2.5">
-                        <h3 className="text-xs font-medium text-gray-400 mb-1">Transform</h3>
+                        <h3 className="text-xs font-medium text-gray-500 mb-1">Transform</h3>
                         <AiButton
                             label="To Table"
                             description="Restructure as markdown table"
@@ -401,7 +401,7 @@ export function Workspace() {
                     </div>
 
                     <div className="bg-[#18181B] border border-white/10 rounded-xl p-4 flex flex-col gap-2.5">
-                        <h3 className="text-xs font-medium text-gray-400 mb-1">Actions</h3>
+                        <h3 className="text-xs font-medium text-gray-500 mb-1">Actions</h3>
                         <AiButton
                             label="Send to Chat"
                             description="Use note content as chat input"
@@ -429,7 +429,7 @@ function AiButton({ label, description, icon, onClick, disabled, loading }: {
             type="button"
             onClick={onClick}
             disabled={disabled}
-            className="w-full flex items-center gap-3 px-3 py-2.5 bg-black/30 hover:bg-white/5 border border-white/5 rounded-lg transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full flex items-center gap-3 px-3 py-2.5 bg-black/30 hover:bg-white/5 border border-white/5 rounded-lg transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
         >
             {icon}
             <div className="min-w-0 flex-1">

@@ -500,7 +500,7 @@ export function ModelsInterface() {
                                                                             type="button"
                                                                             onClick={() => loadModelIntoMemory(model)}
                                                                             disabled={isLoading}
-                                                                            className="flex-1 h-8 flex items-center justify-center gap-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-colors text-[11px] font-bold uppercase tracking-wide disabled:opacity-50"
+                                                                            className="flex-1 h-8 flex items-center justify-center gap-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-colors text-[11px] font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
                                                                         >
                                                                             {isLoading ? (
                                                                                 <><Loader2 size={12} className="animate-spin" /> Loading...</>
@@ -513,7 +513,7 @@ export function ModelsInterface() {
                                                                         type="button"
                                                                         onClick={() => handleDelete(model.id)}
                                                                         disabled={isActive}
-                                                                        className="h-8 w-8 flex items-center justify-center rounded-lg border border-white/[0.06] text-gray-600 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                                                        className="h-8 w-8 flex items-center justify-center rounded-lg border border-white/[0.06] text-gray-600 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                                         title="Delete model"
                                                                     >
                                                                         <Trash2 size={13} />
@@ -575,7 +575,7 @@ export function ModelsInterface() {
                                                             type="button"
                                                             onClick={() => handleDownload(rec.id)}
                                                             disabled={isDownloading}
-                                                            className="mt-1 w-full text-center text-[10px] font-bold uppercase tracking-wide py-1.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/20 transition-colors disabled:opacity-50"
+                                                            className="mt-1 w-full text-center text-[10px] font-bold uppercase tracking-wide py-1.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                         >
                                                             {isDownloading ? 'Downloading...' : 'Download'}
                                                         </button>
@@ -632,7 +632,7 @@ export function ModelsInterface() {
                                             type="button"
                                             onClick={() => handleDownload(selectedModel.id)}
                                             disabled={downloading.has(selectedModel.id)}
-                                            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+                                            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {downloading.has(selectedModel.id) ? (
                                                 <>
@@ -808,7 +808,7 @@ export function ModelsInterface() {
                                 type="button"
                                 onClick={handleRegister}
                                 disabled={(!customName || (!customPath && selectedPaths.size === 0)) || loading || scanning}
-                                className="px-5 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50"
+                                className="px-5 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {foundModels.length > 0 ? `Add Selected (${selectedPaths.size})` : 'Add Model'}
                             </button>
