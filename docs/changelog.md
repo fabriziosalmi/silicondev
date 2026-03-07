@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.9.4
+
+### Coder Agent
+- Time Machine checkpoint system — every AI edit creates a checkpoint, rollback to any point via TimelineRail sidebar
+- Undo fixed — sessions preserved after SSE stream ends (10min TTL)
+- `/plan` routing through PlannerEditor with PlanCard approval UI
+- Parser unescape for literal `\n`, `\t` from small models in tool args
+
+### UI Polish
+- Coder sidebar header redesigned: dynamic info ticker, inline role icons
+- Input bar: fixed two-line wrapping, aligned prompt
+- Tool labels cleaned up (underscores removed, smaller text)
+- Diff header spacing fixed
+- Error messages use consistent mono font
+- Context Discovery simplified (icon + snippet count)
+- React key warning in RagKnowledge fixed
+
+### Testing
+- New e2e integration test for coder flow (3 models: Qwen3-0.6B, 1.7B, 4B)
+- All 89 Playwright E2E tests updated and passing
+- All 214 backend unit tests passing
+
+## v0.9.3
+
+### Adaptive RAG Search
+- Multi-method retrieval: BM25, keyword, vector, and hybrid fusion
+- Per-query method selection based on query type
+- RAG collection analytics and usage tracking
+
+### UI Overhaul
+- Redesigned Models page with architecture-based color coding
+- Split-view model details with README rendering
+- Recommended models section for new users
+
 ## v0.9.2
 
 ### UI Polish
