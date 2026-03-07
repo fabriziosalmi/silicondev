@@ -8,15 +8,17 @@ export function useHolographicDiff(editor: any, originalContent: string | null, 
 
     useEffect(() => {
         if (!editor || !originalContent) {
-            // Cleanup if diff mode is off
-            if (decorationsRef.current.length > 0) {
-                editor.deltaDecorations(decorationsRef.current, [])
-                decorationsRef.current = []
+            // Cleanup if diff mode is off (only if editor is available)
+            if (editor) {
+                if (decorationsRef.current.length > 0) {
+                    editor.deltaDecorations(decorationsRef.current, [])
+                    decorationsRef.current = []
+                }
+                editor.changeViewZones((accessor: any) => {
+                    viewZonesRef.current.forEach(id => accessor.removeZone(id))
+                    viewZonesRef.current = []
+                })
             }
-            editor.changeViewZones((accessor: any) => {
-                viewZonesRef.current.forEach(id => accessor.removeZone(id))
-                viewZonesRef.current = []
-            })
             return
         }
 
