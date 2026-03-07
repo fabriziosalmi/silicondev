@@ -463,13 +463,32 @@ const FeedItemView = memo(function FeedItemView({
         </div>
       )
 
-    case 'info':
+    case 'info': {
+      const isDone = item.content.startsWith('Done')
+      const isSessionStart = item.content.startsWith('Session started')
+      if (isDone) {
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/5 border border-emerald-500/10 rounded-lg">
+            <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+            <span className="text-[11px] text-emerald-400/80 font-mono">{item.content}</span>
+          </div>
+        )
+      }
+      if (isSessionStart) {
+        return (
+          <div className="flex items-center gap-2 py-1">
+            <div className="w-1 h-1 bg-gray-500 rounded-full" />
+            <span className="text-[10px] text-gray-500 font-mono">{item.content}</span>
+          </div>
+        )
+      }
       return (
         <div className="flex items-center gap-2">
           <Info size={12} className="text-gray-500 shrink-0" />
           <span className="text-xs text-gray-500">{item.content}</span>
         </div>
       )
+    }
 
     case 'agency_trace':
       return <TraceBlock item={item} />
@@ -526,9 +545,14 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
   if (items.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="text-center space-y-2">
-          <TerminalSquare size={32} className="mx-auto text-gray-600" />
-          <p className="text-sm text-gray-500">Run commands or ask NanoCore to build something.</p>
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/15 flex items-center justify-center mx-auto">
+            <Bot size={20} className="text-blue-400/60" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-[12px] text-gray-400 font-medium">What would you like to build?</p>
+            <p className="text-[10px] text-gray-600">Describe a task or select code and right-click for quick actions.</p>
+          </div>
         </div>
       </div>
     )

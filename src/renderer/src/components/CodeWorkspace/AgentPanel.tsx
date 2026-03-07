@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react'
-import { Trash2, AlertCircle, Bot, Cpu, Clock, Undo2, Eye, Pencil, Brain, Zap, Search, ShieldCheck, Database } from 'lucide-react'
+import { Trash2, AlertCircle, Bot, Undo2, Eye, Pencil, Brain, Zap, Search, ShieldCheck } from 'lucide-react'
 import { type ActiveFileContext } from './useAgentSession'
 import { AgentInputBar } from './AgentInputBar'
 import { MessageFeed } from '../Terminal/MessageFeed'
@@ -37,7 +37,6 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
     setAgentMode,
     clearHistory,
     activeAgencyRole,
-    contextHealth,
   } = session
 
   // Wrap handleDiffDecided to also sync with CodeWorkspace (DiffEditor)
@@ -93,21 +92,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
             <span className="text-gray-400 truncate max-w-[100px]">{activeModel?.name ?? '?'}</span>
             {isRunning && <span className="inline-block w-1.5 h-3 bg-blue-400 animate-pulse rounded-sm" />}
           </div>
-          <div className="flex items-center gap-2">
-            {contextHealth && (
-              <div
-                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/40 border border-white/10"
-                title={`Context Usage: ${contextHealth.used_tokens} / ${contextHealth.max_tokens} tokens`}
-              >
-                <Database size={10} className={contextHealth.used_tokens / contextHealth.max_tokens > 0.8 ? "text-red-400" : "text-gray-400"} />
-                <div className="w-16 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-300 ${contextHealth.used_tokens / contextHealth.max_tokens > 0.8 ? "bg-red-500" : "bg-blue-500"}`}
-                    style={{ width: `${Math.min(100, Math.max(0, (contextHealth.used_tokens / contextHealth.max_tokens) * 100))}%` }}
-                  />
-                </div>
-              </div>
-            )}
+          <div className="flex items-center gap-1.5">
             <div
               className="p-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
               title="Local Execution Only"
@@ -151,22 +136,21 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
         </div>
         {/* Compact telemetry bar — visible when running or after a run */}
         {(isRunning || telemetry.tokensUsed > 0) && (
-          <div className="flex items-center gap-3 px-3 py-1 border-t border-white/[0.03] text-[10px] text-gray-500 font-mono">
-            <div className="flex items-center gap-1">
-              <Cpu size={9} className="shrink-0" />
-              <span>{telemetry.tokensUsed.toLocaleString()} tok</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Clock size={9} className="shrink-0" />
-              <span>{formatMs(telemetry.elapsedMs)}</span>
-            </div>
+          <div className="flex items-center gap-2.5 px-3 py-1 border-t border-white/[0.03] text-[10px] text-gray-500 font-mono">
+            <span>{telemetry.tokensUsed.toLocaleString()} tok</span>
+            <span className="text-gray-700">&middot;</span>
+            <span>{formatMs(telemetry.elapsedMs)}</span>
             {telemetry.iteration > 0 && (
-              <span>iter {telemetry.iteration}</span>
+              <>
+                <span className="text-gray-700">&middot;</span>
+                <span>iter {telemetry.iteration}</span>
+              </>
             )}
+            <div className="flex-1" />
             {telemetry.tokenBudget > 0 && (
-              <div className="flex-1 flex items-center gap-1.5 ml-auto">
-                <span className="text-[9px] uppercase text-gray-600 font-bold">Budget</span>
-                <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden max-w-[40px]">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] uppercase text-gray-600">budget</span>
+                <div className="w-10 h-1 bg-white/5 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${telemetry.budgetFraction > 0.9 ? 'bg-red-500' :
                       telemetry.budgetFraction > 0.7 ? 'bg-yellow-500' :
@@ -178,15 +162,15 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
               </div>
             )}
             {activeModel?.context_window && (
-              <div className="flex items-center gap-1.5 border-l border-white/[0.05] pl-3">
-                <span className="text-[9px] uppercase text-gray-600 font-bold">Context</span>
-                <div className="w-[60px] h-1 bg-white/5 rounded-full overflow-hidden">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] uppercase text-gray-600">ctx</span>
+                <div className="w-10 h-1 bg-white/5 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-emerald-500/50 rounded-full transition-all duration-500"
+                    className="h-full bg-blue-500/50 rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, (telemetry.tokensUsed / activeModel.context_window) * 100)}%` }}
                   />
                 </div>
-                <span>{Math.round((telemetry.tokensUsed / activeModel.context_window) * 100)}%</span>
+                <span className="text-[9px]">{Math.round((telemetry.tokensUsed / activeModel.context_window) * 100)}%</span>
               </div>
             )}
           </div>
