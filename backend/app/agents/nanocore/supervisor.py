@@ -892,6 +892,7 @@ class SupervisorAgent:
                     # Fix 5: check for lazy placeholders in the replacement
                     lazy_err = detect_lazy_edit(replace)
                     if lazy_err:
+                        yield _sse("tool_output", {"content": f"Rejected: {lazy_err}"})
                         tool_results.append(f"[patch_file] Rejected: {lazy_err}. Write the complete replacement text.")
                         continue
 
@@ -900,6 +901,8 @@ class SupervisorAgent:
                     patch_result = await apply_patch_content(file_path, search, replace)
 
                     if patch_result["error"]:
+                        logger.warning("[patch_file] %s: %s", file_path, patch_result["error"])
+                        yield _sse("tool_output", {"content": f"Error: {patch_result['error']}"})
                         yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
                         tool_results.append(f"[patch_file] Error: {patch_result['error']}")
                         self.guardrails.record_fix_attempt(file_path)
@@ -911,6 +914,8 @@ class SupervisorAgent:
                     new_content = patch_result["new"]
                     validation_err = await validate_content(file_path, new_content)
                     if validation_err:
+                        logger.warning("[patch_file] validation failed on %s: %s", file_path, validation_err)
+                        yield _sse("tool_output", {"content": f"Validation failed: {validation_err}"})
                         yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
                         tool_results.append(f"[patch_file] Validation failed: {validation_err}")
                         self.guardrails.record_fix_attempt(file_path)
