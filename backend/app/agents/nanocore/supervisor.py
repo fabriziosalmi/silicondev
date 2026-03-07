@@ -42,9 +42,17 @@ MAX_AUTO_RETRIES = 3
 
 
 def _strip_think_tags(text: str) -> str:
-    """Remove <think>...</think> blocks and stray tags from model output."""
+    """Remove <think>...</think> blocks and stray tags from model output.
+
+    Important: incomplete think blocks (no closing tag) are only stripped
+    if they don't contain tool calls — small models sometimes emit tool
+    calls inside unclosed think blocks.
+    """
     text = _THINK_RE.sub('', text)
-    text = _THINK_INCOMPLETE_RE.sub('', text)
+    # Only strip incomplete think blocks if they don't contain tool calls
+    m = _THINK_INCOMPLETE_RE.search(text)
+    if m and '<tool ' not in m.group(0):
+        text = _THINK_INCOMPLETE_RE.sub('', text)
     text = _THINK_OPEN_RE.sub('', text)
     return text.strip()
 

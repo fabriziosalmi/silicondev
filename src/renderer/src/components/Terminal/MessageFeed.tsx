@@ -356,13 +356,8 @@ const FeedItemView = memo(function FeedItemView({
       const cleanContent = stripModelTags(item.content)
       if (!cleanContent) return null
       return (
-        <div className="flex items-start gap-2">
-          <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
-            <Bot size={14} className="text-blue-400" />
-          </div>
-          <div className="min-w-0 flex-1 prose prose-invert prose-sm max-w-none text-[11px] text-gray-200 select-text break-words overflow-hidden font-mono">
-            <StreamingMarkdown content={cleanContent} />
-          </div>
+        <div className="min-w-0 prose prose-invert prose-sm max-w-none text-[11px] text-gray-200 select-text break-words overflow-hidden font-mono">
+          <StreamingMarkdown content={cleanContent} />
         </div>
       )
     }
