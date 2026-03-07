@@ -11,7 +11,9 @@
 
 SiliconDev is a desktop app for running, fine-tuning, and chatting with LLMs on your Mac. It uses Apple's [MLX](https://github.com/ml-explore/mlx) framework so everything runs on-device — no cloud, no API keys, no data leaves your machine.
 
-![SiliconDev Demo](https://github.com/fabriziosalmi/silicondev/raw/main/assets/demo.gif)
+<p align="center">
+  <img src="resources/icon.png" alt="SiliconDev" width="128" />
+</p>
 
 ## Why SiliconDev?
 
