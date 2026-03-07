@@ -8,10 +8,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getLogPath: () => ipcRenderer.invoke('get-log-path'),
     openPath: (path: string) => ipcRenderer.invoke('open-path', path),
     installUpdate: () => ipcRenderer.invoke('install-update'),
+    checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
     onUpdateDownloaded: (callback: (version: string) => void) => {
         const handler = (_event: Electron.IpcRendererEvent, version: string) => callback(version);
         ipcRenderer.on('update-downloaded', handler);
-        // Return a cleanup function to remove the listener
         return () => ipcRenderer.removeListener('update-downloaded', handler);
+    },
+    onUpdateStatus: (callback: (status: string, detail?: string) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, status: string, detail?: string) => callback(status, detail);
+        ipcRenderer.on('update-status', handler);
+        return () => ipcRenderer.removeListener('update-status', handler);
     },
 });

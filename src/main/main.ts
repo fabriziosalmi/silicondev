@@ -250,6 +250,21 @@ app.whenReady().then(() => {
         autoUpdater.autoDownload = true;
         autoUpdater.autoInstallOnAppQuit = true;
 
+        autoUpdater.on('checking-for-update', () => {
+            log.info('Checking for updates...');
+            mainWindow?.webContents.send('update-status', 'checking');
+        });
+
+        autoUpdater.on('update-available', (info) => {
+            log.info('Update available:', info.version);
+            mainWindow?.webContents.send('update-status', 'downloading', info.version);
+        });
+
+        autoUpdater.on('update-not-available', () => {
+            log.info('App is up to date');
+            mainWindow?.webContents.send('update-status', 'up-to-date');
+        });
+
         autoUpdater.on('update-downloaded', (info) => {
             log.info('Update downloaded:', info.version);
             mainWindow?.webContents.send('update-downloaded', info.version);
@@ -257,13 +272,30 @@ app.whenReady().then(() => {
 
         autoUpdater.on('error', (err) => {
             log.error('Auto-updater error:', err);
+            mainWindow?.webContents.send('update-status', 'error', err.message);
         });
 
+        // Check at startup
         autoUpdater.checkForUpdatesAndNotify();
+
+        // Re-check every 4 hours
+        setInterval(() => {
+            autoUpdater.checkForUpdatesAndNotify();
+        }, 4 * 60 * 60 * 1000);
     }
 
     ipcMain.handle('install-update', () => {
         autoUpdater.quitAndInstall();
+    });
+
+    ipcMain.handle('check-for-updates', async () => {
+        if (!app.isPackaged) return { status: 'dev-mode' };
+        try {
+            const result = await autoUpdater.checkForUpdates();
+            return { status: 'ok', version: result?.updateInfo?.version };
+        } catch (err) {
+            return { status: 'error', message: (err as Error).message };
+        }
     });
 
     app.on('activate', function () {

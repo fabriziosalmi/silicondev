@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useGlobalState } from '../context/GlobalState';
 import { apiClient, cleanModelName } from '../api/client';
 import type { ModelEntry } from '../api/client';
-import { DatabaseZap, LogOut, ChevronDown, Loader2 } from 'lucide-react';
+import { DatabaseZap, LogOut, ChevronDown, Loader2, Zap, HardDrive, Search } from 'lucide-react';
 
 const TOPBAR_SETTINGS_KEY = 'silicon-studio-topbar-settings';
 
@@ -17,25 +17,39 @@ function getThresholds(): { warn: number; critical: number } {
     return { warn: 60, critical: 85 };
 }
 
-function usageColor(percent: number, thresholds: { warn: number; critical: number }): string {
+function barColor(percent: number, thresholds: { warn: number; critical: number }): string {
     if (percent >= thresholds.critical) return 'bg-red-500';
-    if (percent >= thresholds.warn) return 'bg-yellow-500';
-    return 'bg-green-500';
+    if (percent >= thresholds.warn) return 'bg-amber-500';
+    return 'bg-emerald-500';
 }
 
-function usageTextColor(percent: number, thresholds: { warn: number; critical: number }): string {
+function textColor(percent: number, thresholds: { warn: number; critical: number }): string {
     if (percent >= thresholds.critical) return 'text-red-400';
-    if (percent >= thresholds.warn) return 'text-yellow-400';
-    return 'text-gray-300';
+    if (percent >= thresholds.warn) return 'text-amber-400';
+    return 'text-gray-400';
 }
 
-function MiniBar({ percent, thresholds }: { percent: number; thresholds: { warn: number; critical: number } }) {
+function MiniBar({ percent, thresholds, width = 'w-14' }: { percent: number; thresholds: { warn: number; critical: number }; width?: string }) {
     return (
-        <div className="w-12 h-1.5 rounded-full bg-white/10 overflow-hidden">
+        <div className={`${width} h-[3px] rounded-full bg-white/[0.06] overflow-hidden`}>
             <div
-                className={`h-full rounded-full transition-all duration-500 ${usageColor(percent, thresholds)}`}
+                className={`h-full rounded-full transition-all duration-700 ease-out ${barColor(percent, thresholds)}`}
                 style={{ width: `${Math.min(percent, 100)}%` }}
             />
+        </div>
+    );
+}
+
+function StatGroup({ label, percent, thresholds, detail }: {
+    label: string; percent: number; thresholds: { warn: number; critical: number }; detail: string
+}) {
+    return (
+        <div className="flex items-center gap-1.5 group cursor-default" title={detail}>
+            <span className="text-[9px] text-gray-600 font-mono uppercase tracking-wider">{label}</span>
+            <MiniBar percent={percent} thresholds={thresholds} />
+            <span className={`text-[10px] font-mono tabular-nums min-w-[26px] text-right ${textColor(percent, thresholds)}`}>
+                {percent.toFixed(0)}%
+            </span>
         </div>
     );
 }
@@ -46,7 +60,9 @@ export function TopBar() {
     const [showModelMenu, setShowModelMenu] = useState(false);
     const [models, setModels] = useState<ModelEntry[]>([]);
     const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
+    const [modelFilter, setModelFilter] = useState('');
     const menuRef = useRef<HTMLDivElement>(null);
+    const searchRef = useRef<HTMLInputElement>(null);
 
     const handleEject = async () => {
         try { await apiClient.engine.unloadModel(); } catch { /* best-effort */ }
@@ -54,7 +70,7 @@ export function TopBar() {
     };
 
     const handleLoadModel = async (model: ModelEntry) => {
-        if (isGenerating) return; // Don't switch models during generation
+        if (isGenerating) return;
         setLoadingModelId(model.id);
         try {
             const result = await apiClient.engine.loadModel(model.id);
@@ -68,6 +84,7 @@ export function TopBar() {
                 is_vision: result.is_vision,
             });
             setShowModelMenu(false);
+            setModelFilter('');
         } catch (err) {
             console.error('Failed to load model from top bar:', err)
         } finally { setLoadingModelId(null); }
@@ -79,148 +96,195 @@ export function TopBar() {
                 const all = await apiClient.engine.getModels();
                 setModels(all.filter(m => m.downloaded));
             } catch { setModels([]); }
+            setTimeout(() => searchRef.current?.focus(), 50);
         }
         setShowModelMenu(!showModelMenu);
+        setModelFilter('');
     };
 
     // Close dropdown on outside click
     useEffect(() => {
         if (!showModelMenu) return;
         const handler = (e: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowModelMenu(false);
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setShowModelMenu(false);
+                setModelFilter('');
+            }
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [showModelMenu]);
 
-    return (
-        <div className="h-10 w-full drag-region flex items-center justify-between px-4 border-b premium-border">
+    const filteredModels = modelFilter
+        ? models.filter(m => cleanModelName(m.name).toLowerCase().includes(modelFilter.toLowerCase()))
+        : models;
 
-            {/* Left: Window Title Placeholder */}
-            <div className="flex items-center space-x-2 pl-[80px]">
-                <span className="text-[10px] font-bold text-gray-500 tracking-wide uppercase">SiliconDev</span>
+    const ramUsedGB = systemStats ? (systemStats.memory.used / (1024 * 1024 * 1024)).toFixed(1) : '–';
+    const ramTotalGB = systemStats ? (systemStats.memory.total / (1024 * 1024 * 1024)).toFixed(0) : '–';
+    const diskUsedGB = systemStats ? (systemStats.disk.used / (1024 * 1024 * 1024)).toFixed(0) : '–';
+    const diskTotalGB = systemStats ? (systemStats.disk.total / (1024 * 1024 * 1024)).toFixed(0) : '–';
+
+    return (
+        <div className="h-10 w-full drag-region flex items-center justify-between px-3 border-b border-white/[0.04] bg-[#131316]/80 backdrop-blur-xl">
+
+            {/* Left: App identity + activity state */}
+            <div className="flex items-center gap-3 pl-[72px]">
+                <span className="text-[10px] font-bold text-gray-500/80 tracking-widest uppercase select-none">SiliconDev</span>
+
+                {/* Activity pulse — shows what the system is actively doing */}
+                {isGenerating && (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/15">
+                        <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse" />
+                        <span className="text-[9px] font-medium text-blue-400">Generating</span>
+                    </div>
+                )}
+                {isTraining && !isGenerating && (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/15">
+                        <div className="w-1 h-1 bg-violet-400 rounded-full animate-pulse" />
+                        <span className="text-[9px] font-medium text-violet-400">Training</span>
+                    </div>
+                )}
+                {!backendReady && (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/15">
+                        <Loader2 size={9} className="animate-spin text-amber-400" />
+                        <span className="text-[9px] font-medium text-amber-400">Starting</span>
+                    </div>
+                )}
             </div>
 
-            {/* Center/Right: Status Indicators */}
-            <div className="no-drag flex items-center space-x-6">
+            {/* Right: Model + System stats */}
+            <div className="no-drag flex items-center gap-2">
 
-                {/* Backend Status */}
-                <div className="flex items-center space-x-2 h-full">
-                    <div className={`w-1.5 h-1.5 rounded-full ${backendReady ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                    <span className="text-[10px] text-gray-400 font-medium">
-                        {backendReady ? 'Ready' : 'Starting...'}
-                    </span>
-                </div>
-
-                <div className="h-4 w-px bg-white/10" />
-
-                {/* Active Model + Switcher */}
+                {/* Model selector */}
                 <div className="relative" ref={menuRef}>
                     {activeModel ? (
-                        <div className="flex items-center bg-blue-500/10 h-7 px-2.5 rounded border border-blue-500/20">
+                        <div className="flex items-center h-7 rounded-md bg-white/[0.04] border border-white/[0.06] overflow-hidden">
                             <button
                                 onClick={toggleMenu}
-                                className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                                className="flex items-center gap-1.5 px-2.5 h-full hover:bg-white/[0.04] transition-colors"
                                 title="Switch model"
                             >
-                                <DatabaseZap size={13} className="text-blue-400" />
-                                <span className="text-[11px] font-medium text-blue-300 max-w-[160px] truncate">{cleanModelName(activeModel.name)}</span>
-                                <ChevronDown size={11} className="text-blue-400/60" />
+                                <Zap size={11} className="text-blue-400 shrink-0" />
+                                <span className="text-[10px] font-semibold text-gray-200 max-w-[140px] truncate">{cleanModelName(activeModel.name)}</span>
+                                {activeModel.size && (
+                                    <span className="text-[9px] text-gray-600 font-mono">{activeModel.size}</span>
+                                )}
+                                <ChevronDown size={10} className="text-gray-600 shrink-0" />
                             </button>
-                            <div className="w-px h-3.5 bg-blue-500/20 mx-1.5"></div>
+                            <div className="w-px h-3.5 bg-white/[0.06]" />
                             <button
                                 onClick={handleEject}
-                                className="flex items-center gap-1.5 px-1.5 py-0.5 rounded text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                                title="Unload model from memory"
+                                className="flex items-center px-2 h-full text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                title="Unload model"
                             >
                                 <LogOut size={11} />
-                                <span className="text-[10px] font-medium">Eject</span>
                             </button>
                         </div>
                     ) : (
                         <button
                             onClick={toggleMenu}
-                            className="flex items-center gap-2 h-7 px-2.5 rounded border border-white/10 hover:bg-white/5 transition-colors"
+                            disabled={!backendReady}
+                            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-dashed border-white/10 hover:border-white/20 hover:bg-white/[0.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                             title="Load a model"
                         >
-                            <DatabaseZap size={13} className="text-gray-500" />
-                            <span className="text-[11px] text-gray-500 font-medium">Load model</span>
-                            <ChevronDown size={11} className="text-gray-600" />
+                            <DatabaseZap size={11} className="text-gray-600" />
+                            <span className="text-[10px] text-gray-500 font-medium">Load model</span>
+                            <ChevronDown size={10} className="text-gray-700" />
                         </button>
                     )}
 
                     {/* Model picker dropdown */}
                     {showModelMenu && (
-                        <div className="absolute top-full right-0 mt-1 w-72 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl overflow-hidden z-[100]">
+                        <div className="absolute top-full right-0 mt-1.5 w-80 bg-[#18181b] border border-white/10 rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-[100]">
+                            {/* Search */}
                             <div className="px-3 py-2 border-b border-white/5">
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Downloaded Models</span>
+                                <div className="flex items-center gap-2 px-2 py-1.5 bg-white/[0.04] rounded-lg border border-white/[0.06]">
+                                    <Search size={12} className="text-gray-600 shrink-0" />
+                                    <input
+                                        ref={searchRef}
+                                        type="text"
+                                        value={modelFilter}
+                                        onChange={(e) => setModelFilter(e.target.value)}
+                                        placeholder="Filter models..."
+                                        className="flex-1 bg-transparent text-[11px] text-white placeholder-gray-600 outline-none"
+                                    />
+                                    {modelFilter && (
+                                        <span className="text-[9px] text-gray-600">{filteredModels.length}</span>
+                                    )}
+                                </div>
                             </div>
-                            <div className="max-h-64 overflow-y-auto">
-                                {models.length === 0 ? (
-                                    <div className="px-3 py-4 text-center text-xs text-gray-600">No downloaded models found</div>
-                                ) : models.map(m => (
-                                    <button
-                                        key={m.id}
-                                        onClick={() => handleLoadModel(m)}
-                                        disabled={loadingModelId === m.id || activeModel?.id === m.id}
-                                        className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${activeModel?.id === m.id
-                                                ? 'bg-blue-500/10 text-blue-300'
-                                                : 'text-gray-300 hover:bg-white/5'
-                                            } disabled:opacity-60`}
-                                    >
-                                        {loadingModelId === m.id ? (
-                                            <Loader2 size={12} className="animate-spin text-blue-400 shrink-0" />
-                                        ) : (
-                                            <DatabaseZap size={12} className={activeModel?.id === m.id ? 'text-blue-400' : 'text-gray-600'} />
-                                        )}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-[11px] font-medium truncate">{cleanModelName(m.name)}</div>
-                                            <div className="text-[9px] text-gray-600">{m.size}{m.architecture ? ` · ${m.architecture}` : ''}</div>
-                                        </div>
-                                        {activeModel?.id === m.id && (
-                                            <span className="text-[9px] text-blue-400 font-bold shrink-0">ACTIVE</span>
-                                        )}
-                                    </button>
-                                ))}
+                            <div className="max-h-72 overflow-y-auto">
+                                {filteredModels.length === 0 ? (
+                                    <div className="px-3 py-6 text-center text-[11px] text-gray-600">
+                                        {models.length === 0 ? 'No downloaded models' : 'No matches'}
+                                    </div>
+                                ) : filteredModels.map(m => {
+                                    const isActive = activeModel?.id === m.id;
+                                    const isLoading = loadingModelId === m.id;
+                                    return (
+                                        <button
+                                            key={m.id}
+                                            onClick={() => handleLoadModel(m)}
+                                            disabled={isLoading || isActive}
+                                            className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${isActive
+                                                ? 'bg-blue-500/8 border-l-2 border-blue-500'
+                                                : 'border-l-2 border-transparent hover:bg-white/[0.04]'
+                                                } disabled:opacity-60`}
+                                        >
+                                            {isLoading ? (
+                                                <Loader2 size={13} className="animate-spin text-blue-400 shrink-0" />
+                                            ) : (
+                                                <Zap size={13} className={isActive ? 'text-blue-400' : 'text-gray-700'} />
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-[11px] font-medium text-gray-200 truncate">{cleanModelName(m.name)}</div>
+                                                <div className="text-[9px] text-gray-600 font-mono mt-0.5">
+                                                    {m.size}
+                                                    {m.architecture ? ` · ${m.architecture}` : ''}
+                                                </div>
+                                            </div>
+                                            {isActive && (
+                                                <span className="text-[8px] text-blue-400 font-bold tracking-wider uppercase shrink-0">Active</span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div className="h-4 w-px bg-white/10" />
+                {/* Separator */}
+                <div className="h-3.5 w-px bg-white/[0.06]" />
 
-                {/* System Stats (RAM/CPU) with color bars */}
+                {/* System stats */}
                 {systemStats ? (
-                    <div className="flex items-center space-x-4">
-                        <div className="flex items-center gap-1.5" title={`RAM: ${(systemStats.memory.used / (1024 * 1024 * 1024)).toFixed(1)}/${(systemStats.memory.total / (1024 * 1024 * 1024)).toFixed(0)}GB (${systemStats.memory.percent.toFixed(0)}%)`}>
-                            <span className="text-[10px] text-gray-500 font-mono">RAM</span>
-                            <MiniBar percent={systemStats.memory.percent} thresholds={thresholds} />
-                            <span className={`text-[11px] font-mono tabular-nums ${usageTextColor(systemStats.memory.percent, thresholds)}`}>
-                                {systemStats.memory.percent.toFixed(0)}%
-                            </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5" title={`CPU: ${systemStats.cpu.percent.toFixed(0)}%`}>
-                            <span className="text-[10px] text-gray-500 font-mono">CPU</span>
-                            <MiniBar percent={systemStats.cpu.percent} thresholds={thresholds} />
-                            <span className={`text-[11px] font-mono tabular-nums ${usageTextColor(systemStats.cpu.percent, thresholds)}`}>
-                                {systemStats.cpu.percent.toFixed(0)}%
+                    <div className="flex items-center gap-3">
+                        <StatGroup
+                            label="RAM"
+                            percent={systemStats.memory.percent}
+                            thresholds={thresholds}
+                            detail={`RAM: ${ramUsedGB} / ${ramTotalGB} GB`}
+                        />
+                        <StatGroup
+                            label="CPU"
+                            percent={systemStats.cpu.percent}
+                            thresholds={thresholds}
+                            detail={`CPU: ${systemStats.cpu.percent.toFixed(0)}% (${systemStats.cpu.cores} cores)`}
+                        />
+                        <div className="flex items-center gap-1.5 cursor-default" title={`Disk: ${diskUsedGB} / ${diskTotalGB} GB`}>
+                            <HardDrive size={10} className="text-gray-700" />
+                            <MiniBar percent={systemStats.disk.percent} thresholds={thresholds} width="w-10" />
+                            <span className={`text-[10px] font-mono tabular-nums min-w-[26px] text-right ${textColor(systemStats.disk.percent, thresholds)}`}>
+                                {systemStats.disk.percent.toFixed(0)}%
                             </span>
                         </div>
                     </div>
                 ) : (
-                    <span className="text-xs text-gray-600 font-mono">Loading Stats...</span>
-                )}
-
-                {/* Global Task Indicator (Training) */}
-                {isTraining && (
-                    <>
-                        <div className="h-4 w-px bg-white/10" />
-                        <div className="flex items-center space-x-1.5">
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                            <span className="text-xs text-blue-400 font-medium">Training Active</span>
-                        </div>
-                    </>
+                    <div className="flex items-center gap-1.5">
+                        <Loader2 size={10} className="animate-spin text-gray-700" />
+                        <span className="text-[9px] text-gray-700 font-mono">loading</span>
+                    </div>
                 )}
             </div>
         </div>

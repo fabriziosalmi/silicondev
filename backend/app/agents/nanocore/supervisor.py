@@ -28,10 +28,10 @@ from .process_manager import ProcessManager
 
 logger = logging.getLogger(__name__)
 
-# Strip <think>...</think> blocks and any leftover tags from model output
-_THINK_RE = re.compile(r'<think>.*?</think>', re.DOTALL)
-_THINK_INCOMPLETE_RE = re.compile(r'<think>.*$', re.DOTALL)  # unclosed think block at end
-_THINK_OPEN_RE = re.compile(r'</?think[^>]*>')
+# Strip <think>...</think> and <talk>...</talk> blocks and any leftover tags from model output
+_THINK_RE = re.compile(r'<(?:think|talk)>.*?</(?:think|talk)>', re.DOTALL)
+_THINK_INCOMPLETE_RE = re.compile(r'<(?:think|talk)>.*$', re.DOTALL)  # unclosed block at end
+_THINK_OPEN_RE = re.compile(r'</?(?:think|talk)[^>]*>')
 
 # Max chars of tool output to inject back into the conversation
 MAX_TOOL_OUTPUT_CHARS = 4000
@@ -521,6 +521,7 @@ class SupervisorAgent:
             iter_tokens = 0
             in_think_block = False
             think_buffer = ""
+            think_tag = ""
 
             yield self._agency_status("operaio", "Drafting content")
 
@@ -542,33 +543,38 @@ class SupervisorAgent:
                         accumulated += token_text
                         iter_tokens += 1
 
-                        # Handle <think> blocks: buffer them and don't stream
+                        # Handle <think>/<talk> blocks: buffer them and don't stream
                         if in_think_block:
                             think_buffer += token_text
-                            if "</think>" in think_buffer:
+                            close_tag = f"</{think_tag}>"
+                            if close_tag in think_buffer:
                                 in_think_block = False
-                                # Extract thinking content and send as a separate event
-                                parts = think_buffer.split("</think>", 1)
-                                think_content = parts[0].replace("<think>", "").strip()
+                                parts = think_buffer.split(close_tag, 1)
+                                think_content = parts[0].replace(f"<{think_tag}>", "").strip()
                                 if think_content:
                                     yield _sse("thinking", {"agent": "supervisor", "content": think_content})
-                                # Text after </think> must not be lost
                                 after_think = parts[1] if len(parts) > 1 else ""
                                 streamed_up_to = len(accumulated) - len(after_think)
                                 think_buffer = ""
-                                # Fall through to stream any text after </think>
+                                think_tag = ""
                                 if not after_think:
                                     continue
                             else:
                                 continue
 
-                        if "<think>" in accumulated[streamed_up_to:]:
-                            in_think_block = True
-                            before_think = accumulated[streamed_up_to:].split("<think>")[0]
-                            if before_think:
-                                yield _sse("token_stream", {"agent": "supervisor", "text": before_think})
-                            streamed_up_to = len(accumulated)
-                            think_buffer = token_text
+                        # Detect opening <think> or <talk> tag
+                        pending = accumulated[streamed_up_to:]
+                        for _tag in ("think", "talk"):
+                            if f"<{_tag}>" in pending:
+                                in_think_block = True
+                                think_tag = _tag
+                                before_think = pending.split(f"<{_tag}>")[0]
+                                if before_think:
+                                    yield _sse("token_stream", {"agent": "supervisor", "text": before_think})
+                                streamed_up_to = len(accumulated)
+                                think_buffer = token_text
+                                break
+                        if in_think_block:
                             continue
 
                         # Stream text but suppress partial/complete tool tags

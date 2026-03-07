@@ -22,6 +22,10 @@ class QueryRequest(BaseModel):
     n_results: int = Field(default=5, ge=1, le=20)
     max_context_chars: int = Field(default=0, ge=0, le=100000)
 
+class UsageFeedback(BaseModel):
+    collection_id: str
+    chunk_indices: List[int] = Field(min_length=1)
+
 @router.get("/collections")
 def get_collections():
     return service.get_collections()
@@ -56,3 +60,20 @@ def query_collection(req: QueryRequest):
         max_context_chars=req.max_context_chars,
     )
     return {"results": results}
+
+@router.post("/usage")
+def record_usage(req: UsageFeedback):
+    try:
+        safe_id(req.collection_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    service.record_usage(req.collection_id, req.chunk_indices)
+    return {"status": "recorded"}
+
+@router.get("/analytics/{collection_id}")
+def get_analytics(collection_id: str):
+    try:
+        safe_id(collection_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return service.get_analytics(collection_id)

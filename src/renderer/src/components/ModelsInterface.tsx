@@ -3,7 +3,7 @@ import { apiClient, cleanModelName } from '../api/client';
 import type { ModelEntry } from '../api/client';
 import { PageHeader } from './ui/PageHeader';
 import { useToast } from './ui/Toast';
-import { Search, Download, Trash2, Database, HardDrive, FileText, Play, LogOut } from 'lucide-react';
+import { Search, Download, Trash2, Database, HardDrive, FileText, Play, LogOut, Zap, Loader2, FolderOpen } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useGlobalState } from '../context/GlobalState';
@@ -20,6 +20,30 @@ function parseSizeGB(size: string): number {
     return match ? parseFloat(match[1]) : 0;
 }
 
+// Architecture-based color scheme
+function archColor(arch: string | undefined): { bg: string; border: string; text: string; dot: string } {
+    const a = (arch || '').toLowerCase();
+    if (a.includes('qwen')) return { bg: 'bg-violet-500/10', border: 'border-violet-500/20', text: 'text-violet-400', dot: 'bg-violet-400' };
+    if (a.includes('llama')) return { bg: 'bg-blue-500/10', border: 'border-blue-500/20', text: 'text-blue-400', dot: 'bg-blue-400' };
+    if (a.includes('gemma')) return { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', text: 'text-emerald-400', dot: 'bg-emerald-400' };
+    if (a.includes('phi')) return { bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', text: 'text-cyan-400', dot: 'bg-cyan-400' };
+    if (a.includes('mistral') || a.includes('mixtral')) return { bg: 'bg-orange-500/10', border: 'border-orange-500/20', text: 'text-orange-400', dot: 'bg-orange-400' };
+    if (a.includes('lfm')) return { bg: 'bg-pink-500/10', border: 'border-pink-500/20', text: 'text-pink-400', dot: 'bg-pink-400' };
+    return { bg: 'bg-gray-500/10', border: 'border-gray-500/20', text: 'text-gray-400', dot: 'bg-gray-400' };
+}
+
+function guessQuant(name: string) {
+    if (name.toLowerCase().includes('4-bit') || name.toLowerCase().includes('4bit')) return '4-BIT';
+    if (name.toLowerCase().includes('8-bit') || name.toLowerCase().includes('8bit')) return '8-BIT';
+    if (name.toLowerCase().includes('bf16')) return 'BF16';
+    if (name.toLowerCase().includes('fp16')) return 'FP16';
+    return '';
+}
+
+function guessPublisher(id: string) {
+    return id.split('/')[0] || '-';
+}
+
 export function ModelsInterface() {
     const { toast } = useToast();
     const [models, setModels] = useState<ModelEntry[]>([]);
@@ -28,6 +52,7 @@ export function ModelsInterface() {
     const [downloading, setDownloading] = useState<Set<string>>(new Set());
     const [error, setError] = useState<string | null>(null);
     const { setActiveModel, activeModel, systemStats } = useGlobalState();
+    const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
 
     // Split-view State
     const [selectedModel, setSelectedModel] = useState<ModelEntry | null>(null);
@@ -58,7 +83,6 @@ export function ModelsInterface() {
             if (!silent) setLoading(true);
             const data = await apiClient.engine.getModels();
             setModels(data);
-            // Clear downloading flag for models that finished (downloaded or no longer downloading)
             setDownloading(prev => {
                 const next = new Set(prev);
                 let changed = false;
@@ -93,6 +117,7 @@ export function ModelsInterface() {
     };
 
     const handleDelete = async (modelId: string) => {
+        if (!confirm('Delete this model from disk? This cannot be undone.')) return;
         try {
             setLoading(true);
             await apiClient.engine.deleteModel(modelId);
@@ -113,6 +138,7 @@ export function ModelsInterface() {
     };
 
     const loadModelIntoMemory = async (model: ModelEntry) => {
+        setLoadingModelId(model.id);
         try {
             const result = await apiClient.engine.loadModel(model.id);
             setActiveModel({
@@ -129,7 +155,14 @@ export function ModelsInterface() {
             }
         } catch (e: unknown) {
             toast(`Failed to load model: ${e instanceof Error ? e.message : String(e)}`, 'error');
+        } finally {
+            setLoadingModelId(null);
         }
+    };
+
+    const handleEject = async () => {
+        try { await apiClient.engine.unloadModel(); } catch { /* best-effort */ }
+        setActiveModel(null);
     };
 
     const fetchReadme = async (id: string) => {
@@ -154,7 +187,7 @@ export function ModelsInterface() {
             } else {
                 setReadmeContent("No README available for custom local models.");
             }
-        } catch (e) {
+        } catch {
             setReadmeContent("Unable to fetch README. Check your internet connection.");
         } finally {
             setReadmeLoading(false);
@@ -186,7 +219,6 @@ export function ModelsInterface() {
             if (selectedPaths.size === 0) return;
             try {
                 setLoading(true);
-                // Register one by one for the selected ones
                 for (const path of Array.from(selectedPaths)) {
                     const found = foundModels.find(m => (m.path || m.local_path) === path);
                     const name = found?.name || path.split('/').pop() || customName;
@@ -244,66 +276,89 @@ export function ModelsInterface() {
         const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             m.id.toLowerCase().includes(searchQuery.toLowerCase());
         if (!matchesSearch) return false;
-        // Hide models that exceed available RAM
         const sizeGB = parseSizeGB(m.size);
         if (sizeGB > 0 && availableRamBytes > 0 && sizeGB * 1.07e9 > availableRamBytes) return false;
         return true;
     });
 
-    // Helper to extract Quantization from name
-    const guessQuant = (name: string) => {
-        if (name.toLowerCase().includes('4-bit') || name.toLowerCase().includes('4bit')) return '4-bit';
-        if (name.toLowerCase().includes('8-bit') || name.toLowerCase().includes('8bit')) return '8-bit';
-        if (name.toLowerCase().includes('bf16')) return 'BF16';
-        if (name.toLowerCase().includes('fp16')) return 'FP16';
-        return 'Standard';
-    };
+    // Group models by architecture for "My Models"
+    const archGroups = new Map<string, ModelEntry[]>();
+    for (const m of displayedMyModels) {
+        const arch = m.architecture || 'Other';
+        if (!archGroups.has(arch)) archGroups.set(arch, []);
+        archGroups.get(arch)!.push(m);
+    }
+    // Sort groups: active model's arch first, then alphabetical
+    const sortedArchKeys = Array.from(archGroups.keys()).sort((a, b) => {
+        const aHasActive = archGroups.get(a)!.some(m => m.id === activeModel?.id);
+        const bHasActive = archGroups.get(b)!.some(m => m.id === activeModel?.id);
+        if (aHasActive && !bHasActive) return -1;
+        if (!aHasActive && bHasActive) return 1;
+        return a.localeCompare(b);
+    });
 
-    const guessPublisher = (id: string) => {
-        return id.split('/')[0] || '-';
-    };
+    const totalSizeGB = downloadedModels.reduce((sum, m) => sum + parseSizeGB(m.size), 0);
 
     return (
         <div className="h-full flex flex-col text-white overflow-hidden pb-4">
             <PageHeader>
                 <button
+                    type="button"
                     onClick={() => { resetAddModal(); setShowAddModal(true); }}
-                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/5 whitespace-nowrap"
+                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/5 whitespace-nowrap flex items-center gap-2"
                 >
-                    + Add Local Folder
+                    <FolderOpen size={14} />
+                    Add Local Folder
                 </button>
             </PageHeader>
 
-            {/* Tabs */}
-            <div className="flex gap-6 mb-6 border-b border-white/10 px-1">
-                <button
-                    onClick={() => setActiveTab('my-models')}
-                    className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'my-models' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
-                >
-                    My Models ({downloadedModels.length})
-                    {activeTab === 'my-models' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>}
-                </button>
-                <button
-                    onClick={() => setActiveTab('discover')}
-                    className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'discover' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
-                >
-                    Discover (HuggingFace)
-                    {activeTab === 'discover' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>}
-                </button>
+            {/* Tabs + Stats bar */}
+            <div className="flex items-center justify-between mb-5 border-b border-white/10 px-1">
+                <div className="flex gap-6">
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('my-models')}
+                        className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'my-models' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        My Models ({downloadedModels.length})
+                        {activeTab === 'my-models' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400 rounded-full" />}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('discover')}
+                        className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'discover' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        Discover (HuggingFace)
+                        {activeTab === 'discover' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400 rounded-full" />}
+                    </button>
+                </div>
+                {activeTab === 'my-models' && downloadedModels.length > 0 && (
+                    <div className="flex items-center gap-4 pb-3 text-[11px] text-gray-500">
+                        <span>{downloadedModels.length} models</span>
+                        {totalSizeGB > 0 && <span>{totalSizeGB.toFixed(1)} GB total</span>}
+                        {activeModel && (
+                            <span className="flex items-center gap-1.5 text-emerald-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                {cleanModelName(activeModel.name)} loaded
+                            </span>
+                        )}
+                    </div>
+                )}
             </div>
 
             {error && (
                 <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg text-sm flex justify-between items-center">
                     <span>{error}</span>
-                    <button onClick={() => setError(null)} className="text-white/40 hover:text-white">✕</button>
+                    <button type="button" onClick={() => setError(null)} className="text-white/40 hover:text-white">✕</button>
                 </div>
             )}
 
             <div className="flex-1 overflow-hidden min-h-0 relative">
 
-                {/* --- MY MODELS VIEW (Data Table) --- */}
+                {/* --- MY MODELS VIEW (Card Grid) --- */}
                 {activeTab === 'my-models' && (
                     <div className="h-full flex flex-col">
+                        {/* Search */}
                         <div className="mb-4">
                             <div className="relative max-w-sm">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -317,133 +372,162 @@ export function ModelsInterface() {
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-black/20">
-                            <table className="w-full text-left text-sm whitespace-nowrap">
-                                <thead className="bg-[#18181B] text-gray-400 border-b border-white/10 uppercase text-[11px] tracking-wide">
-                                    <tr>
-                                        <th className="px-5 py-3 font-semibold w-[30%]">Name / ID</th>
-                                        <th className="px-5 py-3 font-semibold">Arch</th>
-                                        <th className="px-5 py-3 font-semibold">Context</th>
-                                        <th className="px-5 py-3 font-semibold">Quant</th>
-                                        <th className="px-5 py-3 font-semibold">Size</th>
-                                        <th className="px-5 py-3 font-semibold text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                    {loading && models.length === 0 ? (
-                                        <>
-                                            {[1,2,3].map(i => (
-                                                <tr key={i}>
-                                                    <td className="px-5 py-4" colSpan={6}>
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="w-8 h-8 rounded-lg bg-white/5 animate-pulse" />
-                                                            <div className="flex-1 space-y-2">
-                                                                <div className="h-3 w-48 bg-white/5 rounded animate-pulse" />
-                                                                <div className="h-2 w-32 bg-white/[0.03] rounded animate-pulse" />
-                                                            </div>
-                                                            <div className="h-3 w-16 bg-white/5 rounded animate-pulse" />
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </>
-                                    ) : displayedMyModels.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={6} className="py-12 px-6">
-                                                {searchQuery ? (
-                                                    <div className="text-center text-gray-500">No models match your search.</div>
-                                                ) : (
-                                                    <div className="max-w-md mx-auto text-center">
-                                                        <Database className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-                                                        <h3 className="text-lg font-semibold text-white mb-1">Download your first model</h3>
-                                                        <p className="text-sm text-gray-400 mb-4">
-                                                            {systemStats && systemStats.memory.total >= 16 * 1024 * 1024 * 1024
-                                                                ? 'Your Mac has 16 GB+ RAM. A 7B model like Qwen2.5-7B-Instruct-4bit is a good starting point.'
-                                                                : 'A 3B model like Qwen2.5-3B-Instruct-4bit runs well on 8 GB Macs.'}
-                                                        </p>
-                                                        <button
-                                                            onClick={() => setActiveTab('discover')}
-                                                            className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
-                                                        >
-                                                            Go to Discover
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
+                        <div className="flex-1 overflow-auto">
+                            {loading && models.length === 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                    {[1,2,3,4,5,6].map(i => (
+                                        <div key={i} className="rounded-xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-lg bg-white/5 animate-pulse" />
+                                                <div className="flex-1 space-y-2">
+                                                    <div className="h-3 w-32 bg-white/5 rounded animate-pulse" />
+                                                    <div className="h-2 w-20 bg-white/[0.03] rounded animate-pulse" />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <div className="h-5 w-12 bg-white/5 rounded animate-pulse" />
+                                                <div className="h-5 w-12 bg-white/5 rounded animate-pulse" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : displayedMyModels.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-64">
+                                    {searchQuery ? (
+                                        <div className="text-center text-gray-500">No models match your search.</div>
                                     ) : (
-                                        displayedMyModels.map((model) => (
-                                            <tr key={model.id} className="hover:bg-white/[0.04] transition-colors group">
-                                                <td className="px-5 py-3.5 align-middle">
-                                                    <div className="flex items-center gap-3.5">
-                                                        <div className="w-8 h-8 rounded bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-                                                            <Database className="w-4 h-4 text-blue-400 opacity-90" />
-                                                        </div>
-                                                        <div className="flex flex-col justify-center">
-                                                            <div className="font-semibold text-white/90 flex items-center gap-2 text-[13px] leading-tight">
-                                                                {cleanModelName(model.name)}
-                                                                {model.is_finetuned && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/20 uppercase tracking-wide font-bold">Fine-Tuned</span>}
-                                                            </div>
-                                                            <div className="text-[11px] text-gray-500 font-mono mt-0.5 truncate max-w-[220px]" title={model.id}>{model.id}</div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-5 py-3.5 align-middle">
-                                                    <span className="text-[11px] font-medium text-gray-300 bg-white/5 px-2 py-0.5 rounded border border-white/10">
-                                                        {model.architecture || 'Unknown'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-5 py-3.5 align-middle font-mono text-gray-400 text-[12px]">
-                                                    {model.context_window || '-'}
-                                                </td>
-                                                <td className="px-5 py-3.5 align-middle">
-                                                    <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20 text-blue-300">
-                                                        {model.quantization || guessQuant(model.name)}
-                                                    </span>
-                                                </td>
-                                                <td className="px-5 py-3.5 align-middle font-mono text-gray-400 text-[12px]">
-                                                    {model.size && model.size !== '0.00GB' ? model.size : (model.is_custom ? 'Calculating...' : 'Unknown')}
-                                                </td>
-                                                <td className="px-5 py-3.5 align-middle text-right">
-                                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        {activeModel?.id === model.id ? (
-                                                            <div className="flex bg-green-500/10 border border-green-500/20 rounded h-7 overflow-hidden">
-                                                                <div className="px-2.5 flex items-center gap-1.5 text-green-400 text-[11px] font-bold tracking-wide uppercase border-r border-green-500/20">
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                                                                    Active
-                                                                </div>
-                                                                <button
-                                                                    onClick={() => setActiveModel(null)}
-                                                                    className="px-2.5 text-[11px] font-bold tracking-wide uppercase text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors flex items-center gap-1.5"
-                                                                    title="Eject Model"
-                                                                >
-                                                                    <LogOut className="w-3 h-3" /> Eject
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => loadModelIntoMemory(model)}
-                                                                className="h-7 px-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 hover:text-blue-300 rounded transition-colors text-[11px] font-bold uppercase tracking-wide flex items-center gap-1.5"
-                                                                title="Load Model into VRAM"
-                                                            >
-                                                                <Play className="w-3 h-3 fill-current" />
-                                                                Load Model
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleDelete(model.id); }}
-                                                            className="h-7 w-7 flex items-center justify-center bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 rounded transition-colors"
-                                                            title="Delete Model from Disk"
-                                                        >
-                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
+                                        <div className="max-w-md mx-auto text-center">
+                                            <Database className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+                                            <h3 className="text-lg font-semibold text-white mb-1">Download your first model</h3>
+                                            <p className="text-sm text-gray-400 mb-4">
+                                                {systemStats && systemStats.memory.total >= 16 * 1024 * 1024 * 1024
+                                                    ? 'Your Mac has 16 GB+ RAM. A 7B model like Qwen2.5-7B-Instruct-4bit is a good starting point.'
+                                                    : 'A 3B model like Qwen2.5-3B-Instruct-4bit runs well on 8 GB Macs.'}
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setActiveTab('discover')}
+                                                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+                                            >
+                                                Go to Discover
+                                            </button>
+                                        </div>
                                     )}
-                                </tbody>
-                            </table>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {sortedArchKeys.map(arch => {
+                                        const groupModels = archGroups.get(arch)!;
+                                        const colors = archColor(arch);
+                                        return (
+                                            <div key={arch}>
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <div className={`w-2 h-2 rounded-full ${colors.dot}`} />
+                                                    <span className={`text-[11px] font-bold uppercase tracking-wider ${colors.text}`}>{arch}</span>
+                                                    <span className="text-[10px] text-gray-600">{groupModels.length} model{groupModels.length !== 1 ? 's' : ''}</span>
+                                                    <div className="flex-1 h-px bg-white/5" />
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                                    {groupModels.map(model => {
+                                                        const isActive = activeModel?.id === model.id;
+                                                        const isLoading = loadingModelId === model.id;
+                                                        const quant = model.quantization || guessQuant(model.name);
+                                                        return (
+                                                            <div
+                                                                key={model.id}
+                                                                className={`group relative rounded-xl border p-4 transition-all ${
+                                                                    isActive
+                                                                        ? `${colors.bg} ${colors.border} ring-1 ring-emerald-500/20`
+                                                                        : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/10'
+                                                                }`}
+                                                            >
+                                                                {/* Active indicator */}
+                                                                {isActive && (
+                                                                    <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400">Active</span>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Model info */}
+                                                                <div className="flex items-start gap-3 mb-3">
+                                                                    <div className={`w-10 h-10 rounded-lg ${colors.bg} border ${colors.border} flex items-center justify-center shrink-0`}>
+                                                                        <Zap size={16} className={colors.text} />
+                                                                    </div>
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="font-semibold text-[13px] text-white truncate leading-tight flex items-center gap-2">
+                                                                            {cleanModelName(model.name)}
+                                                                            {model.is_finetuned && (
+                                                                                <span className="text-[8px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/20 uppercase tracking-wide font-bold shrink-0">Tuned</span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="text-[10px] text-gray-600 font-mono mt-0.5 truncate">{model.id.split('/').pop()}</div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Badges */}
+                                                                <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+                                                                    {model.size && model.size !== '0.00GB' && (
+                                                                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 border border-white/[0.06] text-gray-400">
+                                                                            {model.size}
+                                                                        </span>
+                                                                    )}
+                                                                    {quant && (
+                                                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${colors.bg} border ${colors.border} ${colors.text} uppercase tracking-wide`}>
+                                                                            {quant}
+                                                                        </span>
+                                                                    )}
+                                                                    {model.context_window && model.context_window !== 'Unknown' && (
+                                                                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 border border-white/[0.06] text-gray-500">
+                                                                            {model.context_window} ctx
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Actions — always visible */}
+                                                                <div className="flex items-center gap-2">
+                                                                    {isActive ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={handleEject}
+                                                                            className="flex-1 h-8 flex items-center justify-center gap-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors text-[11px] font-bold uppercase tracking-wide"
+                                                                        >
+                                                                            <LogOut size={12} />
+                                                                            Eject
+                                                                        </button>
+                                                                    ) : (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => loadModelIntoMemory(model)}
+                                                                            disabled={isLoading}
+                                                                            className="flex-1 h-8 flex items-center justify-center gap-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-colors text-[11px] font-bold uppercase tracking-wide disabled:opacity-50"
+                                                                        >
+                                                                            {isLoading ? (
+                                                                                <><Loader2 size={12} className="animate-spin" /> Loading...</>
+                                                                            ) : (
+                                                                                <><Play size={12} className="fill-current" /> Load</>
+                                                                            )}
+                                                                        </button>
+                                                                    )}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleDelete(model.id)}
+                                                                        disabled={isActive}
+                                                                        className="h-8 w-8 flex items-center justify-center rounded-lg border border-white/[0.06] text-gray-600 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                                                        title="Delete model"
+                                                                    >
+                                                                        <Trash2 size={13} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -467,23 +551,24 @@ export function ModelsInterface() {
                                 </div>
                             </div>
                             <div className="flex-1 overflow-y-auto no-scrollbar">
-                                {/* Recommended section — only when not searching */}
+                                {/* Recommended section */}
                                 {!searchQuery && (
                                     <div className="p-4 border-b border-white/10">
                                         <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Recommended for your Mac</h3>
                                         <div className="grid grid-cols-2 gap-2">
                                             {RECOMMENDED_MODELS.filter(rec => {
-                                            if (availableRamBytes > 0 && rec.sizeGB * 1.07e9 > availableRamBytes) return false;
-                                            return true;
-                                        }).map(rec => {
+                                                if (availableRamBytes > 0 && rec.sizeGB * 1.07e9 > availableRamBytes) return false;
+                                                return true;
+                                            }).map(rec => {
                                                 const catalogModel = discoverableModels.find(m => m.id === rec.id);
                                                 if (!catalogModel) return null;
                                                 const isDownloading = downloading.has(rec.id);
+                                                const colors = archColor(catalogModel.architecture);
                                                 return (
-                                                    <div key={rec.id} className="bg-white/[0.03] border border-white/10 rounded-lg p-3 flex flex-col gap-1.5">
+                                                    <div key={rec.id} className={`${colors.bg} border ${colors.border} rounded-lg p-3 flex flex-col gap-1.5`}>
                                                         <div className="text-xs font-semibold text-white truncate">{cleanModelName(catalogModel.name)}</div>
                                                         <div className="flex items-center gap-1.5">
-                                                            <span className="text-[10px] px-1.5 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-blue-300">{rec.label}</span>
+                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${colors.text} font-medium`}>{rec.label}</span>
                                                             <span className="text-[10px] text-gray-500">{catalogModel.size}</span>
                                                         </div>
                                                         <button
@@ -500,20 +585,30 @@ export function ModelsInterface() {
                                         </div>
                                     </div>
                                 )}
-                                {displayedDiscoverModels.map(model => (
-                                    <button
-                                        key={model.id}
-                                        onClick={() => selectModelForDetails(model)}
-                                        className={`w-full text-left p-4 border-b border-white/5 hover:bg-white/5 transition-colors ${selectedModel?.id === model.id ? 'bg-blue-500/10 border-l-2 border-l-blue-500' : ''}`}
-                                    >
-                                        <div className="font-semibold text-white truncate text-sm mb-1">{cleanModelName(model.name)}</div>
-                                        <div className="text-[11px] text-gray-500 font-mono truncate">{model.id}</div>
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <span className="text-[10px] px-1.5 py-0.5 bg-white/5 rounded text-gray-400 border border-white/5">{guessPublisher(model.id)}</span>
-                                            <span className="text-[10px] px-1.5 py-0.5 bg-white/5 rounded text-gray-400 border border-white/5">{model.size}</span>
-                                        </div>
-                                    </button>
-                                ))}
+                                {displayedDiscoverModels.map(model => {
+                                    const colors = archColor(model.architecture);
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={model.id}
+                                            onClick={() => selectModelForDetails(model)}
+                                            className={`w-full text-left p-4 border-b border-white/5 hover:bg-white/5 transition-colors ${
+                                                selectedModel?.id === model.id ? `${colors.bg} border-l-2 ${colors.border}` : ''
+                                            }`}
+                                        >
+                                            <div className="font-semibold text-white truncate text-sm mb-1">{cleanModelName(model.name)}</div>
+                                            <div className="flex items-center gap-2 mt-1.5">
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${colors.bg} border ${colors.border} ${colors.text} font-medium`}>
+                                                    {model.architecture || guessPublisher(model.id)}
+                                                </span>
+                                                <span className="text-[10px] px-1.5 py-0.5 bg-white/5 rounded text-gray-400 border border-white/5">{model.size}</span>
+                                                {model.context_window && model.context_window !== 'Unknown' && (
+                                                    <span className="text-[10px] text-gray-600">{model.context_window}</span>
+                                                )}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
 
@@ -524,16 +619,24 @@ export function ModelsInterface() {
                                     <div className="p-6 border-b border-white/10 bg-white/[0.02] flex items-start justify-between shrink-0">
                                         <div>
                                             <h2 className="text-xl font-bold mb-1">{selectedModel.name}</h2>
-                                            <p className="text-sm text-gray-400 font-mono">{selectedModel.id}</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                {(() => { const c = archColor(selectedModel.architecture); return (
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${c.bg} border ${c.border} ${c.text} font-bold uppercase`}>
+                                                        {selectedModel.architecture || 'Unknown'}
+                                                    </span>
+                                                ); })()}
+                                                <span className="text-sm text-gray-400 font-mono">{selectedModel.size}</span>
+                                            </div>
                                         </div>
                                         <button
+                                            type="button"
                                             onClick={() => handleDownload(selectedModel.id)}
                                             disabled={downloading.has(selectedModel.id)}
                                             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
                                         >
                                             {downloading.has(selectedModel.id) ? (
                                                 <>
-                                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                    <Loader2 size={16} className="animate-spin" />
                                                     Downloading...
                                                 </>
                                             ) : (
@@ -547,7 +650,7 @@ export function ModelsInterface() {
                                     <div className="flex-1 overflow-y-auto p-6 bg-[#0E0E10]">
                                         {readmeLoading ? (
                                             <div className="flex items-center justify-center h-full text-gray-500 gap-3">
-                                                <div className="w-5 h-5 border-2 border-gray-500/30 border-t-gray-500 rounded-full animate-spin" />
+                                                <Loader2 size={20} className="animate-spin" />
                                                 Loading Model Card...
                                             </div>
                                         ) : (
@@ -604,6 +707,7 @@ export function ModelsInterface() {
                                         className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500 text-sm"
                                     />
                                     <button
+                                        type="button"
                                         onClick={async () => {
                                             try {
                                                 const path = await window.electronAPI?.selectDirectory?.();
@@ -612,7 +716,6 @@ export function ModelsInterface() {
                                                     handleScan(path);
                                                 }
                                             } catch {
-                                                // Fallback: just use the typed path
                                                 if (customPath) handleScan(customPath);
                                             }
                                         }}
@@ -622,6 +725,7 @@ export function ModelsInterface() {
                                     </button>
                                     {!foundModels.length && customPath && !scanning && (
                                         <button
+                                            type="button"
                                             onClick={() => handleScan(customPath)}
                                             className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-4 py-2 rounded-lg transition-colors text-sm font-medium border border-blue-500/20"
                                         >
@@ -630,47 +734,30 @@ export function ModelsInterface() {
                                     )}
                                 </div>
                                 <div className="flex gap-2 mt-3">
-                                    <button
-                                        onClick={() => {
-                                            const p = "~/.lmstudio/models";
-                                            setCustomName("LM Studio Models");
-                                            setCustomPath(p);
-                                            handleScan(p);
-                                        }}
-                                        className="text-[10px] font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-                                    >
-                                        <div className="w-1 h-1 rounded-full bg-blue-400"></div>
-                                        LM Studio
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            const p = "~/.ollama/models";
-                                            setCustomName("Ollama Models");
-                                            setCustomPath(p);
-                                            handleScan(p);
-                                        }}
-                                        className="text-[10px] font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-                                    >
-                                        <div className="w-1 h-1 rounded-full bg-blue-400"></div>
-                                        Ollama
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            const p = "~/.cache/huggingface/hub";
-                                            setCustomName("HF Hub Cache");
-                                            setCustomPath(p);
-                                            handleScan(p);
-                                        }}
-                                        className="text-[10px] font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-                                    >
-                                        <div className="w-1 h-1 rounded-full bg-blue-400"></div>
-                                        HF Cache
-                                    </button>
+                                    {[
+                                        { label: 'LM Studio', path: '~/.lmstudio/models', name: 'LM Studio Models' },
+                                        { label: 'Ollama', path: '~/.ollama/models', name: 'Ollama Models' },
+                                        { label: 'HF Cache', path: '~/.cache/huggingface/hub', name: 'HF Hub Cache' },
+                                    ].map(preset => (
+                                        <button
+                                            key={preset.label}
+                                            type="button"
+                                            onClick={() => {
+                                                setCustomName(preset.name);
+                                                setCustomPath(preset.path);
+                                                handleScan(preset.path);
+                                            }}
+                                            className="text-[10px] font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                                        >
+                                            <div className="w-1 h-1 rounded-full bg-blue-400" />
+                                            {preset.label}
+                                        </button>
+                                    ))}
                                 </div>
 
                                 {scanning && (
                                     <div className="mt-4 flex items-center gap-2 text-xs text-gray-400">
-                                        <div className="w-3 h-3 border-2 border-white/20 border-t-white/80 rounded-full animate-spin"></div>
+                                        <Loader2 size={12} className="animate-spin" />
                                         Scanning directory for MLX models...
                                     </div>
                                 )}
@@ -711,12 +798,14 @@ export function ModelsInterface() {
 
                         <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-white/5">
                             <button
+                                type="button"
                                 onClick={() => resetAddModal()}
                                 className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
+                                type="button"
                                 onClick={handleRegister}
                                 disabled={(!customName || (!customPath && selectedPaths.size === 0)) || loading || scanning}
                                 className="px-5 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50"

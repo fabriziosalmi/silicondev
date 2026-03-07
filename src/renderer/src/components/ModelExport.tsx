@@ -6,10 +6,10 @@ import { Package, Download, FolderOpen, Check, AlertCircle, Loader2 } from 'luci
 
 type Precision = 0 | 4 | 8
 
-const PRECISION_OPTIONS: { value: Precision; label: string; desc: string; color: string }[] = [
-    { value: 4, label: '4-bit', desc: 'Smallest size, fast inference', color: 'green' },
-    { value: 8, label: '8-bit', desc: 'Balanced size and quality', color: 'blue' },
-    { value: 0, label: 'Full', desc: 'No quantization, original quality', color: 'purple' },
+const PRECISION_OPTIONS: { value: Precision; label: string; desc: string; activeBg: string; activeBorder: string }[] = [
+    { value: 4, label: '4-bit', desc: 'Smallest size, fast inference', activeBg: 'bg-green-500/10', activeBorder: 'border-green-500/30' },
+    { value: 8, label: '8-bit', desc: 'Balanced size and quality', activeBg: 'bg-blue-500/10', activeBorder: 'border-blue-500/30' },
+    { value: 0, label: 'Full', desc: 'No quantization, original quality', activeBg: 'bg-purple-500/10', activeBorder: 'border-purple-500/30' },
 ]
 
 export function ModelExport() {
@@ -124,7 +124,7 @@ export function ModelExport() {
                                     onClick={() => setQBits(opt.value)}
                                     className={`flex flex-col items-center gap-1 px-4 py-3 rounded-lg border transition-all ${
                                         qBits === opt.value
-                                            ? `bg-${opt.color}-500/10 border-${opt.color}-500/30 text-white`
+                                            ? `${opt.activeBg} ${opt.activeBorder} text-white`
                                             : 'bg-black/20 border-white/5 text-gray-400 hover:bg-white/5'
                                     }`}
                                 >

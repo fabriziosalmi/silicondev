@@ -627,6 +627,11 @@ export function ChatInterface() {
                             collectedSources.push({ index: idx, title: r.text.slice(0, 80) + (r.text.length > 80 ? '...' : ''), method: r.method || 'rag' });
                             return `[${idx}] ${r.text}`;
                         }).join('\n---\n');
+                        // Record usage for adaptive boosting
+                        apiClient.rag.recordUsage(
+                            settings.ragCollectionId,
+                            ragResults.results.map(r => r.index)
+                        ).catch(() => {});
                     }
                 } catch {
                     // RAG query failed silently
@@ -825,10 +830,10 @@ export function ChatInterface() {
                 }
             }
         }
-        // Strip <think>...</think> blocks (some models emit them even for code tasks)
+        // Strip <think>/<talk> blocks (some models emit them even for code tasks)
         const cleaned = accumulated
-            .replace(/<think>[\s\S]*?<\/think>/g, '')
-            .replace(/<\/?think[^>]*>/g, '')
+            .replace(/<(?:think|talk)>[\s\S]*?<\/(?:think|talk)>/g, '')
+            .replace(/<\/?(?:think|talk)[^>]*>/g, '')
             .trim();
         // Extract code from markdown fence
         const fenceMatch = cleaned.match(/```[\w]*\n([\s\S]*?)```/);
@@ -1453,14 +1458,12 @@ Return exactly this JSON structure (no other text):
                                     let visibleContent = msg.content;
 
                                     if (msg.role === 'assistant') {
-                                        const closedMatch = msg.content.match(/<think>([\s\S]*?)<\/think>/);
+                                        const closedMatch = msg.content.match(/<(?:think|talk)>([\s\S]*?)<\/(?:think|talk)>/);
                                         if (closedMatch) {
-                                            // Thinking block is closed — separate thinking from content
                                             thinkingContent = closedMatch[1].trim();
-                                            visibleContent = msg.content.replace(/<think>[\s\S]*?<\/think>/, '').trim();
-                                        } else if (msg.content.startsWith('<think>')) {
-                                            // Still streaming thinking (no </think> yet)
-                                            thinkingContent = msg.content.slice(7).trim();
+                                            visibleContent = msg.content.replace(/<(?:think|talk)>[\s\S]*?<\/(?:think|talk)>/, '').trim();
+                                        } else if (msg.content.match(/^<(?:think|talk)>/)) {
+                                            thinkingContent = msg.content.replace(/^<(?:think|talk)>/, '').trim();
                                             visibleContent = '';
                                         }
                                     }

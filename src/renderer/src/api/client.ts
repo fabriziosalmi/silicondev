@@ -78,6 +78,14 @@ export interface RagCollection {
     model: string
 }
 
+export interface RagAnalytics {
+    total_queries: number
+    recent_queries: { query: string; timestamp: number; n_results: number }[]
+    total_chunk_hits: number
+    unique_chunks_used: number
+    top_chunks: { index: number; hits: number; last_used: number }[]
+}
+
 export interface AgentDefinition {
     id?: string
     name: string
@@ -457,13 +465,27 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to ingest files');
             return res.json();
         },
-        query: async (collectionId: string, query: string, nResults: number = 5): Promise<{ results: { text: string; score: number; index: number; method?: string }[] }> => {
+        query: async (collectionId: string, query: string, nResults: number = 5): Promise<{ results: { text: string; score: number; index: number; method?: string; boosted?: boolean }[] }> => {
             const res = await fetch(`${API_BASE}/api/rag/query`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ collection_id: collectionId, query, n_results: nResults })
             });
             await throwIfNotOk(res, 'Failed to query collection');
+            return res.json();
+        },
+        recordUsage: async (collectionId: string, chunkIndices: number[]): Promise<{ status: string }> => {
+            const res = await fetch(`${API_BASE}/api/rag/usage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ collection_id: collectionId, chunk_indices: chunkIndices })
+            });
+            await throwIfNotOk(res, 'Failed to record usage');
+            return res.json();
+        },
+        getAnalytics: async (collectionId: string): Promise<RagAnalytics> => {
+            const res = await fetch(`${API_BASE}/api/rag/analytics/${collectionId}`);
+            await throwIfNotOk(res, 'Failed to fetch analytics');
             return res.json();
         },
     },

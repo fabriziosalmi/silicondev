@@ -25,7 +25,7 @@ import { CodeWorkspace } from './components/CodeWorkspace/CodeWorkspace'
 import { Database, Cpu, MessageSquare, BarChart2, TestTube, Brain, Zap, Rocket, FileText, ChevronsLeft, ChevronsRight, Plus, ChevronDown, ChevronRight, Settings as SettingsIcon, Package, TerminalSquare, Code, BookOpen, Search } from 'lucide-react'
 
 function App() {
-  const [activeTab, setActiveTab] = useState('models')
+  const [activeTab, setActiveTab] = useState('chat')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true')
   const [historyExpanded, setHistoryExpanded] = useState(false)
   const [chatSearchOpen, setChatSearchOpen] = useState(false)
@@ -127,17 +127,105 @@ function App() {
   // Show loading screen while backend starts
   if (!backendReady) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[rgba(15,15,15,0.95)]">
-        <div className="flex flex-col items-center gap-6">
-          <div className="relative">
-            <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-          </div>
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0a0a0f] relative overflow-hidden">
+        {/* Subtle radial glow behind icon */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[60%] w-[500px] h-[500px] rounded-full bg-indigo-500/[0.04] blur-[100px] pointer-events-none" />
+
+        <div className="flex flex-col items-center gap-6 relative z-10">
+          {/* Animated chip icon */}
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" className="w-40 h-40 drop-shadow-[0_0_40px_rgba(99,102,241,0.2)]">
+            <defs>
+              <linearGradient id="s-bg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#1a1a2e"/>
+                <stop offset="100%" stopColor="#0f0f1a"/>
+              </linearGradient>
+              <linearGradient id="s-chip" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#3b82f6"/>
+                <stop offset="100%" stopColor="#6366f1"/>
+              </linearGradient>
+              <linearGradient id="s-trace" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#60a5fa"/>
+                <stop offset="100%" stopColor="#818cf8"/>
+              </linearGradient>
+              <linearGradient id="s-dot" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#93c5fd"/>
+                <stop offset="100%" stopColor="#a5b4fc"/>
+              </linearGradient>
+              <radialGradient id="s-glow" cx="512" cy="512" r="200" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#6366f1" stopOpacity="0.15"/>
+                <stop offset="100%" stopColor="#6366f1" stopOpacity="0"/>
+              </radialGradient>
+            </defs>
+            {/* Background */}
+            <rect width="1024" height="1024" rx="220" fill="url(#s-bg)"/>
+            {/* Inner glow */}
+            <circle cx="512" cy="512" r="200" fill="url(#s-glow)">
+              <animate attributeName="r" values="180;220;180" dur="3s" repeatCount="indefinite"/>
+            </circle>
+            {/* Chip body */}
+            <rect x="302" y="302" width="420" height="420" rx="48" fill="url(#s-chip)" opacity="0.12" stroke="url(#s-chip)" strokeWidth="5"/>
+            {/* Pins — top/bottom/left/right */}
+            {[390,460,530,600].map(x => <rect key={`t${x}`} x={x} y="222" width="16" height="96" rx="8" fill="url(#s-trace)" opacity="0.6"/>)}
+            {[390,460,530,600].map(x => <rect key={`b${x}`} x={x} y="706" width="16" height="96" rx="8" fill="url(#s-trace)" opacity="0.6"/>)}
+            {[390,460,530,600].map(y => <rect key={`l${y}`} x="222" y={y} width="96" height="16" rx="8" fill="url(#s-trace)" opacity="0.6"/>)}
+            {[390,460,530,600].map(y => <rect key={`r${y}`} x="706" y={y} width="96" height="16" rx="8" fill="url(#s-trace)" opacity="0.6"/>)}
+            {/* Grid traces */}
+            <line x1="380" y1="440" x2="644" y2="440" stroke="url(#s-trace)" strokeWidth="3" opacity="0.3"/>
+            <line x1="380" y1="512" x2="644" y2="512" stroke="url(#s-trace)" strokeWidth="3" opacity="0.3"/>
+            <line x1="380" y1="584" x2="644" y2="584" stroke="url(#s-trace)" strokeWidth="3" opacity="0.3"/>
+            <line x1="440" y1="380" x2="440" y2="644" stroke="url(#s-trace)" strokeWidth="3" opacity="0.3"/>
+            <line x1="512" y1="380" x2="512" y2="644" stroke="url(#s-trace)" strokeWidth="3" opacity="0.3"/>
+            <line x1="584" y1="380" x2="584" y2="644" stroke="url(#s-trace)" strokeWidth="3" opacity="0.3"/>
+            {/* Diagonal traces */}
+            <line x1="440" y1="440" x2="512" y2="512" stroke="url(#s-trace)" strokeWidth="2" opacity="0.2"/>
+            <line x1="584" y1="440" x2="512" y2="512" stroke="url(#s-trace)" strokeWidth="2" opacity="0.2"/>
+            <line x1="440" y1="584" x2="512" y2="512" stroke="url(#s-trace)" strokeWidth="2" opacity="0.2"/>
+            <line x1="584" y1="584" x2="512" y2="512" stroke="url(#s-trace)" strokeWidth="2" opacity="0.2"/>
+            {/* Animated dots — wave pulse from center outward */}
+            {[
+              { cx: 512, cy: 512, r: 14, delay: '0s' },
+              { cx: 440, cy: 512, r: 8, delay: '0.2s' },
+              { cx: 584, cy: 512, r: 8, delay: '0.2s' },
+              { cx: 512, cy: 440, r: 8, delay: '0.2s' },
+              { cx: 512, cy: 584, r: 8, delay: '0.2s' },
+              { cx: 440, cy: 440, r: 10, delay: '0.4s' },
+              { cx: 584, cy: 440, r: 10, delay: '0.4s' },
+              { cx: 440, cy: 584, r: 10, delay: '0.4s' },
+              { cx: 584, cy: 584, r: 10, delay: '0.4s' },
+              { cx: 380, cy: 512, r: 7, delay: '0.6s' },
+              { cx: 644, cy: 512, r: 7, delay: '0.6s' },
+              { cx: 380, cy: 440, r: 5, delay: '0.8s' },
+              { cx: 644, cy: 440, r: 5, delay: '0.8s' },
+              { cx: 380, cy: 584, r: 5, delay: '0.8s' },
+              { cx: 644, cy: 584, r: 5, delay: '0.8s' },
+            ].map((d, i) => (
+              <circle key={i} cx={d.cx} cy={d.cy} r={d.r} fill="url(#s-dot)">
+                <animate attributeName="opacity" values="0.15;1;0.15" dur="2s" begin={d.delay} repeatCount="indefinite"/>
+              </circle>
+            ))}
+            {/* Center bright core */}
+            <circle cx="512" cy="512" r="6" fill="white">
+              <animate attributeName="opacity" values="0.4;1;0.4" dur="1.5s" repeatCount="indefinite"/>
+              <animate attributeName="r" values="5;7;5" dur="1.5s" repeatCount="indefinite"/>
+            </circle>
+          </svg>
+
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-white mb-2">
-              SiliconDev
-            </h1>
-            <p className="text-sm text-gray-400">{loadingMessage}</p>
+            <h1 className="text-[26px] font-bold text-white tracking-tight mb-1">SiliconDev</h1>
+            <p className="text-[11px] text-gray-600 font-mono mb-5">v{__APP_VERSION__}</p>
+
+            {/* Loading indicator */}
+            <p className="text-[12px] text-gray-500 mb-3">{loadingMessage}</p>
+            <div className="w-48 h-[2px] rounded-full bg-white/5 overflow-hidden">
+              <div className="h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-indigo-400/60 to-transparent animate-shimmer" />
+            </div>
           </div>
+        </div>
+
+        {/* Footer credits — pinned to bottom */}
+        <div className="absolute bottom-6 left-0 right-0 text-center">
+          <p className="text-[10px] font-semibold text-gray-700/50">Made with ❤️ by Fabrizio Salmi</p>
+          <p className="text-[10px] font-semibold text-gray-700/50 mt-0.5">MIT License</p>
         </div>
       </div>
     );
@@ -174,13 +262,6 @@ function App() {
             <div>
               {!sidebarCollapsed && <div className="px-3 mb-2 text-[10px] font-bold tracking-wide text-gray-500 uppercase">Local Server</div>}
               <div className="space-y-1">
-                <SidebarItem
-                  label="Models"
-                  active={activeTab === 'models'}
-                  onClick={() => setActiveTab('models')}
-                  icon={<Database size={18} />}
-                  collapsed={sidebarCollapsed}
-                />
                 <div>
                   <SidebarItem
                     label="Chat"
@@ -241,6 +322,13 @@ function App() {
                     </div>
                   )}
                 </div>
+                <SidebarItem
+                  label="Models"
+                  active={activeTab === 'models'}
+                  onClick={() => setActiveTab('models')}
+                  icon={<Database size={18} />}
+                  collapsed={sidebarCollapsed}
+                />
                 <SidebarItem
                   label="Terminal"
                   active={activeTab === 'terminal'}

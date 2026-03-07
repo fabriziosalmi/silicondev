@@ -8,11 +8,11 @@ import type { FeedItem } from './types'
 // Strip XML tool/arg tags that may leak through the backend SSE stream.
 const TOOL_BLOCK_RE = /<tool\s+name="[^"]*">[\s\S]*?<\/tool>/g
 const STRAY_TAG_RE = /<\/?(?:tool|arg)\b[^>]*>/g
-// Strip <think>...</think> reasoning blocks from models like Qwen3
-const THINK_BLOCK_RE = /<think>[\s\S]*?<\/think>/g
-// Also strip incomplete think blocks (model stopped mid-think)
-const INCOMPLETE_THINK_RE = /<think>[\s\S]*$/g
-const STRAY_THINK_RE = /<\/?think[^>]*>/g
+// Strip <think>/<talk> reasoning blocks from models like Qwen3, SmolLM2
+const THINK_BLOCK_RE = /<(?:think|talk)>[\s\S]*?<\/(?:think|talk)>/g
+// Also strip incomplete think/talk blocks (model stopped mid-block)
+const INCOMPLETE_THINK_RE = /<(?:think|talk)>[\s\S]*$/g
+const STRAY_THINK_RE = /<\/?(?:think|talk)[^>]*>/g
 
 function stripModelTags(text: string): string {
   return text

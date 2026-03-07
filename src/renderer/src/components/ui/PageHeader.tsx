@@ -3,10 +3,7 @@ import React from 'react';
 export function PageHeader({
     children,
 }: {
-    title?: string;
-    description?: string;
     children?: React.ReactNode;
-    badge?: string;
 }) {
     if (!children) return null;
     return (

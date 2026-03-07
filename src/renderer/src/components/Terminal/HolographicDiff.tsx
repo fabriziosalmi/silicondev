@@ -150,7 +150,7 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
 
       {/* Diff view — collapsed after decision, clickable header to re-expand */}
       {expanded && (
-        <div className="overflow-x-auto max-h-80">
+        <div className="overflow-x-auto max-h-[60vh]">
           <pre className="text-[12px] leading-5 font-mono p-0 m-0 select-text">
             {diffLines.map((line, i) => {
               let bg = ''

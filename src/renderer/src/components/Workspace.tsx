@@ -223,10 +223,10 @@ export function Workspace() {
                 }
             }
 
-            // Strip <think>...</think> reasoning blocks that some models emit
+            // Strip <think>/<talk> reasoning blocks that some models emit
             const cleaned = generated
-                .replace(/<think>[\s\S]*?<\/think>/g, '')
-                .replace(/<\/?think[^>]*>/g, '')
+                .replace(/<(?:think|talk)>[\s\S]*?<\/(?:think|talk)>/g, '')
+                .replace(/<\/?(?:think|talk)[^>]*>/g, '')
                 .trim()
 
             if (cleaned) {
