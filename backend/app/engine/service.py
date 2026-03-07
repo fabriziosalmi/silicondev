@@ -780,7 +780,6 @@ class MLXEngineService:
                 repetition_penalty = kwargs.get("repetition_penalty", 1.1)
                 seed = kwargs.get("seed")
                 if seed is not None:
-                    import mlx.core as mx
                     mx.random.seed(int(seed))
 
                 # Reset Stop Event
@@ -1143,7 +1142,6 @@ class MLXEngineService:
             lora_layers = int(config.get("lora_layers", 8))
             seed = config.get("seed")
             if seed is not None:
-                import mlx.core as mx
                 mx.random.seed(int(seed))
 
             # Safety clamp: limit max_seq_length based on available unified memory
