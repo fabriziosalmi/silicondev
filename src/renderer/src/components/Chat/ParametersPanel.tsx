@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { BookOpen } from 'lucide-react'
 import { ParameterSlider } from './ParameterSlider'
 import { ToggleSwitch } from '../ui/ToggleSwitch'
+import { PromptLibraryPanel } from './PromptLibraryPanel'
 
 export interface ChatSettings {
     systemPrompt: string
@@ -35,7 +38,9 @@ export function ParametersPanel({
     settings, setSettings, maxContextWindow, ragCollections, fetchRagCollections
 }: ParametersPanelProps) {
     const { t } = useTranslation()
+    const [showLibrary, setShowLibrary] = useState(false)
     return (
+        <>
         <div className="shrink-0 mx-3 mb-2 rounded-xl border border-white/5 bg-black/20 transition-all">
             <div className="max-w-4xl mx-auto px-6 py-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-5">
@@ -134,7 +139,18 @@ export function ParametersPanel({
                         </div>
 
                         <div className="pt-2">
-                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.systemPrompt')}</div>
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase">{t('params.systemPrompt')}</div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowLibrary(true)}
+                                    title="Prompt Library"
+                                    className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-400 transition-colors"
+                                >
+                                    <BookOpen size={11} />
+                                    Library
+                                </button>
+                            </div>
                             <textarea
                                 value={settings.systemPrompt}
                                 onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
@@ -262,5 +278,12 @@ export function ParametersPanel({
                 </div>
             </div>
         </div>
+        {showLibrary && (
+            <PromptLibraryPanel
+                onSelect={(prompt) => setSettings({ ...settings, systemPrompt: prompt })}
+                onClose={() => setShowLibrary(false)}
+            />
+        )}
+        </>
     )
 }
