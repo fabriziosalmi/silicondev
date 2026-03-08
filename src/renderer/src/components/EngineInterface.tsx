@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { apiClient } from '../api/client'
 import type { ModelEntry, JobStatus, ModelFormatInfo } from '../api/client'
 import { useGlobalState } from '../context/GlobalState'
@@ -15,6 +16,7 @@ const PRESETS = {
 };
 
 export function EngineInterface() {
+    const { t } = useTranslation()
     const { setIsTraining } = useGlobalState()
     const { toast } = useToast()
     const [models, setModels] = useState<ModelEntry[]>([])
@@ -208,7 +210,7 @@ export function EngineInterface() {
 
                                 {/* Base Model */}
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Base Foundation Model</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">{t('engine.selectModel')}</label>
                                     <select
                                         title="Base Foundation Model"
                                         className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 appearance-none"
@@ -240,7 +242,7 @@ export function EngineInterface() {
 
                                 {/* Dataset Path */}
                                 <div className="space-y-3">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Dataset Selection (.jsonl)</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">{t('engine.dataset')}</label>
                                     <div className="flex gap-2">
                                         <div className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[13px] text-blue-100/70 truncate flex items-center gap-2">
                                             <FileText className="w-4 h-4 text-blue-400" />
@@ -280,17 +282,17 @@ export function EngineInterface() {
 
                                     <div className="grid grid-cols-4 gap-3">
                                         <div className="space-y-1">
-                                            <label className="text-[10px] text-gray-500 uppercase" title="Number of full passes through the dataset">Epochs</label>
+                                            <label className="text-[10px] text-gray-500 uppercase" title="Number of full passes through the dataset">{t('engine.epochs')}</label>
                                             <input type="number" title="Epochs" value={epochs} onChange={e => { setEpochs(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
                                             <p className="text-[9px] text-gray-500 leading-tight">Full passes over dataset</p>
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] text-gray-500 uppercase" title="Samples processed per training step">Batch Size</label>
+                                            <label className="text-[10px] text-gray-500 uppercase" title="Samples processed per training step">{t('engine.batchSize')}</label>
                                             <input type="number" title="Batch Size" value={batchSize} onChange={e => { setBatchSize(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
                                             <p className="text-[9px] text-gray-500 leading-tight">Samples per step</p>
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] text-gray-500 uppercase" title="How fast the model adapts — lower is safer but slower">Learn Rate</label>
+                                            <label className="text-[10px] text-gray-500 uppercase" title="How fast the model adapts — lower is safer but slower">{t('engine.learningRate')}</label>
                                             <input type="number" title="Learning Rate" step="0.00001" value={learningRate} onChange={e => { setLearningRate(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
                                             <p className="text-[9px] text-gray-500 leading-tight">Lower = safer, slower</p>
                                         </div>
@@ -344,7 +346,7 @@ export function EngineInterface() {
                                     ) : (
                                         <Play className="w-4 h-4 fill-current" />
                                     )}
-                                    {jobStatus?.status === 'training' ? 'Training in Progress...' : 'Start Training Job'}
+                                    {jobStatus?.status === 'training' ? t('engine.training') + '...' : t('engine.startTraining')}
                                 </button>
                             </div>
                         </Card>
@@ -390,7 +392,7 @@ export function EngineInterface() {
 
                                 {jobStatus.status === 'completed' && (
                                     <div className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-3">
-                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">Post-Training Actions</div>
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">{t('engine.completed')}</div>
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => handleExport(4)}
@@ -415,7 +417,7 @@ export function EngineInterface() {
                         ) : (
                             <div className="bg-black/20 border border-white/10 border-dashed rounded-xl p-6 text-center shrink-0">
                                 <ShieldAlert className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                                <h4 className="text-gray-400 font-medium">No Active Jobs</h4>
+                                <h4 className="text-gray-400 font-medium">{t('engine.idle')}</h4>
                                 <p className="text-gray-500 text-sm">Configure your parameters and start a job to view live telemetry.</p>
                             </div>
                         )}
@@ -425,7 +427,7 @@ export function EngineInterface() {
                             <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between z-10">
                                 <div className="flex items-center gap-2">
                                     <Activity className="w-5 h-5 text-blue-400" />
-                                    <h3 className="font-bold">Real-time Training Loss</h3>
+                                    <h3 className="font-bold">{t('engine.loss')}</h3>
                                 </div>
                                 <div className="text-xs flex gap-4 text-gray-500 items-center">
                                     <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500" /> Validation Loss</span>

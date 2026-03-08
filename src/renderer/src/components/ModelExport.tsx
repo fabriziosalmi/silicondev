@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { apiClient, cleanModelName } from '../api/client'
 import type { ModelEntry } from '../api/client'
 import { Card } from './ui/Card'
@@ -13,6 +14,7 @@ const PRECISION_OPTIONS: { value: Precision; label: string; desc: string; active
 ]
 
 export function ModelExport() {
+    const { t } = useTranslation()
     const [adapters, setAdapters] = useState<ModelEntry[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedId, setSelectedId] = useState('')
@@ -72,7 +74,7 @@ export function ModelExport() {
         <div className="max-w-3xl mx-auto space-y-6">
             <div className="flex items-center gap-3">
                 <Package size={20} className="text-blue-400" />
-                <h2 className="text-lg font-bold text-white">Model Export</h2>
+                <h2 className="text-lg font-bold text-white">{t('export.title')}</h2>
             </div>
 
             {loading ? (
@@ -89,7 +91,7 @@ export function ModelExport() {
                 <>
                     {/* Model Selection */}
                     <Card className="p-5">
-                        <label className="text-xs font-bold text-gray-500 uppercase mb-3 block">Select Model</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase mb-3 block">{t('export.selectModel')}</label>
                         <div className="space-y-2">
                             {adapters.map(adapter => (
                                 <button
@@ -116,7 +118,7 @@ export function ModelExport() {
 
                     {/* Precision Selection */}
                     <Card className="p-5">
-                        <label className="text-xs font-bold text-gray-500 uppercase mb-3 block">Precision</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase mb-3 block">{t('export.quantization')}</label>
                         <div className="grid grid-cols-3 gap-3">
                             {PRECISION_OPTIONS.map(opt => (
                                 <button
@@ -156,9 +158,9 @@ export function ModelExport() {
                                 className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {exporting ? (
-                                    <><Loader2 size={16} className="animate-spin" /> Exporting...</>
+                                    <><Loader2 size={16} className="animate-spin" /> {t('export.exporting')}</>
                                 ) : (
-                                    <><Download size={16} /> Export</>
+                                    <><Download size={16} /> {t('export.export')}</>
                                 )}
                             </button>
                         </div>

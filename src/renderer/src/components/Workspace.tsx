@@ -1,16 +1,21 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PageHeader } from './ui/PageHeader'
 import { useToast } from './ui/Toast'
-import { Wand2, Copy, Loader2, Download, Upload, FileText, Table, List, Expand, ListTree, Send, Printer } from 'lucide-react'
+import { Wand2, Copy, Loader2, Download, Upload, FileText, Table, List, Expand, ListTree, Send, Printer, Sparkles, Plus, Save, Sheet, Bold, Italic, Strikethrough, Code, Heading1, Heading2, Link, ListOrdered, Quote, Eye, EyeOff, Minus, ChevronDown } from 'lucide-react'
 import { SimpleMdeReact } from "react-simplemde-editor";
+import type EasyMDE from "easymde";
 import "easymde/dist/easymde.min.css";
 import { useGlobalState } from '../context/GlobalState'
 import { useNotes } from '../context/NotesContext'
 import { apiClient, cleanModelName } from '../api/client'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 const LEGACY_STORAGE_KEY = 'silicon-studio-notes';
 
 export function Workspace() {
+    const { t } = useTranslation()
     const { toast } = useToast()
     const { activeModel, setPendingChatInput } = useGlobalState()
     const { activeNoteId, setActiveNoteId, fetchNotes } = useNotes()
@@ -21,8 +26,57 @@ export function Workspace() {
     const [documentBody, setDocumentBody] = useState('')
     const [isGenerating, setIsGenerating] = useState(false)
     const [noteLoaded, setNoteLoaded] = useState(false)
+    const [showPreview, setShowPreview] = useState(false)
+    const [splitPercent, setSplitPercent] = useState(50)
+    const [showExportMenu, setShowExportMenu] = useState(false)
+    const isDraggingRef = useRef(false)
+    const splitContainerRef = useRef<HTMLDivElement>(null)
+    const exportMenuRef = useRef<HTMLDivElement>(null)
     const creatingNoteRef = useRef(false)
     const lastSavedContentRef = useRef<string>('')
+    const mdeRef = useRef<EasyMDE | null>(null)
+
+    const getMdeInstance = useCallback((instance: EasyMDE) => {
+        mdeRef.current = instance
+    }, [])
+
+    // Close export menu on outside click
+    useEffect(() => {
+        if (!showExportMenu) return
+        const handler = (e: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+                setShowExportMenu(false)
+            }
+        }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [showExportMenu])
+
+    // Insert markdown formatting around selection or at cursor
+    const insertFormat = useCallback((prefix: string, suffix?: string, block?: boolean) => {
+        const cm = mdeRef.current?.codemirror
+        if (!cm) return
+        const suf = suffix ?? prefix
+        const sel = cm.getSelection()
+        if (block) {
+            // Line-level: prepend to each selected line or current line
+            if (sel) {
+                const lines = sel.split('\n').map(l => `${prefix}${l}`)
+                cm.replaceSelection(lines.join('\n'))
+            } else {
+                const cursor = cm.getCursor()
+                const line = cm.getLine(cursor.line)
+                cm.replaceRange(`${prefix}${line}`, { line: cursor.line, ch: 0 }, { line: cursor.line, ch: line.length })
+            }
+        } else if (sel) {
+            cm.replaceSelection(`${prefix}${sel}${suf}`)
+        } else {
+            const cursor = cm.getCursor()
+            cm.replaceRange(`${prefix}${suf}`, cursor)
+            cm.setCursor({ line: cursor.line, ch: cursor.ch + prefix.length })
+        }
+        cm.focus()
+    }, [])
 
     // Load note when activeNoteId changes
     useEffect(() => {
@@ -160,6 +214,84 @@ export function Workspace() {
         e.target.value = ''
     }
 
+    // Force-save immediately (flush debounce)
+    const handleSave = useCallback(async () => {
+        if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = null;
+        }
+        if (activeNoteId) {
+            try {
+                await apiClient.notes.update(activeNoteId, { content: documentBody });
+                toast('Saved', 'success');
+            } catch {
+                toast('Save failed', 'error');
+            }
+        } else if (documentBody.trim() && !creatingNoteRef.current) {
+            creatingNoteRef.current = true;
+            try {
+                const title = documentBody.split('\n')[0].replace(/^#+\s*/, '').slice(0, 60) || 'Untitled';
+                const note = await apiClient.notes.create(title, documentBody);
+                skipLoadRef.current = true;
+                setActiveNoteId(note.id);
+                fetchNotes();
+                toast('Saved', 'success');
+            } catch {
+                toast('Save failed', 'error');
+            } finally {
+                creatingNoteRef.current = false;
+            }
+        }
+    }, [activeNoteId, documentBody, setActiveNoteId, fetchNotes, toast]);
+
+    // Keyboard shortcuts (Ctrl/Cmd + B, I, S, Shift+P for preview)
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            const mod = e.metaKey || e.ctrlKey
+            if (!mod) return
+            switch (e.key.toLowerCase()) {
+                case 'b':
+                    e.preventDefault()
+                    insertFormat('**')
+                    break
+                case 'i':
+                    e.preventDefault()
+                    insertFormat('_')
+                    break
+                case 's':
+                    e.preventDefault()
+                    handleSave()
+                    break
+                case 'p':
+                    if (e.shiftKey) {
+                        e.preventDefault()
+                        setShowPreview(p => !p)
+                    }
+                    break
+            }
+        }
+        document.addEventListener('keydown', handler)
+        return () => document.removeEventListener('keydown', handler)
+    }, [insertFormat, handleSave])
+
+    // Export as Excel XML (.xlsx)
+    const handleExportXlsx = () => {
+        const lines = documentBody.split('\n');
+        const xmlRows = lines.map(line => {
+            const escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `<Row><Cell><Data ss:Type="String">${escaped}</Data></Cell></Row>`;
+        }).join('\n');
+        const xml = `<?xml version="1.0"?>\n<?mso-application progid="Excel.Sheet"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n<Worksheet ss:Name="Note"><ss:Table>\n${xmlRows}\n</ss:Table></Worksheet>\n</Workbook>`;
+        const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const titleSlug = (documentBody.split('\n')[0]?.replace(/^#+\s*/, '').trim() || 'note').slice(0, 40).replace(/[^a-zA-Z0-9]+/g, '-').replace(/-+$/, '');
+        a.download = `${titleSlug}.xls`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
     // Send selection or full content to chat
     const handleSendToChat = () => {
         const text = documentBody.trim();
@@ -248,6 +380,31 @@ export function Workspace() {
         <div className="h-full flex flex-col text-white overflow-hidden pb-4">
             <PageHeader>
                 <div className="flex items-center gap-2">
+                    {/* New Note */}
+                    <button
+                        type="button"
+                        onClick={handleNewNote}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/5 font-medium"
+                        title="New note"
+                    >
+                        <Plus className="w-3.5 h-3.5" />
+                        {t('notes.new')}
+                    </button>
+
+                    {/* Save */}
+                    <button
+                        type="button"
+                        onClick={handleSave}
+                        disabled={!documentBody.trim()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Save (Ctrl+S)"
+                    >
+                        <Save className="w-3.5 h-3.5" />
+                        {t('common.save')}
+                    </button>
+
+                    <div className="w-px h-5 bg-white/10 mx-1" />
+
                     {/* Import */}
                     <input
                         ref={fileInputRef}
@@ -264,151 +421,148 @@ export function Workspace() {
                         title="Import file"
                     >
                         <Upload className="w-3.5 h-3.5" />
-                        Import
+                        {t('workspace.files')}
                     </button>
 
-                    {/* Export */}
-                    <button
-                        type="button"
-                        onClick={() => handleExport('md')}
-                        disabled={!documentBody.trim()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Export as Markdown"
-                    >
-                        <Download className="w-3.5 h-3.5" />
-                        .md
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleExport('txt')}
-                        disabled={!documentBody.trim()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Export as plain text"
-                    >
-                        <FileText className="w-3.5 h-3.5" />
-                        .txt
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleExportPdf}
-                        disabled={!documentBody.trim()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Export as PDF (via print)"
-                    >
-                        <Printer className="w-3.5 h-3.5" />
-                        PDF
-                    </button>
-
-                    <div className="w-px h-5 bg-white/10 mx-1" />
-
-                    <button
-                        type="button"
-                        onClick={handleNewNote}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-                        title="New note"
-                    >
-                        New Note
-                    </button>
+                    {/* Export dropdown */}
+                    <div className="relative" ref={exportMenuRef}>
+                        <button
+                            type="button"
+                            onClick={() => setShowExportMenu(p => !p)}
+                            disabled={!documentBody.trim()}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Export"
+                        >
+                            <Download className="w-3.5 h-3.5" />
+                            Export
+                            <ChevronDown className="w-3 h-3" />
+                        </button>
+                        {showExportMenu && (
+                            <div className="absolute top-full left-0 mt-1 bg-[#1a1a1e] border border-white/10 rounded-lg shadow-xl py-1 z-50 min-w-[140px]">
+                                <button type="button" onClick={() => { handleExport('md'); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
+                                    <Download size={12} /> Markdown (.md)
+                                </button>
+                                <button type="button" onClick={() => { handleExport('txt'); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
+                                    <FileText size={12} /> Plain text (.txt)
+                                </button>
+                                <button type="button" onClick={() => { handleExportXlsx(); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
+                                    <Sheet size={12} /> Excel (.xls)
+                                </button>
+                                <button type="button" onClick={() => { handleExportPdf(); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
+                                    <Printer size={12} /> PDF (print)
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </PageHeader>
 
-            <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
-                {/* Editor Area */}
+                {/* Full-width editor */}
                 <div className="flex-1 bg-[#18181B] border border-white/10 rounded-xl overflow-hidden flex flex-col">
 
                     {/* Status bar */}
-                    <div className="h-9 border-b border-white/5 bg-white/[0.02] flex items-center px-4 justify-between shrink-0">
-                        <span className="text-[10px] text-gray-500 font-mono tabular-nums">{documentBody.length} chars</span>
-                        {activeModel && (
-                            <span className="text-[10px] text-gray-500 font-mono flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                {cleanModelName(activeModel.name)}
-                            </span>
+                    <div className="h-8 border-b border-white/5 bg-white/[0.02] flex items-center px-4 justify-between shrink-0">
+                        <div className="flex items-center gap-3 text-[10px] text-gray-500 font-mono tabular-nums">
+                            <span>{documentBody.length} chars</span>
+                            <span>{documentBody.trim() ? documentBody.trim().split(/\s+/).length : 0} words</span>
+                            <span>{documentBody.split('\n').length} lines</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] text-gray-500 font-mono">
+                            {activeModel && (
+                                <span className="flex items-center gap-1.5">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                    {cleanModelName(activeModel.name)}
+                                </span>
+                            )}
+                            <span className="text-gray-600">Ctrl+B bold · Ctrl+I italic · Ctrl+S save</span>
+                        </div>
+                    </div>
+
+                    {/* Formatting + AI toolbar */}
+                    <div className="border-b border-white/5 bg-white/[0.01] px-3 py-1.5 flex items-center gap-1 overflow-x-auto shrink-0">
+                        {/* Markdown formatting */}
+                        <ToolbarIcon icon={<Bold size={13} />} title="Bold" onClick={() => insertFormat('**')} />
+                        <ToolbarIcon icon={<Italic size={13} />} title="Italic" onClick={() => insertFormat('_')} />
+                        <ToolbarIcon icon={<Strikethrough size={13} />} title="Strikethrough" onClick={() => insertFormat('~~')} />
+                        <ToolbarIcon icon={<Code size={13} />} title="Inline code" onClick={() => insertFormat('`')} />
+                        <div className="w-px h-4 bg-white/[0.06] mx-0.5 shrink-0" />
+                        <ToolbarIcon icon={<Heading1 size={13} />} title="Heading 1" onClick={() => insertFormat('# ', '', true)} />
+                        <ToolbarIcon icon={<Heading2 size={13} />} title="Heading 2" onClick={() => insertFormat('## ', '', true)} />
+                        <ToolbarIcon icon={<Quote size={13} />} title="Blockquote" onClick={() => insertFormat('> ', '', true)} />
+                        <ToolbarIcon icon={<List size={13} />} title="Bullet list" onClick={() => insertFormat('- ', '', true)} />
+                        <ToolbarIcon icon={<ListOrdered size={13} />} title="Numbered list" onClick={() => insertFormat('1. ', '', true)} />
+                        <ToolbarIcon icon={<Minus size={13} />} title="Horizontal rule" onClick={() => insertFormat('\n---\n', '', false)} />
+                        <ToolbarIcon icon={<Link size={13} />} title="Link" onClick={() => insertFormat('[', '](url)')} />
+                        <div className="w-px h-4 bg-white/[0.06] mx-0.5 shrink-0" />
+                        <ToolbarIcon
+                            icon={showPreview ? <EyeOff size={13} /> : <Eye size={13} />}
+                            title={showPreview ? 'Hide preview' : 'Show preview'}
+                            onClick={() => setShowPreview(p => !p)}
+                            active={showPreview}
+                        />
+
+                        {/* Spacer */}
+                        <div className="flex-1" />
+
+                        {/* AI commands */}
+                        <div className="flex items-center gap-1 text-[10px] text-gray-500 mr-1 shrink-0">
+                            <Sparkles size={11} className="text-gray-600" />
+                            <span className="font-medium uppercase tracking-wider">AI</span>
+                        </div>
+                        <ToolbarBtn icon={<Wand2 size={12} />} label="Continue" onClick={() => handleAiCommand('continue')} disabled={isGenerating || !activeModel} loading={isGenerating} />
+                        <ToolbarBtn icon={<Copy size={12} />} label="Summarize" onClick={() => handleAiCommand('summarize')} disabled={isGenerating || !activeModel || !documentBody.trim()} />
+                        <ToolbarBtn icon={<FileText size={12} />} label="Draft Intro" onClick={() => handleAiCommand('draft')} disabled={isGenerating || !activeModel} />
+                        <div className="w-px h-4 bg-white/[0.06] mx-0.5 shrink-0" />
+                        <ToolbarBtn icon={<Table size={12} />} label="To Table" onClick={() => handleAiCommand('toTable')} disabled={isGenerating || !activeModel || !documentBody.trim()} />
+                        <ToolbarBtn icon={<List size={12} />} label="Key Points" onClick={() => handleAiCommand('keyPoints')} disabled={isGenerating || !activeModel || !documentBody.trim()} />
+                        <ToolbarBtn icon={<Expand size={12} />} label="Expand" onClick={() => handleAiCommand('expand')} disabled={isGenerating || !activeModel || !documentBody.trim()} />
+                        <ToolbarBtn icon={<ListTree size={12} />} label="Outline" onClick={() => handleAiCommand('outline')} disabled={isGenerating || !activeModel || !documentBody.trim()} />
+                        <div className="w-px h-4 bg-white/[0.06] mx-0.5 shrink-0" />
+                        <ToolbarBtn icon={<Send size={12} />} label="Send to Chat" onClick={handleSendToChat} disabled={!documentBody.trim()} />
+                    </div>
+
+                    <div
+                        ref={splitContainerRef}
+                        className={`flex-1 overflow-hidden flex ${showPreview ? 'flex-row' : 'flex-col'}`}
+                        onMouseMove={(e) => {
+                            if (!isDraggingRef.current || !splitContainerRef.current) return
+                            const rect = splitContainerRef.current.getBoundingClientRect()
+                            const pct = ((e.clientX - rect.left) / rect.width) * 100
+                            setSplitPercent(Math.min(80, Math.max(20, pct)))
+                        }}
+                        onMouseUp={() => { isDraggingRef.current = false }}
+                        onMouseLeave={() => { isDraggingRef.current = false }}
+                    >
+                        <div
+                            className={`${showPreview ? '' : 'flex-1'} overflow-y-auto editor-container`}
+                            style={showPreview ? { width: `${splitPercent}%` } : undefined}
+                        >
+                            <SimpleMdeReact
+                                value={documentBody}
+                                onChange={handleChange}
+                                options={editorOptions}
+                                getMdeInstance={getMdeInstance}
+                            />
+                        </div>
+                        {showPreview && (
+                            <>
+                                <div
+                                    className="w-1 shrink-0 cursor-col-resize bg-white/[0.04] hover:bg-blue-500/30 active:bg-blue-500/40 transition-colors relative group"
+                                    onMouseDown={(e) => { e.preventDefault(); isDraggingRef.current = true }}
+                                >
+                                    <div className="absolute inset-y-0 -left-1 -right-1" />
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-8 bg-white/20 rounded-full group-hover:bg-blue-400/60 transition-colors" />
+                                </div>
+                                <div
+                                    className="overflow-y-auto p-6 prose prose-invert prose-sm max-w-none select-text"
+                                    style={{ width: `${100 - splitPercent}%` }}
+                                >
+                                    <MarkdownPreview content={documentBody} />
+                                </div>
+                            </>
                         )}
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto editor-container">
-                        <SimpleMdeReact
-                            value={documentBody}
-                            onChange={handleChange}
-                            options={editorOptions}
-                        />
-                    </div>
-                </div>
-
-                {/* AI Commands sidebar */}
-                <div className="w-64 flex flex-col gap-3 shrink-0">
-                    <div className="bg-[#18181B] border border-white/10 rounded-xl p-4 flex flex-col gap-2.5">
-                        <h3 className="text-xs font-medium text-gray-500 mb-1">AI Commands</h3>
-                        <p className="text-[10px] text-gray-600 mb-1">
-                            {activeModel ? `Using ${cleanModelName(activeModel.name)}` : 'Load a model to enable'}
-                        </p>
-                        <AiButton
-                            label="Continue Writing"
-                            description="AI continues the document"
-                            icon={<Wand2 className="w-4 h-4 text-gray-400 shrink-0" />}
-                            onClick={() => handleAiCommand('continue')}
-                            disabled={isGenerating || !activeModel}
-                            loading={isGenerating}
-                        />
-                        <AiButton
-                            label="Summarize"
-                            description="Generate a TL;DR"
-                            icon={<Copy className="w-4 h-4 text-gray-400 shrink-0" />}
-                            onClick={() => handleAiCommand('summarize')}
-                            disabled={isGenerating || !activeModel}
-                        />
-                        <AiButton
-                            label="Draft Introduction"
-                            description="Generate a new section"
-                            icon={<FileText className="w-4 h-4 text-gray-400 shrink-0" />}
-                            onClick={() => handleAiCommand('draft')}
-                            disabled={isGenerating || !activeModel}
-                        />
-                    </div>
-
-                    <div className="bg-[#18181B] border border-white/10 rounded-xl p-4 flex flex-col gap-2.5">
-                        <h3 className="text-xs font-medium text-gray-500 mb-1">Transform</h3>
-                        <AiButton
-                            label="To Table"
-                            description="Restructure as markdown table"
-                            icon={<Table className="w-4 h-4 text-gray-400 shrink-0" />}
-                            onClick={() => handleAiCommand('toTable')}
-                            disabled={isGenerating || !activeModel || !documentBody.trim()}
-                        />
-                        <AiButton
-                            label="Key Points"
-                            description="Extract bullet-point summary"
-                            icon={<List className="w-4 h-4 text-gray-400 shrink-0" />}
-                            onClick={() => handleAiCommand('keyPoints')}
-                            disabled={isGenerating || !activeModel || !documentBody.trim()}
-                        />
-                        <AiButton
-                            label="Expand Section"
-                            description="Expand last paragraph"
-                            icon={<Expand className="w-4 h-4 text-gray-400 shrink-0" />}
-                            onClick={() => handleAiCommand('expand')}
-                            disabled={isGenerating || !activeModel || !documentBody.trim()}
-                        />
-                        <AiButton
-                            label="Generate Outline"
-                            description="Structured outline from content"
-                            icon={<ListTree className="w-4 h-4 text-gray-400 shrink-0" />}
-                            onClick={() => handleAiCommand('outline')}
-                            disabled={isGenerating || !activeModel || !documentBody.trim()}
-                        />
-                    </div>
-
-                    <div className="bg-[#18181B] border border-white/10 rounded-xl p-4 flex flex-col gap-2.5">
-                        <h3 className="text-xs font-medium text-gray-500 mb-1">Actions</h3>
-                        <AiButton
-                            label="Send to Chat"
-                            description="Use note content as chat input"
-                            icon={<Send className="w-4 h-4 text-gray-400 shrink-0" />}
-                            onClick={handleSendToChat}
-                            disabled={!documentBody.trim()}
-                        />
                     </div>
                 </div>
             </div>
@@ -416,10 +570,9 @@ export function Workspace() {
     )
 }
 
-function AiButton({ label, description, icon, onClick, disabled, loading }: {
-    label: string
-    description: string
+function ToolbarBtn({ icon, label, onClick, disabled, loading }: {
     icon: React.ReactNode
+    label: string
     onClick: () => void
     disabled: boolean
     loading?: boolean
@@ -429,14 +582,42 @@ function AiButton({ label, description, icon, onClick, disabled, loading }: {
             type="button"
             onClick={onClick}
             disabled={disabled}
-            className="w-full flex items-center gap-3 px-3 py-2.5 bg-black/30 hover:bg-white/5 border border-white/5 rounded-lg transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+            className="group/tb flex items-center gap-0 hover:gap-1.5 w-7 hover:w-auto px-0 hover:px-2 py-1 rounded-md text-[11px] text-gray-400 hover:text-white hover:bg-white/[0.06] transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap shrink-0 justify-center hover:justify-start"
+            title={label}
+        >
+            <span className="shrink-0">{loading ? <Loader2 size={12} className="animate-spin" /> : icon}</span>
+            <span className="max-w-0 overflow-hidden group-hover/tb:max-w-[120px] transition-all duration-150">{label}</span>
+        </button>
+    )
+}
+
+function ToolbarIcon({ icon, title, onClick, active }: {
+    icon: React.ReactNode
+    title: string
+    onClick: () => void
+    active?: boolean
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors shrink-0 ${
+                active ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white hover:bg-white/[0.06]'
+            }`}
+            title={title}
         >
             {icon}
-            <div className="min-w-0 flex-1">
-                <div className="text-xs font-medium text-gray-200">{label}</div>
-                <div className="text-[10px] text-gray-600">{description}</div>
-            </div>
-            {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500" />}
         </button>
+    )
+}
+
+function MarkdownPreview({ content }: { content: string }) {
+    if (!content.trim()) {
+        return <p className="text-gray-600 italic">Nothing to preview yet.</p>
+    }
+    return (
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {content}
+        </ReactMarkdown>
     )
 }

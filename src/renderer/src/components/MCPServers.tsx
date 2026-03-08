@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PageHeader } from './ui/PageHeader'
 import { Card } from './ui/Card'
 import { Server, Plus, Trash2, Play, ChevronDown, ChevronRight, Search, ExternalLink } from 'lucide-react'
@@ -30,6 +31,7 @@ const POPULAR_SERVERS = [
 ]
 
 export function MCPServers() {
+    const { t } = useTranslation()
     const [servers, setServers] = useState<MCPServer[]>([])
     const [loading, setLoading] = useState(true)
     const [showAdd, setShowAdd] = useState(false)
@@ -152,7 +154,7 @@ export function MCPServers() {
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition-colors"
                     >
                         <Plus className="w-4 h-4" />
-                        Add Server
+                        {t('mcp.addServer')}
                     </button>
                 </div>
             </PageHeader>
@@ -164,7 +166,7 @@ export function MCPServers() {
                         <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-4">Custom Server</h3>
                         <div className="grid grid-cols-3 gap-3 mb-3">
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Name</label>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase">{t('mcp.serverName')}</label>
                                 <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="my-server"
                                     className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500" />
                             </div>
@@ -180,7 +182,7 @@ export function MCPServers() {
                             </div>
                         </div>
                         <div className="flex justify-end gap-2">
-                            <button onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors">Cancel</button>
+                            <button onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors">{t('common.cancel')}</button>
                             <button onClick={handleAdd} disabled={adding || !newName.trim() || !newCommand.trim()}
                                 className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                                 {adding ? 'Adding...' : 'Add'}
@@ -192,7 +194,7 @@ export function MCPServers() {
                 {/* Connected Servers */}
                 <div>
                     <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-3 px-1">
-                        Connected Servers
+                        {t('mcp.connected')}
                         <span className="ml-2 text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-bold">{servers.length}</span>
                     </h3>
                     {loading ? (
@@ -202,7 +204,7 @@ export function MCPServers() {
                     ) : servers.length === 0 ? (
                         <Card className="p-8 text-center bg-black/20 border-white/5">
                             <Server className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                            <p className="text-sm text-gray-500">No servers connected. Add one above or pick from the catalog below.</p>
+                            <p className="text-sm text-gray-500">{t('mcp.noServers')}</p>
                         </Card>
                     ) : (
                         <div className="space-y-2">
@@ -222,7 +224,7 @@ export function MCPServers() {
                                         <div className="flex items-center gap-1">
                                             {serverTools[s.id] && (
                                                 <span className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full font-bold mr-2">
-                                                    {serverTools[s.id].length} tools
+                                                    {serverTools[s.id].length} {t('mcp.tools').toLowerCase()}
                                                 </span>
                                             )}
                                             <button onClick={() => handleToggleTools(s.id)} disabled={testing === s.id}

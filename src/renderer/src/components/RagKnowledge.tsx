@@ -1,4 +1,5 @@
 import { useState, useEffect, Fragment } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PageHeader } from './ui/PageHeader'
 import { Card } from './ui/Card'
 import { Brain, Database, Upload, FileText, Trash2, Search, Plus, BarChart3, TrendingUp, Clock, Zap } from 'lucide-react'
@@ -7,6 +8,7 @@ import type { RagCollection, RagAnalytics } from '../api/client'
 import { useToast } from './ui/Toast'
 
 export function RagKnowledge() {
+    const { t } = useTranslation()
     const { toast } = useToast()
     const [activeTab, setActiveTab] = useState<'collections' | 'ingest' | 'analytics'>('collections')
     const [collections, setCollections] = useState<RagCollection[]>([])
@@ -85,7 +87,7 @@ export function RagKnowledge() {
     }
 
     const handleDeleteCollection = async (id: string) => {
-        if (!window.confirm("Delete this collection?")) return
+        if (!window.confirm(t('rag.deleteConfirm'))) return
         try {
             await apiClient.rag.deleteCollection(id)
             fetchCollections()
@@ -137,7 +139,7 @@ export function RagKnowledge() {
                     className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors border border-white/5"
                 >
                     <Plus className="w-4 h-4" />
-                    New Collection
+                    {t('rag.newCollection')}
                 </button>
             </PageHeader>
 
@@ -147,14 +149,14 @@ export function RagKnowledge() {
                     onClick={() => setActiveTab('collections')}
                     className={`pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 ${activeTab === 'collections' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
                 >
-                    <Database className="w-4 h-4" /> Vector Collections
+                    <Database className="w-4 h-4" /> {t('rag.collections')}
                     {activeTab === 'collections' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>}
                 </button>
                 <button
                     onClick={() => setActiveTab('ingest')}
                     className={`pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 ${activeTab === 'ingest' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
                 >
-                    <FileText className="w-4 h-4" /> Data Ingestion
+                    <FileText className="w-4 h-4" /> {t('rag.ingest')}
                     {activeTab === 'ingest' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>}
                 </button>
                 <button
@@ -269,7 +271,7 @@ export function RagKnowledge() {
                                                             value={testQuery}
                                                             onChange={e => setTestQuery(e.target.value)}
                                                             onKeyDown={e => { if (e.key === 'Enter') handleRunQuery(); if (e.key === 'Escape') { setTestingCollectionId(null); setTestQuery(""); setTestResults(null); } }}
-                                                            placeholder="Enter a test query..."
+                                                            placeholder={t('rag.queryPlaceholder')}
                                                             className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500/50"
                                                             autoFocus
                                                         />
@@ -285,7 +287,7 @@ export function RagKnowledge() {
                                                     {testResults !== null && (
                                                         <div className="space-y-1.5">
                                                             {testResults.length === 0 ? (
-                                                                <p className="text-xs text-gray-500 py-1">No results found.</p>
+                                                                <p className="text-xs text-gray-500 py-1">{t('rag.noResults')}</p>
                                                             ) : testResults.map((r, i) => (
                                                                 <div key={i} className="flex gap-2 p-2 rounded-lg bg-black/20 border border-white/5">
                                                                     <span className="text-[10px] text-gray-600 font-mono shrink-0 mt-0.5">
@@ -361,7 +363,7 @@ export function RagKnowledge() {
                                 <div className="space-y-6">
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
-                                            <label className="text-[11px] font-bold text-gray-500 uppercase">Chunk Size</label>
+                                            <label className="text-[11px] font-bold text-gray-500 uppercase">{t('rag.chunkSize')}</label>
                                             <span className="text-xs font-mono text-gray-400">{chunkSize} chars</span>
                                         </div>
                                         <input
@@ -378,7 +380,7 @@ export function RagKnowledge() {
 
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
-                                            <label className="text-[11px] font-bold text-gray-500 uppercase">Overlap</label>
+                                            <label className="text-[11px] font-bold text-gray-500 uppercase">{t('rag.overlap')}</label>
                                             <span className="text-xs font-mono text-gray-400">{chunkOverlap} chars</span>
                                         </div>
                                         <input
@@ -566,11 +568,11 @@ export function RagKnowledge() {
                     <div className="bg-[#18181B] border border-white/10 rounded-2xl max-w-md w-full p-6">
                         <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                             <Plus className="w-5 h-5 text-blue-400" />
-                            New Vector Collection
+                            {t('rag.newCollection')}
                         </h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Collection Name</label>
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">{t('rag.collectionName')}</label>
                                 <input
                                     type="text"
                                     autoFocus
@@ -586,14 +588,14 @@ export function RagKnowledge() {
                                 onClick={() => setShowCreateModal(false)}
                                 className="px-4 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-white/5 transition-colors"
                             >
-                                Cancel
+                                {t('common.cancel')}
                             </button>
                             <button
                                 onClick={handleCreateCollection}
                                 disabled={!newCollectionName}
                                 className="px-6 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Create
+                                {t('rag.create')}
                             </button>
                         </div>
                     </div>

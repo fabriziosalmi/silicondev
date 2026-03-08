@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PageHeader } from './ui/PageHeader'
 import { Card } from './ui/Card'
 import { Play, Plus, Trash2, Search, Save, ChevronDown, ChevronRight, Terminal, Bot, Filter, Clock } from 'lucide-react'
@@ -41,6 +42,7 @@ function makeNode(type: NodeType): PipelineNode {
 }
 
 export function PipelinesJobs() {
+    const { t } = useTranslation()
     const [pipelines, setPipelines] = useState<AgentDefinition[]>([])
     const [active, setActive] = useState<AgentDefinition | null>(null)
     const [nodes, setNodes] = useState<PipelineNode[]>([])
@@ -70,7 +72,7 @@ export function PipelinesJobs() {
     }
 
     const handleNew = () => {
-        const newPipeline: AgentDefinition = { name: 'New Pipeline', nodes: [], edges: [], config: {} }
+        const newPipeline: AgentDefinition = { name: t('pipelines.new'), nodes: [], edges: [], config: {} }
         setActive(newPipeline)
         setNodes([])
         setLastResult(null)
@@ -90,7 +92,7 @@ export function PipelinesJobs() {
     }
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm('Delete this pipeline?')) return
+        if (!window.confirm(t('pipelines.delete') + '?')) return
         try {
             await apiClient.agents.deleteAgent(id)
             if (active?.id === id) { setActive(null); setNodes([]) }
@@ -151,7 +153,7 @@ export function PipelinesJobs() {
                     </div>
                     <button onClick={handleNew}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition-colors">
-                        <Plus className="w-4 h-4" /> New Pipeline
+                        <Plus className="w-4 h-4" /> {t('pipelines.new')}
                     </button>
                     {active && (
                         <button onClick={handleSave}
@@ -190,7 +192,7 @@ export function PipelinesJobs() {
                             ))}
                             {pipelines.length === 0 && !loading && (
                                 <div className="p-8 text-center border-2 border-dashed border-white/5 rounded-2xl">
-                                    <p className="text-gray-500 text-sm">No pipelines yet.</p>
+                                    <p className="text-gray-500 text-sm">{t('pipelines.noJobs')}</p>
                                 </div>
                             )}
                         </div>
@@ -320,7 +322,7 @@ export function PipelinesJobs() {
                                     ) : (
                                         <Play className="w-4 h-4 fill-current" />
                                     )}
-                                    {executing ? 'Running...' : 'Run'}
+                                    {executing ? t('pipelines.running') + '...' : t('pipelines.run')}
                                 </button>
                             </Card>
 
@@ -361,7 +363,7 @@ export function PipelinesJobs() {
                                     <Play className="w-10 h-10 text-gray-500" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-gray-300">Pipelines & Jobs</h3>
+                                    <h3 className="text-lg font-bold text-gray-300">{t('pipelines.title')}</h3>
                                     <p className="text-sm text-gray-500">Select or create a pipeline to get started.</p>
                                     <p className="text-xs text-gray-600 mt-1">Chain LLM inference, shell commands, and filters into automated sequences.</p>
                                 </div>

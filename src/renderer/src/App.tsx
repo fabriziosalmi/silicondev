@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { DataPreparation } from './components/DataPreparation'
 import { ChatInterface } from './components/ChatInterface'
 import { EngineInterface } from './components/EngineInterface'
@@ -31,10 +32,11 @@ function App() {
   const [historyExpanded, setHistoryExpanded] = useState(false)
   const [chatSearchOpen, setChatSearchOpen] = useState(false)
   const [notesExpanded, setNotesExpanded] = useState(false)
+  const { t } = useTranslation()
   const { backendReady, pendingChatInput } = useGlobalState()
   const conversations = useConversations()
   const notes = useNotes()
-  const [loadingMessage, setLoadingMessage] = useState('Initializing backend...')
+  const [loadingMessage, setLoadingMessage] = useState('')
   const [loadProgress, setLoadProgress] = useState(0)
   const [updateReady, setUpdateReady] = useState(false)
   const [updateVersion, setUpdateVersion] = useState('')
@@ -134,7 +136,7 @@ function App() {
   // Update loading message after a few seconds if backend isn't ready yet
   useEffect(() => {
     if (backendReady) return;
-    const timer = setTimeout(() => setLoadingMessage('Starting MLX engine...'), 3000);
+    const timer = setTimeout(() => setLoadingMessage(t('app.loading.starting')), 3000);
     return () => clearTimeout(timer);
   }, [backendReady]);
 
@@ -215,10 +217,10 @@ function App() {
           </svg>
 
           <div className="text-center">
-            <h1 className="text-[26px] font-bold text-white tracking-tight mb-1">SiliconDev</h1>
+            <h1 className="text-[26px] font-bold text-white tracking-tight mb-1">{t('app.title')}</h1>
             <p className="text-[11px] text-gray-600 font-mono mb-5">v{__APP_VERSION__}</p>
 
-            <p className="text-[12px] text-gray-500 mb-3">{loadingMessage}</p>
+            <p className="text-[12px] text-gray-500 mb-3">{loadingMessage || t('app.loading.initializing')}</p>
             <div className="w-48 h-[2px] rounded-full bg-white/5 overflow-hidden">
               <div
                 className="h-full rounded-full bg-white/25 transition-all duration-300 ease-out"
@@ -246,12 +248,13 @@ function App() {
 
       {updateReady && (
         <div className="flex items-center justify-between px-4 py-2 bg-blue-600/20 border-b border-blue-500/30 text-sm text-blue-300">
-          <span>Version {updateVersion} is ready to install.</span>
+          <span>{t('app.update.readyToInstall', { version: updateVersion })}</span>
           <button
+            type="button"
             onClick={() => window.electronAPI?.installUpdate?.()}
             className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded transition-colors"
           >
-            Restart &amp; Update
+            {t('app.update.restartUpdate')}
           </button>
         </div>
       )}
@@ -265,11 +268,11 @@ function App() {
           <nav className={`flex-1 flex flex-col min-h-0 overflow-y-auto space-y-6 ${sidebarCollapsed ? 'px-1.5' : 'px-4'} transition-all duration-200`}>
 
             <div>
-              {!sidebarCollapsed && <div className="px-3 mb-2 text-[10px] font-bold tracking-wide text-gray-500 uppercase">Local Server</div>}
+              {!sidebarCollapsed && <div className="px-3 mb-2 text-[10px] font-bold tracking-wide text-gray-500 uppercase">{t('sidebar.localServer')}</div>}
               <div className="space-y-1">
                 <div>
                   <SidebarItem
-                    label="Chat"
+                    label={t('sidebar.chat')}
                     active={activeTab === 'chat'}
                     onClick={() => { setActiveTab('chat'); if (!historyExpanded) { setHistoryExpanded(true); conversations.fetchConversations(); } }}
                     icon={<MessageSquare size={18} />}
@@ -280,7 +283,7 @@ function App() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setChatSearchOpen(!chatSearchOpen); if (!chatSearchOpen && !historyExpanded) { setHistoryExpanded(true); conversations.fetchConversations(); } }}
                           className={`p-1 rounded transition-colors ${chatSearchOpen ? 'text-blue-400 bg-blue-500/10' : 'text-gray-500 hover:text-white hover:bg-white/10'}`}
-                          title="Search conversations"
+                          title={t('sidebar.searchConversations')}
                         >
                           <Search size={14} />
                         </button>
@@ -288,7 +291,7 @@ function App() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); conversations.setActiveConversationId(null); }}
                           className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
-                          title="New conversation"
+                          title={t('sidebar.newConversation')}
                         >
                           <Plus size={14} />
                         </button>
@@ -296,7 +299,7 @@ function App() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setHistoryExpanded(!historyExpanded); if (!historyExpanded) conversations.fetchConversations(); }}
                           className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
-                          title={historyExpanded ? 'Hide history' : 'Show history'}
+                          title={historyExpanded ? t('sidebar.hideHistory') : t('sidebar.showHistory')}
                         >
                           {historyExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                         </button>
@@ -328,21 +331,21 @@ function App() {
                   )}
                 </div>
                 <SidebarItem
-                  label="Models"
+                  label={t('sidebar.models')}
                   active={activeTab === 'models'}
                   onClick={() => setActiveTab('models')}
                   icon={<Database size={18} />}
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
-                  label="Terminal"
+                  label={t('sidebar.terminal')}
                   active={activeTab === 'terminal'}
                   onClick={() => setActiveTab('terminal')}
                   icon={<TerminalSquare size={18} />}
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
-                  label="Code"
+                  label={t('sidebar.code')}
                   active={activeTab === 'code'}
                   onClick={() => setActiveTab('code')}
                   icon={<Code size={18} />}
@@ -350,7 +353,7 @@ function App() {
                 />
                 <div>
                   <SidebarItem
-                    label="Notes"
+                    label={t('sidebar.notes')}
                     active={activeTab === 'workspace'}
                     onClick={() => { setActiveTab('workspace'); if (!notesExpanded) { setNotesExpanded(true); notes.fetchNotes(); } }}
                     icon={<FileText size={18} />}
@@ -361,7 +364,7 @@ function App() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); notes.setActiveNoteId(null); }}
                           className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
-                          title="New note"
+                          title={t('sidebar.newNote')}
                         >
                           <Plus size={14} />
                         </button>
@@ -369,7 +372,7 @@ function App() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setNotesExpanded(!notesExpanded); if (!notesExpanded) notes.fetchNotes(); }}
                           className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
-                          title={notesExpanded ? 'Hide notes' : 'Show notes'}
+                          title={notesExpanded ? t('sidebar.hideNotes') : t('sidebar.showNotes')}
                         >
                           {notesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                         </button>
@@ -399,59 +402,59 @@ function App() {
             </div>
 
             <div>
-              {!sidebarCollapsed && <div className="px-3 mb-2 text-[10px] font-bold tracking-wide text-gray-500 uppercase">Advanced Tools</div>}
+              {!sidebarCollapsed && <div className="px-3 mb-2 text-[10px] font-bold tracking-wide text-gray-500 uppercase">{t('sidebar.advancedTools')}</div>}
               <div className="space-y-1">
                 <SidebarItem
-                  label="Data Preparation"
+                  label={t('sidebar.dataPrep')}
                   active={activeTab === 'studio'}
                   onClick={() => setActiveTab('studio')}
                   icon={<BarChart2 size={18} />}
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
-                  label="Fine-Tuning Engine"
+                  label={t('sidebar.engine')}
                   active={activeTab === 'engine'}
                   onClick={() => setActiveTab('engine')}
                   icon={<Cpu size={18} />}
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
-                  label="Model Export"
+                  label={t('sidebar.export')}
                   active={activeTab === 'export'}
                   onClick={() => setActiveTab('export')}
                   icon={<Package size={18} />}
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
-                  label="Model Evaluations"
+                  label={t('sidebar.evaluations')}
                   active={activeTab === 'evaluations'}
                   onClick={() => setActiveTab('evaluations')}
                   icon={<TestTube size={18} />}
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
-                  label="RAG Knowledge"
+                  label={t('sidebar.rag')}
                   active={activeTab === 'rag'}
                   onClick={() => setActiveTab('rag')}
                   icon={<Brain size={18} />}
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
-                  label="MCP Servers"
+                  label={t('sidebar.mcp')}
                   active={activeTab === 'mcp'}
                   onClick={() => setActiveTab('mcp')}
                   icon={<Server size={18} />}
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
-                  label="Pipelines & Jobs"
+                  label={t('sidebar.pipelines')}
                   active={activeTab === 'pipelines'}
                   onClick={() => setActiveTab('pipelines')}
                   icon={<Workflow size={18} />}
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
-                  label="Deployment"
+                  label={t('sidebar.deployment')}
                   active={activeTab === 'deployment'}
                   onClick={() => setActiveTab('deployment')}
                   icon={<Rocket size={18} />}
@@ -466,14 +469,14 @@ function App() {
           <div className={`${sidebarCollapsed ? 'px-1.5' : 'px-4'} mb-2`}>
             <div className="border-t border-white/5 pt-2 space-y-1">
               <SidebarItem
-                label="Documentation"
+                label={t('sidebar.docs')}
                 active={activeTab === 'docs'}
                 onClick={() => setActiveTab('docs')}
                 icon={<BookOpen size={18} />}
                 collapsed={sidebarCollapsed}
               />
               <SidebarItem
-                label="Settings"
+                label={t('sidebar.settings')}
                 active={activeTab === 'settings'}
                 onClick={() => setActiveTab('settings')}
                 icon={<SettingsIcon size={18} />}
@@ -486,7 +489,7 @@ function App() {
           <button
             onClick={toggleSidebar}
             className={`mx-auto mb-4 p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors shrink-0 ${sidebarCollapsed ? '' : 'ml-auto mr-4'}`}
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
           >
             {sidebarCollapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
           </button>

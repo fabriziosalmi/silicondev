@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { apiClient, cleanModelName, type PreviewRow } from '../api/client'
 import { Card } from './ui/Card'
 import { useToast } from './ui/Toast'
@@ -6,6 +7,7 @@ import { useGlobalState } from '../context/GlobalState'
 import { Database, FileText, Server, Sparkles, MessageSquare, FolderOpen, Save } from 'lucide-react'
 
 export function DataPreparation() {
+    const { t } = useTranslation()
     const { toast } = useToast()
     const [dataMode, setDataMode] = useState<'file' | 'mcp'>('file')
 
@@ -159,7 +161,7 @@ export function DataPreparation() {
                     // --- FILE MODE CONFIGURATION ---
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                         <div className="flex flex-col space-y-1.5">
-                            <label className="text-xs font-bold text-gray-500 uppercase">Input Dataset (CSV)</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase">{t('dataPrep.upload')}</label>
                             <button
                                 onClick={handleFileSelect}
                                 className={`flex items-center justify-between px-3 h-10 rounded-lg border text-[13px] font-medium transition-all text-left ${fileName
@@ -172,7 +174,7 @@ export function DataPreparation() {
                             </button>
                         </div>
                         <div className="flex flex-col space-y-1.5">
-                            <label className="text-xs font-bold text-gray-500 uppercase">Output Path (JSONL)</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase">{t('dataPrep.convert')}</label>
                             <button
                                 onClick={async () => {
                                     const path = await window.electronAPI?.selectDirectory?.();
@@ -287,9 +289,9 @@ export function DataPreparation() {
                 <Card className="flex-1 flex flex-col gap-4 overflow-hidden p-0 bg-transparent shadow-none border-none">
                     {/* Column Mapping Bar (Only relevant for File mode mostly, but kept for MCP sanity checks) */}
                     <div className="bg-black/20 border border-white/10 rounded-xl p-3 flex flex-wrap items-center gap-4">
-                        <span className="text-xs font-bold text-gray-500 uppercase mr-2">Map Columns:</span>
+                        <span className="text-xs font-bold text-gray-500 uppercase mr-2">{t('dataPrep.preview')}:</span>
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-blue-300">Instruction:</span>
+                            <span className="text-xs text-blue-300">{t('dataPrep.inputColumn')}:</span>
                             <select value={instructionCol} onChange={(e) => setInstructionCol(e.target.value)} className="bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500">
                                 {columns.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
@@ -302,7 +304,7 @@ export function DataPreparation() {
                             </select>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-green-300">Output:</span>
+                            <span className="text-xs text-green-300">{t('dataPrep.outputColumn')}:</span>
                             <select value={outputCol} onChange={(e) => setOutputCol(e.target.value)} className="bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500">
                                 {columns.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>

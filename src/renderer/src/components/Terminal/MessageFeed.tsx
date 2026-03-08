@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, memo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { User, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, RefreshCw, XCircle, CheckCircle2, ChevronRight, Brain, FileEdit } from 'lucide-react'
 import { StreamingMarkdown } from './StreamingMarkdown'
 import { HolographicDiff } from './HolographicDiff'
@@ -535,6 +536,7 @@ const FeedItemView = memo(function FeedItemView({
 })
 
 export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationResponded, onPlanDecision }: MessageFeedProps) {
+  const { t } = useTranslation()
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const userScrolledUpRef = useRef(false)
@@ -596,8 +598,8 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
         <div className="text-center space-y-3">
           <img src="/icon.svg" alt="" className="w-10 h-10 rounded-xl mx-auto" />
           <div className="space-y-1">
-            <p className="text-xs text-gray-400 font-medium">What would you like to build?</p>
-            <p className="text-[10px] text-gray-600">Describe a task or select code and right-click for quick actions.</p>
+            <p className="text-xs text-gray-400 font-medium">{t('terminal.emptyState')}</p>
+            <p className="text-[10px] text-gray-600">{t('terminal.emptyHint')}</p>
           </div>
         </div>
       </div>

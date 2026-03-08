@@ -42,6 +42,43 @@ def _unescape_arg(value: str) -> str:
     return value
 
 
+# Shell command prefixes that small models sometimes emit as tool args
+_SHELL_CMD_RE = re.compile(r'^\s*\$\s+\w+')  # e.g. "$ cat /path/to/file"
+_SHELL_PIPE_RE = re.compile(r'^\s*(?:cat|echo|head|tail|sed|awk|grep|curl|wget)\s+', re.IGNORECASE)
+
+
+def sanitize_path_arg(value: str) -> tuple[str, str | None]:
+    """Validate a path argument from a tool call.
+
+    Returns (cleaned_path, error). If error is not None, the path is invalid.
+    """
+    stripped = value.strip()
+    if not stripped:
+        return "", "Empty file path. You must provide the full path to the file."
+    # Detect shell commands used as path (e.g. "$ cat /path/to/file")
+    if _SHELL_CMD_RE.match(stripped) or _SHELL_PIPE_RE.match(stripped):
+        return "", (
+            f"Invalid path: '{stripped[:80]}' looks like a shell command. "
+            "Provide just the file path, e.g. /path/to/file.py"
+        )
+    return stripped, None
+
+
+def sanitize_patch_args(args: dict) -> str | None:
+    """Validate patch_file args. Returns error string or None if valid."""
+    search = args.get("search", "")
+    replace = args.get("replace", "")
+    # Detect shell commands stuffed into search/replace
+    for label, val in [("search", search), ("replace", replace)]:
+        if _SHELL_CMD_RE.match(val.strip()) and "\n" not in val.strip():
+            return (
+                f"Invalid {label} arg: '{val.strip()[:80]}' looks like a shell command. "
+                "The search arg must contain the exact code text to find in the file, "
+                "and replace must contain the new code text."
+            )
+    return None
+
+
 def extract_tool_calls(text: str) -> list[ParsedToolCall]:
     """Extract all complete tool calls from text.
 

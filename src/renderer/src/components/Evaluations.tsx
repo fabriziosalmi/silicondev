@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card } from './ui/Card'
 import { useToast } from './ui/Toast'
 import { TestTube, Play, BarChart2, Loader2 } from 'lucide-react'
@@ -16,6 +17,7 @@ interface EvalResult {
 }
 
 export function Evaluations() {
+    const { t } = useTranslation()
     const { toast } = useToast()
     const { activeModel } = useGlobalState()
     const [runningEval, setRunningEval] = useState<string | null>(null)
@@ -149,7 +151,7 @@ export function Evaluations() {
                 {/* Active Model Banner */}
                 <div className="bg-black/20 border border-white/10 rounded-xl p-4 flex items-center justify-between">
                     <div>
-                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">Target Model</h3>
+                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">{t('evaluations.model')}</h3>
                         {activeModel ? (
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-green-500" />
@@ -171,7 +173,7 @@ export function Evaluations() {
                     <Card className="flex flex-col">
                         <div className="p-5 border-b border-white/10 flex items-center gap-2">
                             <TestTube className="w-5 h-5 text-blue-400" />
-                            <h2 className="text-lg font-bold">Quick Smoke Tests</h2>
+                            <h2 className="text-lg font-bold">{t('evaluations.title')}</h2>
                         </div>
                         <div className="p-0 flex-1 overflow-hidden">
                             <table className="w-full text-left text-sm">
@@ -211,7 +213,7 @@ export function Evaluations() {
                                                         className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0 ml-auto"
                                                     >
                                                         <Play className="w-3.5 h-3.5 fill-current" />
-                                                        Start
+                                                        {t('evaluations.run')}
                                                     </button>
                                                 )}
                                             </td>
@@ -227,7 +229,7 @@ export function Evaluations() {
                         <div className="p-5 border-b border-white/10 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <BarChart2 className="w-5 h-5 text-blue-400" />
-                                <h2 className="text-lg font-bold">Past Results</h2>
+                                <h2 className="text-lg font-bold">{t('evaluations.results')}</h2>
                             </div>
                             {history.length > 0 && (
                                 <button

@@ -188,10 +188,10 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
                 }
                 return (
                   <tr key={i} className={bg}>
-                    <td className={`w-5 text-right pr-2 pl-2 select-none ${gutterColor} text-[10px] font-mono align-top leading-[18px]`}>
+                    <td className={`w-5 text-right pr-2 pl-2 select-none ${gutterColor} text-[9px] font-mono align-top leading-[15px]`}>
                       {prefix !== ' ' && prefix !== '@' ? prefix : ''}
                     </td>
-                    <td className={`${textColor} text-[11px] font-mono pr-3 whitespace-pre select-text leading-[18px]`}>
+                    <td className={`${textColor} text-[10px] font-mono pr-3 whitespace-pre select-text leading-[15px]`}>
                       {line.startsWith('@@') ? line : (line.slice(1) || ' ')}
                     </td>
                   </tr>

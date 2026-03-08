@@ -17,9 +17,16 @@ export default {
                     '0%': { transform: 'translateX(-100%)' },
                     '100%': { transform: 'translateX(200%)' },
                 },
+                metallic: {
+                    '0%, 60%': { transform: 'translateX(-130%)', opacity: '0' },
+                    '65%': { opacity: '1' },
+                    '75%': { transform: 'translateX(130%)', opacity: '0' },
+                    '100%': { opacity: '0' },
+                },
             },
             animation: {
                 shimmer: 'shimmer 1.5s ease-in-out infinite',
+                metallic: 'metallic 4s linear infinite',
             },
         },
     },

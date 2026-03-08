@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import rehypeSanitize from 'rehype-sanitize';
+import { useTranslation } from 'react-i18next'
 import { useGlobalState } from '../context/GlobalState'
 import { useConversations } from '../context/ConversationContext'
 import { ParametersPanel, type ChatSettings } from './Chat/ParametersPanel'
@@ -84,6 +85,7 @@ function loadSettings(storageKey: string): ChatSettings {
 
 export function ChatInterface() {
     const { activeModel, setActiveModel, backendReady, pendingChatInput, setPendingChatInput } = useGlobalState()
+    const { t } = useTranslation()
 
     const [messages, setMessages] = useState<Message[]>(() => {
         try {
@@ -1372,7 +1374,7 @@ Return exactly this JSON structure (no other text):
                                     }}
                                     autoFocus
                                     className="text-xs text-gray-300 bg-white/5 border border-white/10 rounded px-2 py-1 outline-none focus:border-white/20 max-w-[200px]"
-                                    placeholder="Conversation title"
+                                    placeholder={t('chat.titlePlaceholder')}
                                 />
                             );
                         }
@@ -1381,7 +1383,7 @@ Return exactly this JSON structure (no other text):
                                 type="button"
                                 onClick={() => setRenamingTitle(title)}
                                 className="group/rename flex items-center gap-1.5 px-2 py-1 rounded text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors max-w-[200px] truncate"
-                                title="Click to rename"
+                                title={t('chat.rename')}
                             >
                                 <Pencil className="w-3 h-3 shrink-0 opacity-0 group-hover/rename:opacity-100 transition-opacity" />
                                 <span className="truncate">{title}</span>
@@ -1396,7 +1398,7 @@ Return exactly this JSON structure (no other text):
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                         >
                             <Plus className="w-3.5 h-3.5" />
-                            New
+                            {t('chat.new')}
                         </button>
                     )}
                     {messages.length > 0 && (
@@ -1406,7 +1408,7 @@ Return exactly this JSON structure (no other text):
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                             >
                                 <Download className="w-3.5 h-3.5" />
-                                Export
+                                {t('chat.export')}
                             </button>
                             <div className="hidden group-hover/export:block absolute top-full left-0 pt-1 z-50">
                                 <div className="bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 min-w-[110px]">
@@ -1415,14 +1417,14 @@ Return exactly this JSON structure (no other text):
                                         onClick={() => handleExport('md')}
                                         className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                                     >
-                                        Markdown
+                                        {t('chat.exportMarkdown')}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => handleExport('json')}
                                         className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                                     >
-                                        JSON
+                                        {t('chat.exportJson')}
                                     </button>
                                 </div>
                             </div>
@@ -1435,7 +1437,7 @@ Return exactly this JSON structure (no other text):
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                             >
                                 <Shield className="w-3.5 h-3.5" />
-                                Redact
+                                {t('chat.redact')}
                                 {redactedCount !== null && (
                                     <span className="text-[10px] font-mono text-emerald-400 ml-1">{redactedCount}</span>
                                 )}
@@ -1447,14 +1449,14 @@ Return exactly this JSON structure (no other text):
                                         onClick={() => handleRedactConversation('all')}
                                         className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                                     >
-                                        Redact all
+                                        {t('chat.redactAll')}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => handleRedactConversation('outgoing')}
                                         className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                                     >
-                                        My messages only
+                                        {t('chat.redactMyOnly')}
                                     </button>
                                 </div>
                             </div>
@@ -1465,10 +1467,10 @@ Return exactly this JSON structure (no other text):
                             type="button"
                             onClick={toggleSearch}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showSearch ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-                            title="Search in conversation (Ctrl+F)"
+                            title={t('chat.searchTitle')}
                         >
                             <Search className="w-3.5 h-3.5" />
-                            Search
+                            {t('chat.search')}
                         </button>
                     )}
                     {settings.memoryMapEnabled && messages.length > 0 && (
@@ -1478,7 +1480,7 @@ Return exactly this JSON structure (no other text):
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showMemoryMap ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                         >
                             <Brain className="w-3.5 h-3.5" />
-                            {memoryBuilding ? 'Building...' : 'Memory'}
+                            {memoryBuilding ? t('chat.memoryBuilding') : t('chat.memory')}
                         </button>
                     )}
                     <button
@@ -1487,7 +1489,7 @@ Return exactly this JSON structure (no other text):
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${paramsExpanded ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                     >
                         <Settings2 className="w-3.5 h-3.5" />
-                        Parameters
+                        {t('chat.parameters')}
                     </button>
                 </div>
             </PageHeader>
@@ -1533,7 +1535,7 @@ Return exactly this JSON structure (no other text):
                                     }
                                     if (e.key === 'Escape') toggleSearch();
                                 }}
-                                placeholder="Search in conversation..."
+                                placeholder={t('chat.searchPlaceholder')}
                                 className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none"
                             />
                             {searchQuery && (
@@ -1541,7 +1543,7 @@ Return exactly this JSON structure (no other text):
                                     <span className="text-[10px] text-gray-500 tabular-nums">
                                         {searchMatches.length > 0
                                             ? `${searchMatchIndex + 1}/${searchMatches.length}`
-                                            : 'No results'}
+                                            : t('chat.searchNoResults')}
                                     </span>
                                     {searchMatches.length > 1 && (
                                         <>
@@ -1552,7 +1554,7 @@ Return exactly this JSON structure (no other text):
                                                     document.getElementById(`msg-${searchMatches[prev]}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                                 }}
                                                 className="p-0.5 rounded text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
-                                                title="Previous match (Shift+Enter)"
+                                                title={t('chat.searchPrev')}
                                             >
                                                 <ChevronUp size={14} />
                                             </button>
@@ -1563,7 +1565,7 @@ Return exactly this JSON structure (no other text):
                                                     document.getElementById(`msg-${searchMatches[next]}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                                 }}
                                                 className="p-0.5 rounded text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
-                                                title="Next match (Enter)"
+                                                title={t('chat.searchNext')}
                                             >
                                                 <ChevronDown size={14} />
                                             </button>
@@ -1571,7 +1573,7 @@ Return exactly this JSON structure (no other text):
                                     )}
                                 </div>
                             )}
-                            <button onClick={toggleSearch} className="text-gray-500 hover:text-white transition-colors shrink-0" title="Close search (Esc)">
+                            <button onClick={toggleSearch} className="text-gray-500 hover:text-white transition-colors shrink-0" title={t('chat.searchClose')}>
                                 <X size={14} />
                             </button>
                         </div>
@@ -1587,11 +1589,11 @@ Return exactly this JSON structure (no other text):
                                     </div>
                                     {currentModelName ? (
                                         <p className="text-sm text-gray-400 mb-1">
-                                            Ready with <span className="text-gray-200 font-medium">{currentModelName}</span>
+                                            {t('chat.readyWith', { model: currentModelName })}
                                         </p>
                                     ) : (
                                         <div className="flex items-center justify-center gap-2 mb-1">
-                                            <span className="text-sm text-gray-400">No model loaded</span>
+                                            <span className="text-sm text-gray-400">{t('chat.noModel')}</span>
                                             {suggestedModel && (
                                                 <>
                                                     <span className="text-sm text-gray-600">—</span>
@@ -1617,8 +1619,8 @@ Return exactly this JSON structure (no other text):
                                     )}
                                     <p className="text-xs text-gray-500">
                                         {currentModelId
-                                            ? 'Type a message below. Shift+Enter for newlines.'
-                                            : !suggestedModel ? 'Load a model from the Models tab to start chatting.' : ''
+                                            ? t('chat.typeMessage')
+                                            : !suggestedModel ? t('chat.loadModelPrompt') : ''
                                         }
                                     </p>
 
@@ -1627,20 +1629,20 @@ Return exactly this JSON structure (no other text):
                                         <div className="mt-6 p-4 bg-white/[0.02] border border-white/5 rounded-xl max-w-sm mx-auto">
                                             {walkthroughStep === 'idle' && (
                                                 <>
-                                                    <p className="text-xs text-gray-400 mb-3">No models yet? Get started in one click:</p>
+                                                    <p className="text-xs text-gray-400 mb-3">{t('chat.walkthrough.noModels')}</p>
                                                     <button
                                                         onClick={() => startWalkthrough('mlx-community/Qwen3-0.6B-4bit')}
                                                         className="w-full flex items-center gap-3 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition-colors mb-2"
                                                     >
                                                         <Download className="w-4 h-4" />
-                                                        Download Qwen 3 0.6B (0.4 GB)
+                                                        {t('chat.walkthrough.downloadQwen')}
                                                     </button>
                                                     <button
                                                         onClick={() => startWalkthrough('mlx-community/Llama-3.2-1B-Instruct-4bit')}
                                                         className="w-full flex items-center gap-3 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg text-xs transition-colors"
                                                     >
                                                         <Download className="w-3.5 h-3.5" />
-                                                        Or try Llama 3.2 1B (~0.7 GB)
+                                                        {t('chat.walkthrough.downloadLlama')}
                                                     </button>
                                                 </>
                                             )}
@@ -1648,8 +1650,8 @@ Return exactly this JSON structure (no other text):
                                                 <div className="flex items-center gap-3 text-sm text-gray-300">
                                                     <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin shrink-0" />
                                                     <div className="text-left">
-                                                        <p className="font-medium">Downloading {walkthroughModel?.split('/').pop()}...</p>
-                                                        <p className="text-xs text-gray-500 mt-0.5">This may take a few minutes</p>
+                                                        <p className="font-medium">{t('chat.walkthrough.downloading', { model: walkthroughModel?.split('/').pop() })}</p>
+                                                        <p className="text-xs text-gray-500 mt-0.5">{t('chat.walkthrough.downloadWait')}</p>
                                                     </div>
                                                 </div>
                                             )}
@@ -1657,8 +1659,8 @@ Return exactly this JSON structure (no other text):
                                                 <div className="flex items-center gap-3 text-sm text-gray-300">
                                                     <div className="w-5 h-5 border-2 border-green-500/30 border-t-green-500 rounded-full animate-spin shrink-0" />
                                                     <div className="text-left">
-                                                        <p className="font-medium">Loading model into memory...</p>
-                                                        <p className="text-xs text-gray-500 mt-0.5">Almost ready</p>
+                                                        <p className="font-medium">{t('chat.walkthrough.loadingModel')}</p>
+                                                        <p className="text-xs text-gray-500 mt-0.5">{t('chat.walkthrough.almostReady')}</p>
                                                     </div>
                                                 </div>
                                             )}
@@ -1669,7 +1671,7 @@ Return exactly this JSON structure (no other text):
                                                         onClick={() => { setWalkthroughStep('idle'); setWalkthroughError(null) }}
                                                         className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
                                                     >
-                                                        Try again
+                                                        {t('chat.walkthrough.tryAgain')}
                                                     </button>
                                                 </div>
                                             )}
@@ -1684,7 +1686,7 @@ Return exactly this JSON structure (no other text):
                                         onClick={() => setRenderStart(Math.max(0, renderStart - RENDER_PAGE))}
                                         className="w-full py-2 mb-4 text-xs text-gray-500 hover:text-gray-300 bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 rounded-lg transition-colors"
                                     >
-                                        Show {Math.min(renderStart, RENDER_PAGE)} earlier messages ({renderStart} hidden)
+                                        {t('chat.showEarlier', { count: Math.min(renderStart, RENDER_PAGE), hidden: renderStart })}
                                     </button>
                                 )}
                                 {messages.slice(renderStart).map((msg, relIdx) => {
@@ -1763,7 +1765,7 @@ Return exactly this JSON structure (no other text):
                                                             onClick={() => handleDeleteMessage(idx)}
                                                             className="p-1 rounded text-gray-700 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                                                             aria-label="Delete message"
-                                                            title="Delete message and response"
+                                                            title={t('chat.deleteMessage')}
                                                         >
                                                             <Trash2 className="w-3 h-3" />
                                                         </button>
@@ -1786,9 +1788,9 @@ Return exactly this JSON structure (no other text):
                                                         <details className="mb-3">
                                                             <summary className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500 hover:text-gray-400 transition-colors select-none py-0.5">
                                                                 <ChevronRight className="w-3 h-3 transition-transform details-open:rotate-90" />
-                                                                <span>Reasoning</span>
+                                                                <span>{t('chat.reasoning')}</span>
                                                                 <span className="text-gray-600 ml-1">
-                                                                    {thinkingContent.split(/\s+/).length} words
+                                                                    {t('chat.reasoningWords', { count: thinkingContent.split(/\s+/).length })}
                                                                 </span>
                                                             </summary>
                                                             <div className="mt-2 pl-4 border-l border-white/5 text-xs text-gray-500 leading-relaxed max-h-64 overflow-y-auto">
@@ -1807,7 +1809,7 @@ Return exactly this JSON structure (no other text):
                                                                 <div className="w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-bounce [animation-delay:150ms]" />
                                                                 <div className="w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-bounce [animation-delay:300ms]" />
                                                             </div>
-                                                            <span className="text-xs text-gray-500 ml-1">Thinking...</span>
+                                                            <span className="text-xs text-gray-500 ml-1">{t('chat.thinking')}</span>
                                                         </div>
                                                     ) : (
                                                         <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0 prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 prose-hr:border-transparent">
@@ -1826,7 +1828,7 @@ Return exactly this JSON structure (no other text):
                                                         <details className="group mt-2 border border-white/5 rounded-lg overflow-hidden">
                                                             <summary className="flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-500 hover:text-gray-400 cursor-pointer select-none bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
                                                                 <Database size={12} className="shrink-0" />
-                                                                <span>{msg.sources.length} source{msg.sources.length !== 1 ? 's' : ''}</span>
+                                                                <span>{t('chat.sources', { count: msg.sources.length })}</span>
                                                                 <ChevronDown size={12} className="ml-auto group-open:rotate-180 transition-transform" />
                                                             </summary>
                                                             <div className="px-3 py-2 space-y-1.5 bg-white/[0.01]">
@@ -1857,7 +1859,7 @@ Return exactly this JSON structure (no other text):
                                                             aria-label="Retry message"
                                                         >
                                                             <RefreshCcw size={12} />
-                                                            Retry
+                                                            {t('chat.retry')}
                                                         </button>
                                                     )}
 
@@ -1897,7 +1899,7 @@ Return exactly this JSON structure (no other text):
                             type="button"
                             onClick={scrollToBottom}
                             className="absolute bottom-20 right-6 z-20 p-2 rounded-full bg-white/10 border border-white/10 text-gray-400 hover:text-white hover:bg-white/15 transition-colors shadow-lg backdrop-blur-sm"
-                            title="Scroll to bottom"
+                            title={t('chat.scrollToBottom')}
                         >
                             <ChevronDown className="w-4 h-4" />
                         </button>
@@ -1950,7 +1952,7 @@ Return exactly this JSON structure (no other text):
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyDown={handleKeyDown}
                                     onPaste={handleImagePaste}
-                                    placeholder={activeModel?.is_vision ? "Send a message or paste an image..." : "Send a message..."}
+                                    placeholder={activeModel?.is_vision ? t('chat.sendPlaceholderVision') : t('chat.sendPlaceholder')}
                                     className={`w-full bg-transparent px-4 py-3 ${activeModel?.is_vision ? 'pr-24' : 'pr-14'} text-sm text-gray-200 placeholder-gray-500 outline-none resize-none min-h-[44px] max-h-[200px]`}
                                     rows={1}
                                 />
@@ -1960,8 +1962,8 @@ Return exactly this JSON structure (no other text):
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
                                             className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
-                                            aria-label="Attach image"
-                                            title="Attach image"
+                                            aria-label={t('chat.attachImage')}
+                                            title={t('chat.attachImage')}
                                         >
                                             <ImagePlus className="w-4 h-4" />
                                         </button>
@@ -1972,7 +1974,7 @@ Return exactly this JSON structure (no other text):
                                             onClick={handleStop}
                                             className="p-1.5 rounded-lg bg-white/10 text-gray-400 hover:text-white hover:bg-white/15 transition-colors"
                                             aria-label="Stop generating"
-                                            title="Stop"
+                                            title={t('chat.stop')}
                                         >
                                             <Square className="w-4 h-4" />
                                         </button>
@@ -1982,7 +1984,7 @@ Return exactly this JSON structure (no other text):
                                             onClick={() => handleSend()}
                                             disabled={(!input.trim() && pendingImages.length === 0) || !currentModelId}
                                             aria-label="Send message"
-                                            title={!currentModelId ? 'Load a model first' : (!input.trim() && pendingImages.length === 0) ? 'Type a message' : 'Send message'}
+                                            title={!currentModelId ? t('chat.sendDisabledNoModel') : (!input.trim() && pendingImages.length === 0) ? t('chat.sendDisabledEmpty') : t('chat.send')}
                                             className={`p-1.5 rounded-lg transition-colors ${(input.trim() || pendingImages.length > 0) && currentModelId ? 'bg-white text-black hover:bg-gray-200' : 'bg-white/5 text-gray-700 cursor-not-allowed'}`}
                                         >
                                             <ArrowUp className="w-4 h-4" />
@@ -1993,12 +1995,12 @@ Return exactly this JSON structure (no other text):
                             <div className="flex items-center justify-between mt-1.5 mx-1">
                                 {!currentModelId && !isGenerating && messages.length > 0 ? (
                                     <p className="text-[10px] text-gray-600">
-                                        No model loaded — select one from the Models tab
+                                        {t('chat.noModelSuggestion')}
                                     </p>
                                 ) : <span />}
                                 <div className="flex items-center gap-3 text-[10px] text-gray-600 ml-auto">
-                                    <span><kbd className="text-gray-500">Enter</kbd> send</span>
-                                    <span><kbd className="text-gray-500">Shift+Enter</kbd> newline</span>
+                                    <span><kbd className="text-gray-500">Enter</kbd> {t('chat.enterSend')}</span>
+                                    <span><kbd className="text-gray-500">Shift+Enter</kbd> {t('chat.shiftEnterNewline')}</span>
                                 </div>
                             </div>
                         </div>

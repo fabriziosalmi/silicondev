@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Trash2, AlertCircle, Undo2, Eye, Pencil, Brain, Zap, Search, Shield } from 'lucide-react'
 import { type ActiveFileContext } from './useAgentSession'
 import { AgentInputBar } from './AgentInputBar'
@@ -28,6 +29,7 @@ const ROLE_ICONS = { architect: Brain, worker: Zap, inspector: Search } as const
 const ROLE_COLORS = { architect: 'text-blue-400', worker: 'text-amber-400', inspector: 'text-emerald-400' } as const
 
 export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: AgentPanelProps & { session: any }) {
+  const { t } = useTranslation()
   const {
     feedItems,
     isRunning,
@@ -58,7 +60,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
   }, [isRunning, activeModel])
 
   const idleInfo = useMemo(() => {
-    if (!activeModel) return [{ text: 'no model loaded', color: 'text-gray-500' }]
+    if (!activeModel) return [{ text: t('chat.noModel'), color: 'text-gray-500' }]
     const items: { text: string; color: string }[] = [
       { text: activeModel.name, color: 'text-gray-400' },
     ]
@@ -66,7 +68,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
       items.push({ text: `${(activeModel.context_window / 1024).toFixed(0)}K context`, color: 'text-gray-500' })
     }
     if (feedItems.length > 0 && sessionId && !isRunning) {
-      items.push({ text: 'ready', color: 'text-emerald-400/70' })
+      items.push({ text: t('code.idle'), color: 'text-emerald-400/70' })
     }
     return items
   }, [activeModel, feedItems.length, sessionId, isRunning])
@@ -74,7 +76,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
   const statusInfo = useMemo(() => {
     if (isRunning) {
       if (activeAgencyRole?.status) return { text: activeAgencyRole.status, color: 'text-blue-400' }
-      return { text: 'working...', color: 'text-blue-400' }
+      return { text: t('code.thinking'), color: 'text-blue-400' }
     }
     return idleInfo[infoCycle % idleInfo.length]
   }, [isRunning, activeAgencyRole, idleInfo, infoCycle])
@@ -256,7 +258,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
       {!activeModel && (
         <div className="px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-2 shrink-0">
           <AlertCircle size={12} className="text-amber-400 shrink-0" />
-          <span className="text-[10px] text-amber-400">No model loaded — load one from the Models tab.</span>
+          <span className="text-[10px] text-amber-400">{t('chat.noModelSuggestion')}</span>
         </div>
       )}
 

@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { Card } from './ui/Card'
 import { ToggleSwitch } from './ui/ToggleSwitch'
 import { apiClient } from '../api/client'
@@ -535,6 +537,7 @@ function LogViewerSection() {
 }
 
 export function Settings() {
+    const { t } = useTranslation()
     const { systemStats } = useGlobalState()
 
     const [chat, setChat] = useState<ChatDefaults>(() => {
@@ -606,7 +609,7 @@ export function Settings() {
     }
 
     const handleReset = () => {
-        if (!confirm('Reset all settings to defaults?')) return
+        if (!confirm(t('settings.general.resetConfirm'))) return
         setChat({ ...defaultChat })
         setRag({ ...defaultRag })
         setTopBar({ ...defaultTopBar })
@@ -700,13 +703,13 @@ export function Settings() {
             <nav className="w-44 shrink-0 space-y-4 sticky top-0 self-start pt-1">
                 <div className="flex items-center gap-2 mb-4">
                     <Settings2 size={18} className="text-blue-400" />
-                    <h2 className="text-base font-bold text-white">Settings</h2>
+                    <h2 className="text-base font-bold text-white">{t('settings.title')}</h2>
                 </div>
                 {NAV_GROUPS.map(group => {
                     const items = NAV_ITEMS.filter(i => i.group === group)
                     return (
                         <div key={group}>
-                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-1 px-2">{group}</div>
+                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-1 px-2">{t(`settings.group.${group.toLowerCase()}` as any, group)}</div>
                             <div className="space-y-0.5">
                                 {items.map(item => (
                                     <button
@@ -719,7 +722,7 @@ export function Settings() {
                                         }`}
                                     >
                                         {activeSection === item.id && <ChevronRight size={12} />}
-                                        <span className={activeSection === item.id ? '' : 'ml-[18px]'}>{item.label}</span>
+                                        <span className={activeSection === item.id ? '' : 'ml-[18px]'}>{t(`settings.nav.${item.id}` as any, item.label)}</span>
                                     </button>
                                 ))}
                             </div>
@@ -741,7 +744,7 @@ export function Settings() {
                         className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded text-[11px] text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
                     >
                         <Bug size={12} />
-                        Report a Bug
+                        {t('settings.nav.reportBug', 'Report a Bug')}
                     </button>
                 </div>
             </nav>
@@ -752,17 +755,43 @@ export function Settings() {
             {/* General */}
             <div id="general" ref={setSectionRef('general')}>
             <Card className="p-5">
-                <SectionHeader icon={<Info size={16} />} title="General" />
+                <SectionHeader icon={<Info size={16} />} title={t('settings.general.title')} />
                 <div className="grid grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Backend URL</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase">{t('settings.general.language')}</label>
+                        <select
+                            value={i18n.language}
+                            onChange={(e) => i18n.changeLanguage(e.target.value)}
+                            className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-blue-500"
+                        >
+                            <option value="en">English</option>
+                            <option value="fr">Français</option>
+                            <option value="de">Deutsch</option>
+                            <option value="es">Español</option>
+                            <option value="pt">Português</option>
+                            <option value="it">Italiano</option>
+                            <option value="nl">Nederlands</option>
+                            <option value="pl">Polski</option>
+                            <option value="hi">हिन्दी</option>
+                            <option value="zh">中文</option>
+                            <option value="ar">العربية</option>
+                            <option value="ja">日本語</option>
+                            <option value="id">Bahasa Indonesia</option>
+                            <option value="yo">Yorùbá</option>
+                            <option value="th">ไทย</option>
+                            <option value="vi">Tiếng Việt</option>
+                        </select>
+                        <span className="text-[10px] text-gray-600">{t('settings.general.languageHint')}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className="text-xs font-bold text-gray-500 uppercase">{t('settings.general.backendUrl')}</label>
                         <div className="flex items-center px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-gray-400">
                             {apiClient.API_BASE}
                         </div>
-                        <span className="text-[10px] text-gray-600">Auto-detected at startup.</span>
+                        <span className="text-[10px] text-gray-600">{t('settings.general.backendUrlHint')}</span>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Reasoning Mode</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase">{t('settings.general.reasoningMode')}</label>
                         <select
                             value={chat.reasoningMode}
                             onChange={(e) => updateChat('reasoningMode', e.target.value as ChatDefaults['reasoningMode'])}
@@ -776,11 +805,11 @@ export function Settings() {
                     </div>
                     {logPath && (
                         <div className="flex flex-col gap-1 col-span-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase">Log File</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase">{t('settings.general.logFile', 'Log File')}</label>
                             <div className="flex items-center px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-gray-400 truncate">
                                 {logPath}
                             </div>
-                            <span className="text-[10px] text-gray-600">Share this file when reporting bugs.</span>
+                            <span className="text-[10px] text-gray-600">{t('settings.general.logFileHint', 'Share this file when reporting bugs.')}</span>
                         </div>
                     )}
                 </div>
@@ -790,7 +819,7 @@ export function Settings() {
             {/* Status Bar Thresholds */}
             <div id="status-bar" ref={setSectionRef('status-bar')}>
             <Card className="p-5">
-                <SectionHeader icon={<Gauge size={16} />} title="Status Bar Thresholds" />
+                <SectionHeader icon={<Gauge size={16} />} title={t('settings.nav.status-bar', 'Status Bar Thresholds')} />
                 <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
                     <SliderField label="Warning %" value={topBar.warn} onChange={(v) => setTopBar(prev => ({ ...prev, warn: v }))} min={20} max={95} step={5} hint="Yellow threshold" />
                     <SliderField label="Critical %" value={topBar.critical} onChange={(v) => setTopBar(prev => ({ ...prev, critical: v }))} min={30} max={99} step={5} hint="Red threshold" />
@@ -801,10 +830,10 @@ export function Settings() {
             {/* Chat Defaults */}
             <div id="chat" ref={setSectionRef('chat')}>
             <Card className="p-5">
-                <SectionHeader icon={<MessageSquare size={16} />} title="Chat Defaults" />
+                <SectionHeader icon={<MessageSquare size={16} />} title={t('settings.nav.chat', 'Chat Defaults')} />
                 <div className="space-y-4">
                     <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-gray-500 uppercase">System Prompt</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase">{t('params.systemPrompt')}</label>
                         <textarea
                             value={chat.systemPrompt}
                             onChange={(e) => updateChat('systemPrompt', e.target.value)}
@@ -822,7 +851,7 @@ export function Settings() {
                         <SliderField label="Repetition Penalty" value={chat.repetitionPenalty} onChange={(v) => updateChat('repetitionPenalty', v)} min={1} max={2} step={0.05} hint="Penalize repeated tokens" />
                     </div>
                     <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-300">Enable web search by default</span>
+                        <span className="text-sm text-gray-300">{t('params.webSearch', 'Enable web search by default')}</span>
                         <ToggleSwitch
                             enabled={chat.webSearchEnabled}
                             onChange={(v) => updateChat('webSearchEnabled', v)}
@@ -837,7 +866,7 @@ export function Settings() {
             {/* RAG Defaults */}
             <div id="rag" ref={setSectionRef('rag')}>
             <Card className="p-5">
-                <SectionHeader icon={<Brain size={16} />} title="RAG Defaults" />
+                <SectionHeader icon={<Brain size={16} />} title={t('settings.nav.rag', 'RAG Defaults')} />
                 <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
                     <SliderField label="Chunk Size" value={rag.chunkSize} onChange={(v) => setRag(prev => ({ ...prev, chunkSize: v }))} min={128} max={2048} step={64} hint="Characters per chunk" />
                     <SliderField label="Chunk Overlap" value={rag.chunkOverlap} onChange={(v) => setRag(prev => ({ ...prev, chunkOverlap: v }))} min={0} max={512} step={10} hint="Overlap between chunks" />
@@ -848,11 +877,11 @@ export function Settings() {
             {/* Privacy */}
             <div id="privacy" ref={setSectionRef('privacy')}>
             <Card className="p-5">
-                <SectionHeader icon={<Shield size={16} />} title="Privacy" />
+                <SectionHeader icon={<Shield size={16} />} title={t('settings.nav.privacy', 'Privacy')} />
                 <div className="flex items-center justify-between">
                     <div>
-                        <span className="text-sm text-gray-300">PII Redaction</span>
-                        <p className="text-[10px] text-gray-600 mt-0.5">Redact emails, phone numbers, IPs, credit cards, SSNs, and API keys from chat messages</p>
+                        <span className="text-sm text-gray-300">{t('params.piiRedaction')}</span>
+                        <p className="text-[10px] text-gray-600 mt-0.5">{t('settings.nav.privacyHint', 'Redact emails, phone numbers, IPs, credit cards, SSNs, and API keys from chat messages')}</p>
                     </div>
                     <ToggleSwitch
                         enabled={piiRedaction}
@@ -867,12 +896,12 @@ export function Settings() {
             {/* Agent Capabilities & Security */}
             <div id="agents" ref={setSectionRef('agents')}>
             <Card className="p-5">
-                <SectionHeader icon={<Bot size={16} />} title="Agent Capabilities & Security" />
+                <SectionHeader icon={<Bot size={16} />} title={t('settings.agents.title')} />
                 <div className="space-y-4">
                     <div className="flex items-start justify-between">
                         <div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-300 font-bold">Mixture of Agents (MoA) Swarm</span>
+                                <span className="text-sm text-gray-300 font-bold">{t('settings.agents.moaSwarm', 'Mixture of Agents (MoA) Swarm')}</span>
                                 <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold">NEW</span>
                             </div>
                             <p className="text-[10px] text-gray-600 mt-1 max-w-sm">
@@ -890,7 +919,7 @@ export function Settings() {
                     <div className="flex items-start justify-between border-t border-white/5 pt-4">
                         <div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-300 font-bold">Air-Gapped Mode</span>
+                                <span className="text-sm text-gray-300 font-bold">{t('settings.agents.airGapped', 'Air-Gapped Mode')}</span>
                                 <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-bold">SECURITY</span>
                             </div>
                             <p className="text-[10px] text-gray-600 mt-1 max-w-sm">
@@ -908,7 +937,7 @@ export function Settings() {
                     <div className="flex items-start justify-between border-t border-white/5 pt-4">
                         <div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-300 font-bold">Programmatic Sandboxing</span>
+                                <span className="text-sm text-gray-300 font-bold">{t('settings.agents.sandbox')}</span>
                                 <span className="px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 text-[10px] font-bold">EXPERIMENTAL</span>
                             </div>
                             <p className="text-[10px] text-gray-600 mt-1 max-w-sm">
@@ -939,7 +968,7 @@ export function Settings() {
             {/* Storage Management */}
             <div id="storage" ref={setSectionRef('storage')}>
             <Card className="p-5">
-                <SectionHeader icon={<HardDrive size={16} />} title="Storage" />
+                <SectionHeader icon={<HardDrive size={16} />} title={t('settings.nav.storage', 'Storage')} />
                 {storageInfo ? (
                     <div className="space-y-3">
                         <div className="flex items-center gap-2">
@@ -949,7 +978,7 @@ export function Settings() {
                                 onClick={() => window.electronAPI?.openPath?.(storageInfo.path)}
                                 className="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 transition-colors"
                             >
-                                Open in Finder
+                                {t('settings.nav.openInFinder', 'Open in Finder')}
                             </button>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
@@ -970,7 +999,7 @@ export function Settings() {
                                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-[11px] hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <Trash2 size={12} />
-                                    Clear Logs
+                                    {t('settings.general.clearLogs', 'Clear Logs')}
                                 </button>
                                 <button
                                     type="button"
@@ -979,7 +1008,7 @@ export function Settings() {
                                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {storageCleaning ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                                    Clear All Data
+                                    {t('settings.general.clearAllData', 'Clear All Data')}
                                 </button>
                             </div>
                         </div>
@@ -991,7 +1020,7 @@ export function Settings() {
                         className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-sm hover:bg-white/10 transition-colors"
                     >
                         <HardDrive size={14} />
-                        Check Storage Usage
+                        {t('settings.nav.checkStorage', 'Check Storage Usage')}
                     </button>
                 )}
             </Card>
@@ -1005,11 +1034,11 @@ export function Settings() {
             {/* About */}
             <div id="about" ref={setSectionRef('about')}>
             <Card className="p-5">
-                <SectionHeader icon={<Info size={16} />} title="About" />
+                <SectionHeader icon={<Info size={16} />} title={t('settings.about.title')} />
                 <div className="flex items-center justify-between">
                     <div>
                         <h3 className="text-sm font-bold text-white">SiliconDev</h3>
-                        <p className="text-xs text-gray-500 mt-1">v{__APP_VERSION__} — Local AI development environment for Apple Silicon</p>
+                        <p className="text-xs text-gray-500 mt-1">{t('settings.about.version')}: v{__APP_VERSION__}</p>
                         <p className="text-[10px] text-gray-600 mt-1">Made with love by Fabrizio Salmi — MIT License</p>
                     </div>
                     <button
@@ -1018,7 +1047,7 @@ export function Settings() {
                         className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm hover:bg-red-500/20 transition-colors"
                     >
                         <RotateCcw size={14} />
-                        Reset All Settings
+                        {t('settings.general.resetAll')}
                     </button>
                 </div>
             </Card>

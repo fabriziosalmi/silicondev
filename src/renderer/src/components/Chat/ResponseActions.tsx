@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Copy, Check, Wand2, Scale, Eye, GitFork, ShieldCheck, Loader2, RefreshCcw, ChevronRight, Expand, Shrink, Briefcase, MessageCircle, GraduationCap, Languages, User, Baby, FlaskConical, Feather } from 'lucide-react'
 import type { SelfAssessment } from '../../api/client'
 import { AssessmentPopover } from './AssessmentPopover'
@@ -15,19 +16,19 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, isOpen: boole
 }
 
 const PERSPECTIVES = [
-    { key: 'perspective_ceo', label: 'CEO', icon: <User className="w-3 h-3" /> },
-    { key: 'perspective_child', label: 'ELI8', icon: <Baby className="w-3 h-3" /> },
-    { key: 'perspective_scientist', label: 'Scientist', icon: <FlaskConical className="w-3 h-3" /> },
-    { key: 'perspective_poet', label: 'Poet', icon: <Feather className="w-3 h-3" /> },
+    { key: 'perspective_ceo', i18nKey: 'params.actionCEO', icon: <User className="w-3 h-3" /> },
+    { key: 'perspective_child', i18nKey: 'params.actionELI8', icon: <Baby className="w-3 h-3" /> },
+    { key: 'perspective_scientist', i18nKey: 'params.actionScientist', icon: <FlaskConical className="w-3 h-3" /> },
+    { key: 'perspective_poet', i18nKey: 'params.actionPoet', icon: <Feather className="w-3 h-3" /> },
 ];
 
 const TONE_ACTIONS = [
-    { key: 'longer', label: 'Longer', icon: <Expand className="w-3 h-3" /> },
-    { key: 'shorter', label: 'Shorter', icon: <Shrink className="w-3 h-3" /> },
-    { key: 'formal', label: 'Formal', icon: <Briefcase className="w-3 h-3" /> },
-    { key: 'casual', label: 'Casual', icon: <MessageCircle className="w-3 h-3" /> },
-    { key: 'technical', label: 'Technical', icon: <GraduationCap className="w-3 h-3" /> },
-    { key: 'translate', label: 'Translate', icon: <Languages className="w-3 h-3" /> },
+    { key: 'longer', i18nKey: 'params.actionLonger', icon: <Expand className="w-3 h-3" /> },
+    { key: 'shorter', i18nKey: 'params.actionShorter', icon: <Shrink className="w-3 h-3" /> },
+    { key: 'formal', i18nKey: 'params.actionFormal', icon: <Briefcase className="w-3 h-3" /> },
+    { key: 'casual', i18nKey: 'params.actionCasual', icon: <MessageCircle className="w-3 h-3" /> },
+    { key: 'technical', i18nKey: 'params.actionTechnical', icon: <GraduationCap className="w-3 h-3" /> },
+    { key: 'translate', i18nKey: 'params.actionTranslate', icon: <Languages className="w-3 h-3" /> },
 ];
 
 export const ResponseActions = memo(function ResponseActions({
@@ -63,6 +64,7 @@ export const ResponseActions = memo(function ResponseActions({
     selfCritiqueLoading?: boolean;
     disabled?: boolean;
 }) {
+    const { t } = useTranslation()
     const isOn = (key: string) => enabledActions?.[key] !== false;
     const [expandedRow, setExpandedRow] = useState<'tone' | 'perspective' | null>(null);
     const [showAssessment, setShowAssessment] = useState(false);
@@ -105,7 +107,7 @@ export const ResponseActions = memo(function ResponseActions({
                     onClick={() => onCopy(content, idx)}
                     className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
                     aria-label="Copy response"
-                    title="Copy"
+                    title={t('actions.copy')}
                 >
                     {copiedIndex === idx
                         ? <Check className="w-3.5 h-3.5 text-green-500" />
@@ -120,7 +122,7 @@ export const ResponseActions = memo(function ResponseActions({
                         disabled={disabled}
                         className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : expandedRow === 'tone' ? 'text-blue-400 bg-blue-500/10' : 'text-gray-600 hover:text-gray-300 hover:bg-white/5'}`}
                         aria-label="Rewrite response"
-                        title="Rewrite"
+                        title={t('actions.rewrite')}
                     >
                         <Wand2 className="w-3.5 h-3.5" />
                     </button>
@@ -133,7 +135,7 @@ export const ResponseActions = memo(function ResponseActions({
                         disabled={disabled}
                         className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-orange-400 hover:bg-orange-500/5'}`}
                         aria-label="Devil's advocate"
-                        title="Devil's Advocate"
+                        title={t('actions.devil')}
                     >
                         <Scale className="w-3.5 h-3.5" />
                     </button>
@@ -146,7 +148,7 @@ export const ResponseActions = memo(function ResponseActions({
                         disabled={disabled}
                         className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : expandedRow === 'perspective' ? 'text-blue-400 bg-blue-500/10' : 'text-gray-600 hover:text-blue-400 hover:bg-blue-500/5'}`}
                         aria-label="Change perspective"
-                        title="Perspective"
+                        title={t('actions.perspective')}
                     >
                         <Eye className="w-3.5 h-3.5" />
                     </button>
@@ -159,7 +161,7 @@ export const ResponseActions = memo(function ResponseActions({
                         disabled={disabled}
                         className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-blue-400 hover:bg-blue-500/5'}`}
                         aria-label="Branch conversation"
-                        title="Branch"
+                        title={t('actions.branch')}
                     >
                         <GitFork className="w-3.5 h-3.5" />
                     </button>
@@ -182,7 +184,7 @@ export const ResponseActions = memo(function ResponseActions({
                                         : 'text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/5'
                             }`}
                             aria-label={assessment === 'loading' ? 'Assessing response' : assessment ? 'View assessment' : 'Assess response'}
-                            title={assessment === 'loading' ? 'Assessing...' : assessment ? 'Assessment' : 'Assess'}
+                            title={assessment === 'loading' ? t('actions.assessing') : assessment ? t('actions.assessment') : t('actions.assess')}
                             disabled={assessment === 'loading'}
                         >
                             {assessment === 'loading'
@@ -202,7 +204,7 @@ export const ResponseActions = memo(function ResponseActions({
                                     onClick={() => setShowAssessment(!showAssessment)}
                                     className="flex items-center gap-1.5 ml-0.5 px-1 py-0.5 rounded hover:bg-white/5 transition-colors"
                                     aria-label={`Assessment score: ${avg}`}
-                                    title="Details"
+                                    title={t('actions.assessDetails')}
                                 >
                                     <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden">
                                         <div className={`h-full rounded-full ${color}`} style={{ width: `${avg}%` }} />
@@ -230,7 +232,7 @@ export const ResponseActions = memo(function ResponseActions({
                                     : 'text-gray-600 hover:text-amber-400 hover:bg-amber-500/5'
                         }`}
                         aria-label={selfCritiqueLoading ? 'Running self-critique' : 'Self-critique'}
-                        title={selfCritiqueLoading ? 'Critiquing...' : 'Self-Critique'}
+                        title={selfCritiqueLoading ? t('actions.critiquing') : t('actions.selfCritique')}
                     >
                         {selfCritiqueLoading
                             ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -262,7 +264,7 @@ export const ResponseActions = memo(function ResponseActions({
                             className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] text-gray-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 transition-colors"
                         >
                             {a.icon}
-                            {a.label}
+                            {t(a.i18nKey)}
                         </button>
                     ))}
                 </div>
@@ -279,7 +281,7 @@ export const ResponseActions = memo(function ResponseActions({
                             className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] text-gray-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 transition-colors"
                         >
                             {p.icon}
-                            {p.label}
+                            {t(p.i18nKey)}
                         </button>
                     ))}
                 </div>
@@ -290,7 +292,7 @@ export const ResponseActions = memo(function ResponseActions({
                 <details className="mt-1.5" onToggle={(e) => setPromptDetailsOpen(e.currentTarget.open)}>
                     <summary className="flex items-center gap-1 cursor-pointer text-[10px] text-gray-600 hover:text-gray-400 transition-colors select-none list-none">
                         <ChevronRight className="w-2.5 h-2.5 chevron-rotate transition-transform" />
-                        <span>View raw response</span>
+                        <span>{t('actions.viewRaw')}</span>
                     </summary>
                     <div className="mt-1 pl-3 border-l border-white/5 text-[10px] text-gray-500 max-h-32 overflow-y-auto">
                         <pre className="whitespace-pre-wrap font-mono leading-relaxed">{fullPrompt}</pre>

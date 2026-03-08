@@ -61,6 +61,7 @@ export interface ActiveFileContext {
 
 interface UseAgentSessionOptions {
   onDiffProposal?: (filePath: string, meta: DiffProposalMeta) => void
+  onFileChanged?: (filePath: string, isNew: boolean) => void
   getActiveFile?: () => ActiveFileContext | null
   getWorkspaceDir?: () => string | null
   lowPowerMode?: boolean
@@ -71,12 +72,13 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
   const [feedItems, setFeedItems] = useState<FeedItem[]>(loadPersistedFeed)
   const [isRunning, setIsRunning] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const [activeAgencyRole, setActiveAgencyRole] = useState<{ role: 'architetto' | 'operaio' | 'ispettore'; status: string } | null>(null)
+  const [activeAgencyRole, setActiveAgencyRole] = useState<{ role: 'architect' | 'worker' | 'inspector'; status: string } | null>(null)
   const [telemetry, setTelemetry] = useState<TelemetryData>(loadPersistedTelemetry)
   const [agentMode, setAgentMode] = useState<'edit' | 'review'>('edit')
   const [pinnedItems, setPinnedItems] = useState<{ id: string; type: 'file' | 'text'; name: string; content: string }[]>([])
   const [scoutIssues, setScoutIssues] = useState<ScoutAlertMetadata['issues']>([])
   const [contextHealth, setContextHealth] = useState<{ used_tokens: number; max_tokens: number } | null>(null)
+  const [promptProfile, setPromptProfile] = useState<{ intent: string; complexity: string; extracted_paths: string[] } | null>(null)
 
   const aiTextIdRef = useRef<string | null>(null)
   const toolOutputIdRef = useRef<string | null>(null)
@@ -219,7 +221,7 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           break
 
         case 'agency_status':
-          setActiveAgencyRole({ role: d.role as 'architetto' | 'operaio' | 'ispettore', status: d.status as string })
+          setActiveAgencyRole({ role: d.role as 'architect' | 'worker' | 'inspector', status: d.status as string })
           break
 
         case 'context_health':
@@ -227,6 +229,18 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
             used_tokens: d.used_tokens as number,
             max_tokens: d.max_tokens as number,
           })
+          break
+
+        case 'prompt_profile':
+          setPromptProfile({
+            intent: d.intent as string,
+            complexity: d.complexity as string,
+            extracted_paths: (d.extracted_paths as string[]) || [],
+          })
+          break
+
+        case 'file_changed':
+          options?.onFileChanged?.(d.path as string, d.is_new as boolean)
           break
 
         case 'token_stream': {
@@ -443,7 +457,7 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
             content: d.content as string,
             timestamp: Date.now(),
             agencyTraceMeta: {
-              role: d.role as 'architetto' | 'operaio' | 'ispettore',
+              role: d.role as 'architect' | 'worker' | 'inspector',
               content: d.content as string,
               target: d.target as string
             }
@@ -631,6 +645,7 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
     setActiveAgencyRole(null) // Reset active agency role on new submission
     setScoutIssues([]) // Reset scout issues on new submission
     setContextHealth(null) // Reset context health on new submission
+    setPromptProfile(null)
 
     if (!activeModel) {
       addFeedItem({ id: crypto.randomUUID(), type: 'error', content: 'No model loaded. Load a model from the Models tab first.', timestamp: Date.now() })
@@ -774,5 +789,6 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
     togglePin,
     scoutIssues,
     contextHealth,
+    promptProfile,
   }
 }

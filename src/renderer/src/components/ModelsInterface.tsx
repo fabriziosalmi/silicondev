@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { apiClient, cleanModelName } from '../api/client';
 import type { ModelEntry } from '../api/client';
 import { PageHeader } from './ui/PageHeader';
@@ -46,6 +47,7 @@ function guessPublisher(id: string) {
 }
 
 export function ModelsInterface() {
+    const { t } = useTranslation();
     const { toast } = useToast();
     const [models, setModels] = useState<ModelEntry[]>([]);
     const [activeTab, setActiveTab] = useState<'my-models' | 'discover'>('my-models');
@@ -57,7 +59,7 @@ export function ModelsInterface() {
 
     // Split-view State
     const [selectedModel, setSelectedModel] = useState<ModelEntry | null>(null);
-    const [readmeContent, setReadmeContent] = useState<string>("Select a model to view details.");
+    const [readmeContent, setReadmeContent] = useState<string>("");
     const [readmeLoading, setReadmeLoading] = useState(false);
 
     // Custom Model State
@@ -124,7 +126,7 @@ export function ModelsInterface() {
     };
 
     const handleDelete = async (modelId: string) => {
-        if (!confirm('Delete this model from disk? This cannot be undone.')) return;
+        if (!confirm(t('models.deleteConfirm'))) return;
         try {
             setLoading(true);
             if (activeModel?.id === modelId) {
@@ -360,7 +362,7 @@ export function ModelsInterface() {
                         onClick={() => { setActiveTab('my-models'); setSearchQuery(''); }}
                         className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'my-models' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
                     >
-                        My Models ({downloadedModels.length})
+                        {t('models.myModels')} ({downloadedModels.length})
                         {activeTab === 'my-models' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400 rounded-full" />}
                     </button>
                     <button
@@ -368,7 +370,7 @@ export function ModelsInterface() {
                         onClick={() => setActiveTab('discover')}
                         className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'discover' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
                     >
-                        Discover (HuggingFace)
+                        {t('models.discover')}
                         {activeTab === 'discover' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400 rounded-full" />}
                     </button>
                 </div>
@@ -382,7 +384,7 @@ export function ModelsInterface() {
                     {diskFreeGB !== null && (
                         <span className={diskFreeGB < 5 ? 'text-red-400' : diskFreeGB < 20 ? 'text-amber-400' : ''}>
                             <HardDrive size={10} className="inline mr-1" />
-                            {diskFreeGB.toFixed(0)} GB free
+                            {t('models.diskFree', { size: diskFreeGB.toFixed(0) })}
                         </span>
                     )}
                     {activeModel && (
@@ -412,7 +414,7 @@ export function ModelsInterface() {
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                                 <input
                                     type="text"
-                                    placeholder="Search local models..."
+                                    placeholder={t('models.search')}
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-white outline-none focus:border-blue-500 text-sm transition-colors"
@@ -430,7 +432,7 @@ export function ModelsInterface() {
                                                 : 'bg-white/[0.03] text-gray-500 border border-white/5 hover:text-gray-400'
                                         }`}
                                     >
-                                        {s === 'name' ? 'Name' : s === 'size' ? 'Size' : 'Arch'}
+                                        {s === 'name' ? t('models.sortName') : s === 'size' ? t('models.sortSize') : t('models.sortArch')}
                                     </button>
                                 ))}
                             </div>
@@ -462,18 +464,16 @@ export function ModelsInterface() {
                                     ) : (
                                         <div className="max-w-md mx-auto text-center">
                                             <Database className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-                                            <h3 className="text-lg font-semibold text-white mb-1">Download your first model</h3>
+                                            <h3 className="text-lg font-semibold text-white mb-1">{t('models.noModels')}</h3>
                                             <p className="text-sm text-gray-400 mb-4">
-                                                {systemStats && systemStats.memory.total >= 16 * 1024 * 1024 * 1024
-                                                    ? 'Your Mac has 16 GB+ RAM. A 7B model like Qwen2.5-7B-Instruct-4bit is a good starting point.'
-                                                    : 'A 3B model like Qwen2.5-3B-Instruct-4bit runs well on 8 GB Macs.'}
+                                                {t('models.goToDiscover')}
                                             </p>
                                             <button
                                                 type="button"
                                                 onClick={() => { setActiveTab('discover'); setSearchQuery(''); }}
                                                 className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
                                             >
-                                                Go to Discover
+                                                {t('models.discover')}
                                             </button>
                                         </div>
                                     )}
@@ -514,7 +514,7 @@ export function ModelsInterface() {
                                                                 {isActive && (
                                                                     <div className="absolute top-3 right-3 flex items-center gap-1.5">
                                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                                                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400">Active</span>
+                                                                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400">{t('models.active')}</span>
                                                                     </div>
                                                                 )}
 
@@ -563,7 +563,7 @@ export function ModelsInterface() {
                                                                             className="flex-1 h-8 flex items-center justify-center gap-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors text-[11px] font-bold uppercase tracking-wide"
                                                                         >
                                                                             <LogOut size={12} />
-                                                                            Eject
+                                                                            {t('models.eject')}
                                                                         </button>
                                                                     ) : (
                                                                         <button
@@ -574,9 +574,9 @@ export function ModelsInterface() {
                                                                             className="flex-1 h-8 flex items-center justify-center gap-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-colors text-[11px] font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
                                                                         >
                                                                             {isLoading ? (
-                                                                                <><Loader2 size={12} className="animate-spin" /> Loading...</>
+                                                                                <><Loader2 size={12} className="animate-spin" /> {t('common.loading')}</>
                                                                             ) : (
-                                                                                <><Play size={12} className="fill-current" /> Load</>
+                                                                                <><Play size={12} className="fill-current" /> {t('models.load')}</>
                                                                             )}
                                                                         </button>
                                                                     )}
@@ -586,7 +586,7 @@ export function ModelsInterface() {
                                                                         disabled={isActive || downloading.has(model.id)}
                                                                         aria-label={`Delete ${cleanModelName(model.name)}`}
                                                                         className="h-8 w-8 flex items-center justify-center rounded-lg border border-white/[0.06] text-gray-600 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                        title={downloading.has(model.id) ? 'Cannot delete while downloading' : 'Delete model'}
+                                                                        title={downloading.has(model.id) ? t('models.downloading') : t('models.delete')}
                                                                     >
                                                                         <Trash2 size={13} />
                                                                     </button>
@@ -615,7 +615,7 @@ export function ModelsInterface() {
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                                     <input
                                         type="text"
-                                        placeholder="Search Hub..."
+                                        placeholder={t('models.search')}
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-white outline-none focus:border-blue-500 text-sm transition-colors"
@@ -626,7 +626,7 @@ export function ModelsInterface() {
                                 {/* Recommended section */}
                                 {!searchQuery && (
                                     <div className="p-4 border-b border-white/10">
-                                        <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Recommended for your Mac</h3>
+                                        <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">{t('models.recommended')}</h3>
                                         <div className="grid grid-cols-2 gap-2">
                                             {RECOMMENDED_MODELS.filter(rec => {
                                                 if (availableRamBytes > 0 && rec.sizeGB * 1.07e9 > availableRamBytes) return false;
@@ -649,7 +649,7 @@ export function ModelsInterface() {
                                                             disabled={isDownloading}
                                                             className="mt-1 w-full text-center text-[10px] font-bold uppercase tracking-wide py-1.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                         >
-                                                            {isDownloading ? 'Downloading...' : 'Download'}
+                                                            {isDownloading ? t('models.downloading') : t('models.download')}
                                                         </button>
                                                     </div>
                                                 );
@@ -709,12 +709,12 @@ export function ModelsInterface() {
                                             {downloading.has(selectedModel.id) ? (
                                                 <>
                                                     <Loader2 size={16} className="animate-spin" />
-                                                    Downloading...
+                                                    {t('models.downloading')}
                                                 </>
                                             ) : (
                                                 <>
                                                     <Download className="w-4 h-4" />
-                                                    Download
+                                                    {t('models.download')}
                                                 </>
                                             )}
                                         </button>
@@ -723,7 +723,7 @@ export function ModelsInterface() {
                                         {readmeLoading ? (
                                             <div className="flex items-center justify-center h-full text-gray-500 gap-3">
                                                 <Loader2 size={20} className="animate-spin" />
-                                                Loading Model Card...
+                                                {t('common.loading')}
                                             </div>
                                         ) : (
                                             <div className="prose prose-invert prose-sm max-w-none prose-pre:bg-black/50 prose-a:text-blue-400">
@@ -737,7 +737,7 @@ export function ModelsInterface() {
                             ) : (
                                 <div className="h-full flex flex-col items-center justify-center text-gray-500">
                                     <FileText className="w-12 h-12 mb-4 opacity-20" />
-                                    <p>Select a model from the list to view its Model Card</p>
+                                    <p>{t('models.noReadme')}</p>
                                 </div>
                             )}
                         </div>
@@ -882,7 +882,7 @@ export function ModelsInterface() {
                                 onClick={() => resetAddModal()}
                                 className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 transition-colors"
                             >
-                                Cancel
+                                {t('common.cancel')}
                             </button>
                             <button
                                 type="button"
@@ -890,7 +890,7 @@ export function ModelsInterface() {
                                 disabled={(!customName || (!customPath && selectedPaths.size === 0)) || loading || scanning}
                                 className="px-5 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {foundModels.length > 0 ? `Add Selected (${selectedPaths.size})` : 'Add Model'}
+                                {foundModels.length > 0 ? `${t('models.addModel')} (${selectedPaths.size})` : t('models.addModel')}
                             </button>
                         </div>
                     </div>

@@ -5,6 +5,7 @@ import { GlobalStateProvider } from './context/GlobalState'
 import { ConversationProvider } from './context/ConversationContext'
 import { NotesProvider } from './context/NotesContext'
 import { ToastProvider } from './components/ui/Toast'
+import './i18n'
 import './index.css'
 import App from './App.tsx'
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, Circle, Save, FolderSearch, Settings as SettingsIcon, FilePlus, PanelRightOpen, PanelRightClose } from 'lucide-react'
 import { FileTree } from './FileTree'
 import { MonacoEditor } from './MonacoEditor'
@@ -21,6 +22,7 @@ interface OpenFile {
 }
 
 export function CodeWorkspace() {
+  const { t } = useTranslation()
   const [tree, setTree] = useState<TreeNode | null>(null)
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
   const [activeFile, setActiveFile] = useState<string | null>(null)
@@ -103,10 +105,18 @@ export function CodeWorkspace() {
     handlePlanSubmit,
     handlePlanDecision,
     activeAgencyRole,
+    promptProfile,
   } = useAgentSession({
     onDiffProposal: (path, meta) => {
       handleFileSelect(path)
       handleDiffProposal(path, { ...meta, status: 'pending' })
+    },
+    onFileChanged: (_filePath, _isNew) => {
+      // Refresh file tree when agent creates or modifies files
+      const dir = workspaceDirRef.current
+      if (dir) {
+        apiClient.workspace.tree(dir).then(setTree).catch(() => {})
+      }
     },
     getActiveFile,
     getWorkspaceDir,
@@ -421,9 +431,9 @@ export function CodeWorkspace() {
       <div className="h-full flex items-center justify-center">
         <div className="text-center space-y-3 max-w-sm">
           <FolderSearch size={40} className="mx-auto text-gray-600" />
-          <h3 className="text-sm font-medium text-gray-400">No workspace configured</h3>
+          <h3 className="text-sm font-medium text-gray-400">{t('code.noSession')}</h3>
           <p className="text-xs text-gray-600">
-            Go to Settings and select a project directory under "Codebase Index" to enable the code workspace.
+            {t('settings.codebase.title')}
           </p>
           <button
             onClick={() => {
@@ -432,7 +442,7 @@ export function CodeWorkspace() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded text-xs text-blue-400 transition-colors"
           >
             <SettingsIcon size={12} />
-            Open Settings
+            {t('settings.title')}
           </button>
         </div>
       </div>
@@ -481,7 +491,7 @@ export function CodeWorkspace() {
           type="button"
           onClick={() => setAgentPanelOpen(!agentPanelOpen)}
           className="ml-auto p-1.5 text-gray-600 hover:text-white hover:bg-white/5 transition-colors shrink-0"
-          title={agentPanelOpen ? 'Hide agent' : 'Show agent'}
+          title={agentPanelOpen ? t('code.agent') : t('code.agent')}
         >
           {agentPanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
         </button>
@@ -493,7 +503,7 @@ export function CodeWorkspace() {
         <div style={{ width: sidebarWidth }} className="border-r border-white/5 bg-black/20 shrink-0 overflow-hidden flex flex-col">
           <div className="px-2 py-1.5 flex items-center justify-between border-b border-white/5">
             <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wide truncate">
-              {tree?.name || 'Explorer'}
+              {tree?.name || t('code.files')}
             </span>
             <button
               type="button"
@@ -523,7 +533,7 @@ export function CodeWorkspace() {
           )}
           {loading ? (
             <div className="flex items-center justify-center py-8 text-gray-600 text-xs">
-              Loading...
+              {t('common.loading')}
             </div>
           ) : tree && (!tree.children || tree.children.length === 0) ? (
             <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-3">
@@ -618,7 +628,7 @@ export function CodeWorkspace() {
               </>
             ) : (
               <div className="h-full flex items-center justify-center bg-[#1e1e1e]">
-                <p className="text-sm text-gray-600">Select a file to open</p>
+                <p className="text-sm text-gray-600">{t('code.noSession')}</p>
               </div>
             )}
           </div>
@@ -672,6 +682,7 @@ export function CodeWorkspace() {
                   togglePin,
                   contextHealth,
                   activeAgencyRole,
+                  promptProfile,
                 }}
               />
             </div>

@@ -456,6 +456,15 @@ async def apply_patch_content(file_path: str, search: str, replace: str) -> dict
     {file_path, old, new, diff, error}. If error is set, the patch was not
     valid (search not found, ambiguous match, etc.) and the file was NOT modified.
     """
+    if not file_path or not file_path.strip():
+        return {
+            "file_path": file_path,
+            "old": "",
+            "new": "",
+            "diff": "",
+            "error": "Empty file path. Provide the full path to the file.",
+        }
+
     # Safety: block patches to system paths (resolve to catch traversal)
     blocked = _is_protected_path(file_path)
     if blocked:
@@ -492,6 +501,46 @@ async def apply_patch_content(file_path: str, search: str, replace: str) -> dict
 
     count = old_content.count(search)
     if count == 0:
+        # Try fuzzy match: normalize whitespace (strip trailing spaces per line)
+        def _normalize_ws(text: str) -> str:
+            return "\n".join(line.rstrip() for line in text.splitlines())
+
+        norm_content = _normalize_ws(old_content)
+        norm_search = _normalize_ws(search)
+        fuzzy_count = norm_content.count(norm_search) if norm_search.strip() else 0
+
+        if fuzzy_count == 1:
+            # Fuzzy match succeeded — apply on normalized content, then reconstruct
+            new_content = old_content  # We need to find the actual position
+            # Find the matching region in normalized space, then map back
+            norm_start = norm_content.index(norm_search)
+            # Count newlines to find line-based position
+            start_line = norm_content[:norm_start].count("\n")
+            end_line = start_line + norm_search.count("\n")
+            old_lines = old_content.splitlines(keepends=True)
+            matched_text = "".join(old_lines[start_line:end_line + 1])
+            new_content = old_content.replace(matched_text, replace, 1)
+
+            old_lines_diff = old_content.splitlines(keepends=True)
+            new_lines_diff = new_content.splitlines(keepends=True)
+            diff = "".join(difflib.unified_diff(
+                old_lines_diff, new_lines_diff,
+                fromfile=f"a/{p.name}", tofile=f"b/{p.name}",
+            ))
+            return {
+                "file_path": file_path,
+                "old": old_content,
+                "new": new_content,
+                "diff": diff,
+                "error": None,
+            }
+
+        # Show a snippet of the actual file to help the model correct itself
+        preview_lines = old_content.splitlines()[:20]
+        preview = "\n".join(f"  {i+1}: {line}" for i, line in enumerate(preview_lines))
+        if len(old_content.splitlines()) > 20:
+            preview += f"\n  ... ({len(old_content.splitlines()) - 20} more lines)"
+
         return {
             "file_path": file_path,
             "old": old_content,
@@ -499,8 +548,9 @@ async def apply_patch_content(file_path: str, search: str, replace: str) -> dict
             "diff": "",
             "error": (
                 "Search block not found in file. "
-                "Re-read the file with run_bash to see the actual content, "
-                "then try again with the exact text."
+                "Use read_file to see the actual content, then copy the exact text "
+                "you want to replace (including whitespace and indentation).\n"
+                f"Actual file content:\n{preview}"
             ),
         }
     if count > 1:

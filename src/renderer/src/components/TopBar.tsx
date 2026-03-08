@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useGlobalState } from '../context/GlobalState';
 import { apiClient, cleanModelName } from '../api/client';
 import type { ModelEntry } from '../api/client';
@@ -49,6 +50,7 @@ function StatGroup({ icon, percent, thresholds, detail }: {
 }
 
 export function TopBar() {
+    const { t } = useTranslation();
     const { backendReady, systemStats, activeModel, setActiveModel, isTraining, isGenerating } = useGlobalState();
     const thresholds = getThresholds();
     const [showModelMenu, setShowModelMenu] = useState(false);
@@ -123,25 +125,25 @@ export function TopBar() {
 
             {/* Left: App identity + activity state */}
             <div className="flex items-center gap-3 pl-[72px]">
-                <span className="text-[10px] font-bold text-gray-500/80 tracking-widest uppercase select-none">SiliconDev</span>
+                <span className="text-[10px] font-bold text-gray-500/80 tracking-widest uppercase select-none">{t('app.title')}</span>
 
                 {/* Activity pulse — shows what the system is actively doing */}
                 {isGenerating && (
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/15">
                         <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse" />
-                        <span className="text-[9px] font-medium text-blue-400">Generating</span>
+                        <span className="text-[9px] font-medium text-blue-400">{t('topbar.generating')}</span>
                     </div>
                 )}
                 {isTraining && !isGenerating && (
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/15">
                         <div className="w-1 h-1 bg-violet-400 rounded-full animate-pulse" />
-                        <span className="text-[9px] font-medium text-violet-400">Training</span>
+                        <span className="text-[9px] font-medium text-violet-400">{t('topbar.training')}</span>
                     </div>
                 )}
                 {!backendReady && (
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/15">
                         <Loader2 size={9} className="animate-spin text-amber-400" />
-                        <span className="text-[9px] font-medium text-amber-400">Starting</span>
+                        <span className="text-[9px] font-medium text-amber-400">{t('topbar.starting')}</span>
                     </div>
                 )}
             </div>
@@ -156,7 +158,7 @@ export function TopBar() {
                             <button
                                 onClick={toggleMenu}
                                 className="flex items-center gap-1.5 px-2.5 h-full hover:bg-white/[0.04] transition-colors"
-                                title="Switch model"
+                                title={t('topbar.switchModel')}
                             >
                                 <Zap size={11} className="text-blue-400 shrink-0" />
                                 <span className="text-[10px] font-semibold text-gray-200 max-w-[140px] truncate">{cleanModelName(activeModel.name)}</span>
@@ -169,7 +171,7 @@ export function TopBar() {
                             <button
                                 onClick={handleEject}
                                 className="flex items-center px-2 h-full text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                                title="Unload model"
+                                title={t('topbar.unloadModel')}
                             >
                                 <LogOut size={11} />
                             </button>
@@ -179,10 +181,10 @@ export function TopBar() {
                             onClick={toggleMenu}
                             disabled={!backendReady}
                             className="flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-dashed border-white/10 hover:border-white/20 hover:bg-white/[0.03] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Load a model"
+                            title={t('topbar.loadAModel')}
                         >
                             <DatabaseZap size={11} className="text-gray-600" />
-                            <span className="text-[10px] text-gray-500 font-medium">Load model</span>
+                            <span className="text-[10px] text-gray-500 font-medium">{t('topbar.loadModel')}</span>
                             <ChevronDown size={10} className="text-gray-700" />
                         </button>
                     )}
@@ -199,7 +201,7 @@ export function TopBar() {
                                         type="text"
                                         value={modelFilter}
                                         onChange={(e) => setModelFilter(e.target.value)}
-                                        placeholder="Filter models..."
+                                        placeholder={t('topbar.filterModels')}
                                         className="flex-1 bg-transparent text-[11px] text-white placeholder-gray-600 outline-none"
                                     />
                                     {modelFilter && (
@@ -210,7 +212,7 @@ export function TopBar() {
                             <div className="max-h-72 overflow-y-auto">
                                 {filteredModels.length === 0 ? (
                                     <div className="px-3 py-6 text-center text-[11px] text-gray-600">
-                                        {models.length === 0 ? 'No downloaded models' : 'No matches'}
+                                        {models.length === 0 ? t('topbar.noModels') : t('topbar.noMatches')}
                                     </div>
                                 ) : filteredModels.map(m => {
                                     const isActive = activeModel?.id === m.id;
@@ -238,7 +240,7 @@ export function TopBar() {
                                                 </div>
                                             </div>
                                             {isActive && (
-                                                <span className="text-[8px] text-blue-400 font-bold tracking-wider uppercase shrink-0">Active</span>
+                                                <span className="text-[8px] text-blue-400 font-bold tracking-wider uppercase shrink-0">{t('topbar.active')}</span>
                                             )}
                                         </button>
                                     );
@@ -276,7 +278,7 @@ export function TopBar() {
                 ) : (
                     <div className="flex items-center gap-1.5">
                         <Loader2 size={10} className="animate-spin text-gray-700" />
-                        <span className="text-[9px] text-gray-700 font-mono">loading</span>
+                        <span className="text-[9px] text-gray-700 font-mono">{t('topbar.loading')}</span>
                     </div>
                 )}
             </div>

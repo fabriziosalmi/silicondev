@@ -12,7 +12,8 @@ from typing import AsyncGenerator
 
 from .types import AgentState, TrajectoryEntry
 from .prompts import SYSTEM_PROMPT, REVIEW_MODE_PROMPT, INSPECTOR_PROMPT
-from .parser import extract_tool_calls, has_partial_tool_tag, strip_tool_calls
+from .parser import extract_tool_calls, has_partial_tool_tag, strip_tool_calls, sanitize_path_arg, sanitize_patch_args
+from .prelayer import analyze_prompt
 from .tools import (
     run_bash, apply_patch_content, generate_edit_diff,
     git_tool, apply_edit, read_file as read_file_paged,
@@ -255,7 +256,7 @@ class SupervisorAgent:
             "errors": errors,
         }
 
-    def _step_label(self, label: str, iteration: int, agent_role: str = "architetto") -> dict:
+    def _step_label(self, label: str, iteration: int, agent_role: str = "architect") -> dict:
         """Build a step_label SSE event with progress info and agent role."""
         budget_pct = round(self.guardrails.budget_fraction() * 100)
         return {"event": "step_label", "data": {
@@ -392,10 +393,33 @@ class SupervisorAgent:
 
         yield _sse("session_start", {"session_id": self.session_id, **snapshot_info})
 
+        # --- Pre-LLM intelligence layer ---
+        prompt_profile = analyze_prompt(prompt, cwd)
+        yield _sse("prompt_profile", {
+            "intent": prompt_profile.intent,
+            "complexity": prompt_profile.complexity,
+            "extracted_paths": prompt_profile.extracted_paths,
+        })
+
+        # Apply suggested overrides (only if user didn't explicitly set mode)
+        effective_mode = self.mode
+        if prompt_profile.suggested_mode and self.mode == "edit":
+            effective_mode = prompt_profile.suggested_mode
+            logger.info(f"Pre-layer: auto-switching to {effective_mode} mode")
+
+        effective_max_iter = self.max_iterations
+        if prompt_profile.suggested_max_iterations:
+            effective_max_iter = prompt_profile.suggested_max_iterations
+            logger.info(f"Pre-layer: adjusting max_iterations to {effective_max_iter}")
+
+        effective_temp = self.temperature
+        if prompt_profile.suggested_temperature is not None:
+            effective_temp = prompt_profile.suggested_temperature
+
         # Fix 4: repo map cache (Fix 32: refreshes when files change)
         repo_map_cache = RepoMapCache(cwd)
         repo_map = repo_map_cache.get()
-        base_prompt = REVIEW_MODE_PROMPT if self.mode == "review" else SYSTEM_PROMPT
+        base_prompt = REVIEW_MODE_PROMPT if effective_mode == "review" else SYSTEM_PROMPT
         
         # --- Commandment 14: Linter Injection ---
         linter_addition = ""
@@ -455,6 +479,10 @@ class SupervisorAgent:
         if repo_map:
             system_content += f"\n\n## Repository Map\n\n{repo_map}\n"
 
+        # Inject pre-read file context (saves the model a read_file iteration)
+        if prompt_profile.pre_read_context:
+            system_content += f"\n{prompt_profile.pre_read_context}\n"
+
         # Smart file discovery: only for non-trivial prompts (>30 chars, not simple create/write)
         _SIMPLE_PROMPT_RE = re.compile(r'^(create|write|make|add|generate)\s+(a\s+)?(simple|basic|new|empty)?\s*\w+', re.IGNORECASE)
         if len(prompt) > 30 and not _SIMPLE_PROMPT_RE.match(prompt):
@@ -509,7 +537,7 @@ class SupervisorAgent:
         iteration = 0
         consecutive_no_tool = 0  # track iterations with no tool calls
 
-        for iteration in range(1, self.max_iterations + 1):
+        for iteration in range(1, effective_max_iter + 1):
             iter_start = time.time()
             if self._stopped:
                 break
@@ -527,8 +555,8 @@ class SupervisorAgent:
                 break
 
             self._state = AgentState.thinking
-            yield self._agency_status("architetto", "Planning trajectory")
-            yield self._step_label("Thinking...", iteration, agent_role="architetto")
+            yield self._agency_status("architect", "Planning trajectory")
+            yield self._step_label("Thinking...", iteration, agent_role="architect")
             yield _sse("telemetry_update", self._telemetry_data(iteration))
 
             # Refresh repo map only if files changed (invalidated by edit)
@@ -569,13 +597,13 @@ class SupervisorAgent:
             think_buffer = ""
             think_tag = ""
 
-            yield self._agency_status("operaio", "Drafting content")
+            yield self._agency_status("worker", "Drafting content")
 
             try:
                 async for chunk in engine_service.generate_stream(
                     self.model_id,
                     fitted_messages,
-                    temperature=self.temperature,
+                    temperature=effective_temp,
                     max_tokens=4096,
                 ):
                     if self._stopped:
@@ -666,7 +694,7 @@ class SupervisorAgent:
                     yield _sse("token_stream", {"agent": "supervisor", "text": clean_remaining})
 
                 # If 2+ iterations with no tool calls, nudge the model to act
-                if consecutive_no_tool >= 2 and iteration < self.max_iterations:
+                if consecutive_no_tool >= 2 and iteration < effective_max_iter:
                     messages.append({"role": "assistant", "content": cleaned})
                     messages.append({
                         "role": "user",
@@ -690,13 +718,40 @@ class SupervisorAgent:
                 call_id = str(uuid.uuid4())[:8]
                 logger.info(f"Tool call: {tc.name} (iter {iteration}/{self.max_iterations}, session={self.session_id})")
 
+                # Resolve relative file paths against workspace
+                if tc.name in ("read_file", "edit_file", "patch_file") and "path" in tc.args:
+                    raw_path = tc.args["path"].strip()
+                    if raw_path and not os.path.isabs(raw_path):
+                        tc.args["path"] = os.path.join(cwd, raw_path)
+                        logger.debug(f"Resolved relative path '{raw_path}' -> '{tc.args['path']}'")
+
                 # Block write tools in review mode
-                if self.mode == "review" and tc.name in _REVIEW_BLOCKED:
+                if effective_mode == "review" and tc.name in _REVIEW_BLOCKED:
                     tool_results.append(f"[{tc.name}] Blocked: review mode is read-only. Use read_file or search_codebase instead.")
                     continue
 
                 if tc.name == "run_bash":
                     command = tc.args.get("command", "")
+
+                    # Intercept: model using cat/head/tail to read files → redirect to read_file
+                    _cat_match = re.match(r'^\s*(?:cat|head|tail)\s+([^\s|;>&]+)\s*$', command)
+                    if _cat_match:
+                        redirect_path = _cat_match.group(1)
+                        if not os.path.isabs(redirect_path):
+                            redirect_path = os.path.join(cwd, redirect_path)
+                        logger.info(f"Redirecting 'run_bash {command}' → read_file {redirect_path}")
+                        yield _sse("tool_start", {"tool": "read_file", "args": {"path": redirect_path}, "call_id": call_id})
+                        result = await read_file_paged(redirect_path, max_lines=300)
+                        if result["error"]:
+                            yield _sse("tool_log", {"call_id": call_id, "stream": "stderr", "text": result["error"]})
+                            yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                            tool_results.append(f"[read_file] Error: {result['error']}")
+                        else:
+                            yield _sse("tool_log", {"call_id": call_id, "stream": "stdout", "text": f"({result['lines']} lines)\n"})
+                            yield _sse("tool_done", {"call_id": call_id, "exit_code": 0})
+                            tool_results.append(f"[read_file {redirect_path}] ({result['lines']} lines)\n{_truncate(result['content'])}")
+                        continue
+
                     background = tc.args.get("background", "").lower() in ("true", "1", "yes")
 
                     # Step label for UI
@@ -806,7 +861,11 @@ class SupervisorAgent:
                         ))
 
                 elif tc.name == "read_file":
-                    file_path = tc.args.get("path", "")
+                    file_path, path_err = sanitize_path_arg(tc.args.get("path", ""))
+                    if path_err:
+                        yield _sse("tool_output", {"content": f"Error: {path_err}"})
+                        tool_results.append(f"[read_file] {path_err}")
+                        continue
                     fname = Path(file_path).name if file_path else "file"
                     yield self._step_label(f"Reading {fname}...", iteration)
                     max_lines = 300
@@ -828,7 +887,11 @@ class SupervisorAgent:
                         tool_results.append(f"[read_file {file_path}] ({result['lines']} lines)\n{_truncate(result['content'])}")
 
                 elif tc.name == "edit_file":
-                    file_path = tc.args.get("path", "")
+                    file_path, path_err = sanitize_path_arg(tc.args.get("path", ""))
+                    if path_err:
+                        yield _sse("tool_output", {"content": f"Error: {path_err}"})
+                        tool_results.append(f"[edit_file] {path_err}")
+                        continue
                     new_content = tc.args.get("content", "")
                     fname = Path(file_path).name if file_path else "file"
                     yield self._step_label(f"Writing {fname}...", iteration)
@@ -872,35 +935,30 @@ class SupervisorAgent:
                     })
 
                     # --- Internal Review (Inspector) ---
-                    yield self._agency_status("ispettore", "Verifying change quality")
-                    review_msg = f"Proposed change to {file_path}:\n```diff\n{diff_info['diff']}\n```"
-                    reviewer_messages = [
-                        {"role": "system", "content": INSPECTOR_PROMPT},
-                        {"role": "user", "content": review_msg}
-                    ]
-                    review_accum = ""
-                    async for rev_chunk in engine_service.generate_stream(self.model_id, reviewer_messages, temperature=0.1):
-                        if "text" in rev_chunk:
-                            review_accum += rev_chunk["text"]
+                    # Skip inspector for new files (no old content = nothing to review)
+                    is_new_file = not diff_info["old"]
+                    if not is_new_file:
+                        yield self._agency_status("inspector", "Verifying change quality")
+                        review_msg = f"Proposed change to {file_path}:\n```diff\n{diff_info['diff']}\n```"
+                        reviewer_messages = [
+                            {"role": "system", "content": INSPECTOR_PROMPT},
+                            {"role": "user", "content": review_msg}
+                        ]
+                        review_accum = ""
+                        async for rev_chunk in engine_service.generate_stream(self.model_id, reviewer_messages, temperature=0.1):
+                            if "text" in rev_chunk:
+                                review_accum += rev_chunk["text"]
 
-                    if "LGTM" not in review_accum.upper():
-                        # Inspector found something! Log it and emit trace
-                        logger.info(f"Inspector feedback on {file_path}: {review_accum}")
-                        yield _sse("agency_trace", {
-                            "role": "ispettore",
-                            "content": review_accum,
-                            "target": file_path
-                        })
-                        if "FIXED:" in review_accum:
-                            # Advanced: could swap the diff here. For now just add to trace.
-                            pass
-                    else:
-                        # Log LGTM too for trace visibility
-                        yield _sse("agency_trace", {
-                            "role": "ispettore",
-                            "content": "Review complete: LGTM. Code matches project standards and security guidelines.",
-                            "target": file_path
-                        })
+                        if "LGTM" not in review_accum.upper():
+                            # Inspector found issues — show to user
+                            logger.info(f"Inspector feedback on {file_path}: {review_accum}")
+                            yield _sse("agency_trace", {
+                                "role": "inspector",
+                                "content": review_accum,
+                                "target": file_path
+                            })
+                        else:
+                            logger.debug(f"Inspector LGTM on {file_path}")
 
                     # Wait for human decision
                     async for heartbeat in self._wait_for_diff_approval(call_id, iteration):
@@ -924,24 +982,42 @@ class SupervisorAgent:
                             "tool": "edit_file",
                         })
                         await apply_edit(file_path, new_content)
+                        yield _sse("file_changed", {"path": file_path, "is_new": not diff_info["old"]})
                         tool_results.append(f"[edit_file] Applied changes to {file_path}")
                         repo_map_cache.invalidate()
+                        has_post_edit_issues = False
                         # Post-edit lint check
                         lint_err = await run_lint_check(file_path)
                         if lint_err:
+                            has_post_edit_issues = True
                             yield _sse("lint_result", {"file_path": file_path, "errors": lint_err})
                             tool_results.append(f"[lint] Issues in {file_path}:\n{lint_err}\nFix these issues.")
                         # Dependency check
                         dep_warn = await check_broken_imports(file_path, diff_info["old"], new_content)
                         if dep_warn:
+                            has_post_edit_issues = True
                             tool_results.append(f"[dependency] Warning:\n{dep_warn}\nCheck these files for broken references.")
                         # Security + performance scans
                         sec_warns = scan_security(new_content)
                         if sec_warns:
+                            has_post_edit_issues = True
                             tool_results.append("\n".join(sec_warns) + "\nReview and fix security issues above.")
                         perf_hints = scan_performance(new_content)
                         if perf_hints:
+                            has_post_edit_issues = True
                             tool_results.append("\n".join(perf_hints))
+                        # Fast-close: if clean edit and only tool call, end immediately
+                        if not has_post_edit_issues and len(tool_calls) == 1:
+                            self._state = AgentState.done
+                            elapsed_ms = (time.time() - self._start_time) * 1000
+                            yield _sse("done", {
+                                "summary": f"Completed in {iteration} iteration(s)",
+                                "total_tokens": self._total_tokens,
+                                "total_time_ms": round(elapsed_ms),
+                                "iterations": iteration,
+                                "edits": len(self._edit_history),
+                            })
+                            return
                     else:
                         msg = f"[edit_file] User rejected changes to {file_path}"
                         if reason:
@@ -956,11 +1032,22 @@ class SupervisorAgent:
 
                 elif tc.name == "patch_file":
                     # Fix 1: surgical search/replace edits
-                    file_path = tc.args.get("path", "")
+                    file_path, path_err = sanitize_path_arg(tc.args.get("path", ""))
+                    if path_err:
+                        yield _sse("tool_output", {"content": f"Error: {path_err}"})
+                        tool_results.append(f"[patch_file] {path_err}")
+                        continue
                     fname = Path(file_path).name if file_path else "file"
                     yield self._step_label(f"Editing {fname}...", iteration)
                     search = tc.args.get("search", "")
                     replace = tc.args.get("replace", "")
+
+                    # Detect shell commands used as search/replace args
+                    args_err = sanitize_patch_args(tc.args)
+                    if args_err:
+                        yield _sse("tool_output", {"content": f"Error: {args_err}"})
+                        tool_results.append(f"[patch_file] {args_err}")
+                        continue
 
                     # Fix 5: check for lazy placeholders in the replacement
                     lazy_err = detect_lazy_edit(replace)
@@ -981,6 +1068,11 @@ class SupervisorAgent:
                         self.guardrails.record_fix_attempt(file_path)
                         if self.guardrails.is_over_fix_limit(file_path):
                             tool_results.append(self.guardrails.fix_limit_message(file_path))
+                        elif self.guardrails._fix_attempts.get(file_path, 0) >= 2:
+                            tool_results.append(
+                                f"[HINT] patch_file has failed {self.guardrails._fix_attempts[file_path]} times on {file_path}. "
+                                "If you cannot match the exact text, use edit_file to rewrite the entire file instead."
+                            )
                         continue
 
                     # Fix 5: validate the result before proposing
@@ -1027,6 +1119,7 @@ class SupervisorAgent:
                             "tool": "patch_file",
                         })
                         await apply_edit(file_path, new_content)
+                        yield _sse("file_changed", {"path": file_path, "is_new": not patch_result["old"]})
                         tool_results.append(f"[patch_file] Applied patch to {file_path}")
                         repo_map_cache.invalidate()
                         # Post-edit checks — track if any issues found
@@ -1185,6 +1278,7 @@ class SupervisorAgent:
                                 "tool": "batch_edit",
                             })
                             await apply_edit(fp, patch_result["new"])
+                            yield _sse("file_changed", {"path": fp, "is_new": not patch_result["old"]})
                             applied += 1
                             repo_map_cache.invalidate()
 

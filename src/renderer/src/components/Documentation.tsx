@@ -1,4 +1,5 @@
 import { useState, type ComponentPropsWithoutRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { BookOpen, ChevronRight } from 'lucide-react'
@@ -115,6 +116,7 @@ const mdComponents = {
 }
 
 export function Documentation() {
+    const { t } = useTranslation()
     const [activeDoc, setActiveDoc] = useState('getting-started')
 
     const current = sections.flatMap(s => s.docs).find(d => d.id === activeDoc)
@@ -125,7 +127,7 @@ export function Documentation() {
             <nav className="w-48 shrink-0 space-y-4">
                 <div className="flex items-center gap-2 mb-4">
                     <BookOpen size={20} className="text-blue-400" />
-                    <h2 className="text-lg font-bold text-white">Docs</h2>
+                    <h2 className="text-lg font-bold text-white">{t('docs.title')}</h2>
                 </div>
                 {sections.map(section => (
                     <div key={section.label}>

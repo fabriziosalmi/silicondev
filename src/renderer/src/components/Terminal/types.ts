@@ -51,7 +51,7 @@ export interface AutoRetryMetadata {
 }
 
 export interface AgencyTraceMetadata {
-  role: 'architetto' | 'operaio' | 'ispettore'
+  role: 'architect' | 'worker' | 'inspector'
   content: string
   target?: string
 }

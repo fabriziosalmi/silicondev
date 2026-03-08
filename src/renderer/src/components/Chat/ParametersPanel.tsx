@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { ParameterSlider } from './ParameterSlider'
 import { ToggleSwitch } from '../ui/ToggleSwitch'
 
@@ -33,40 +34,41 @@ interface ParametersPanelProps {
 export function ParametersPanel({
     settings, setSettings, maxContextWindow, ragCollections, fetchRagCollections
 }: ParametersPanelProps) {
+    const { t } = useTranslation()
     return (
         <div className="shrink-0 mx-3 mb-2 rounded-xl border border-white/5 bg-black/20 transition-all">
             <div className="max-w-4xl mx-auto px-6 py-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-5">
                     {/* Column 1: Core parameters */}
                     <div className="space-y-4">
-                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">Parameters</div>
+                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.parameters')}</div>
                         <ParameterSlider
-                            label="Temperature"
-                            hint="Lower = more focused. Higher = more creative."
+                            label={t('params.temperature')}
+                            hint={t('params.temperatureHint')}
                             value={settings.temperature}
                             min={0} max={2} step={0.05}
                             format={(v) => v.toFixed(2)}
                             onChange={(v) => setSettings({ ...settings, temperature: v })}
                         />
                         <ParameterSlider
-                            label="Max Tokens"
-                            hint="Maximum tokens in the response."
+                            label={t('params.maxTokens')}
+                            hint={t('params.maxTokensHint')}
                             value={settings.maxTokens}
                             min={64} max={maxContextWindow} step={64}
                             format={(v) => v.toString()}
                             onChange={(v) => setSettings({ ...settings, maxTokens: v })}
                         />
                         <ParameterSlider
-                            label="Top-P"
-                            hint="Nucleus sampling threshold."
+                            label={t('params.topP')}
+                            hint={t('params.topPHint')}
                             value={settings.topP}
                             min={0} max={1} step={0.05}
                             format={(v) => v.toFixed(2)}
                             onChange={(v) => setSettings({ ...settings, topP: v })}
                         />
                         <ParameterSlider
-                            label="Repetition Penalty"
-                            hint="Higher = less repetition. 1.0 = no penalty."
+                            label={t('params.repetitionPenalty')}
+                            hint={t('params.repetitionPenaltyHint')}
                             value={settings.repetitionPenalty}
                             min={0.5} max={2} step={0.05}
                             format={(v) => v.toFixed(2)}
@@ -74,10 +76,10 @@ export function ParametersPanel({
                         />
                         <div>
                             <div className="flex justify-between items-center mb-1.5">
-                                <label className="text-xs text-gray-500" title="Fixed seed for reproducible outputs.">Seed</label>
+                                <label className="text-xs text-gray-500" title="Fixed seed for reproducible outputs.">{t('params.seed')}</label>
                                 <input
                                     type="text"
-                                    placeholder="Random"
+                                    placeholder={t('params.seedPlaceholder')}
                                     value={settings.seed !== null ? String(settings.seed) : ''}
                                     onChange={(e) => {
                                         const v = e.target.value;
@@ -91,7 +93,7 @@ export function ParametersPanel({
 
                     {/* Column 2: Reasoning + Language */}
                     <div className="space-y-4">
-                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">Reasoning</div>
+                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.reasoning')}</div>
                         <div className="flex gap-1">
                             {(['off', 'auto', 'low', 'high'] as const).map(mode => (
                                 <button
@@ -104,70 +106,70 @@ export function ParametersPanel({
                                             : 'bg-white/[0.03] text-gray-500 border border-white/5 hover:text-gray-400 hover:bg-white/5'
                                     }`}
                                 >
-                                    {mode === 'off' ? 'Off' : mode === 'auto' ? 'Auto' : mode === 'low' ? 'Low' : 'High'}
+                                    {mode === 'off' ? t('params.reasoningOff') : mode === 'auto' ? t('params.reasoningAuto') : mode === 'low' ? t('params.reasoningLow') : t('params.reasoningHigh')}
                                 </button>
                             ))}
                         </div>
                         <p className="text-[10px] text-gray-500">
-                            {settings.reasoningMode === 'off' && 'No reasoning instructions.'}
-                            {settings.reasoningMode === 'auto' && 'Let the model decide.'}
-                            {settings.reasoningMode === 'low' && 'Brief reasoning.'}
-                            {settings.reasoningMode === 'high' && 'Deep step-by-step.'}
+                            {settings.reasoningMode === 'off' && t('params.reasoningDescOff')}
+                            {settings.reasoningMode === 'auto' && t('params.reasoningDescAuto')}
+                            {settings.reasoningMode === 'low' && t('params.reasoningDescLow')}
+                            {settings.reasoningMode === 'high' && t('params.reasoningDescHigh')}
                         </p>
 
                         <div className="pt-2">
-                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">Language</div>
+                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.language')}</div>
                             <select
                                 title="Translate Language"
                                 value={settings.translateLanguage}
                                 onChange={(e) => setSettings({ ...settings, translateLanguage: e.target.value })}
                                 className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-gray-300 outline-none focus:border-white/20 transition-colors appearance-none cursor-pointer"
                             >
-                                <option value="">Auto-detect (browser)</option>
+                                <option value="">{t('params.languageAuto')}</option>
                                 {['English', 'Italian', 'French', 'German', 'Spanish', 'Portuguese', 'Japanese', 'Chinese', 'Korean', 'Arabic', 'Hindi', 'Russian', 'Dutch', 'Swedish', 'Polish', 'Turkish'].map(lang => (
                                     <option key={lang} value={lang}>{lang}</option>
                                 ))}
                             </select>
-                            <p className="text-[10px] text-gray-500 mt-1.5">Target language for Translate.</p>
+                            <p className="text-[10px] text-gray-500 mt-1.5">{t('params.languageHint')}</p>
                         </div>
 
                         <div className="pt-2">
-                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">System Prompt</div>
+                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.systemPrompt')}</div>
                             <textarea
                                 value={settings.systemPrompt}
                                 onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
                                 className="w-full bg-white/[0.03] border border-white/10 rounded-lg p-2.5 text-xs text-gray-300 h-20 resize-none outline-none focus:border-white/20 transition-colors leading-relaxed"
-                                placeholder="Set model behavior..."
+                                placeholder={t('params.systemPromptPlaceholder')}
                             />
                         </div>
                     </div>
 
                     {/* Column 3: Toggles */}
                     <div className="space-y-4">
-                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">Toggles</div>
+                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.toggles')}</div>
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <label className="text-xs text-gray-400">Show Prompt</label>
+                                <label className="text-xs text-gray-400">{t('params.showPrompt')}</label>
                                 <ToggleSwitch enabled={settings.showPrompt} onChange={(v) => setSettings({ ...settings, showPrompt: v })} size="sm" />
                             </div>
                             <div className="flex items-center justify-between">
-                                <label className="text-xs text-gray-400">Syntax Check</label>
+                                <label className="text-xs text-gray-400">{t('params.syntaxCheck')}</label>
                                 <ToggleSwitch enabled={settings.syntaxCheck} onChange={(v) => setSettings({ ...settings, syntaxCheck: v })} size="sm" />
                             </div>
                             {settings.syntaxCheck && (
                                 <div className="flex items-center justify-between pl-3">
-                                    <label className="text-xs text-gray-500">Auto-fix</label>
+                                    <label className="text-xs text-gray-500">{t('params.autoFix')}</label>
                                     <ToggleSwitch enabled={settings.autoFixSyntax} onChange={(v) => setSettings({ ...settings, autoFixSyntax: v })} size="sm" />
                                 </div>
                             )}
                             <div className="flex items-center justify-between">
-                                <label className="text-xs text-gray-400">Memory Map</label>
+                                <label className="text-xs text-gray-400">{t('params.memoryMap')}</label>
                                 <ToggleSwitch enabled={settings.memoryMapEnabled} onChange={(v) => setSettings({ ...settings, memoryMapEnabled: v })} size="sm" />
                             </div>
                             {settings.memoryMapEnabled && (
                                 <div className="pl-3">
                                     <ParameterSlider
-                                        label="Build every N msgs"
+                                        label={t('params.memoryInterval')}
                                         value={settings.memoryInterval}
                                         min={3} max={20} step={1}
                                         format={(v) => v.toString()}
@@ -176,16 +178,16 @@ export function ParametersPanel({
                                 </div>
                             )}
                             <div className="flex items-center justify-between">
-                                <label className="text-xs text-gray-400">PII Redaction</label>
+                                <label className="text-xs text-gray-400">{t('params.piiRedaction')}</label>
                                 <ToggleSwitch enabled={settings.piiRedaction} onChange={(v) => setSettings({ ...settings, piiRedaction: v })} size="sm" />
                             </div>
                         </div>
 
                         <div className="pt-2">
-                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">Context</div>
+                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.context')}</div>
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <label className="text-xs text-gray-400">RAG Knowledge</label>
+                                    <label className="text-xs text-gray-400">{t('params.ragKnowledge')}</label>
                                     <ToggleSwitch enabled={settings.ragEnabled} onChange={(v) => {
                                         setSettings({ ...settings, ragEnabled: v });
                                         if (v && ragCollections.length === 0) fetchRagCollections();
@@ -198,14 +200,14 @@ export function ParametersPanel({
                                         onChange={(e) => setSettings({ ...settings, ragCollectionId: e.target.value })}
                                         className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50"
                                     >
-                                        <option value="">Select collection...</option>
+                                        <option value="">{t('params.ragSelectCollection')}</option>
                                         {ragCollections.map(c => (
                                             <option key={c.id} value={c.id}>{c.name} ({c.chunks} chunks)</option>
                                         ))}
                                     </select>
                                 )}
                                 <div className="flex items-center justify-between">
-                                    <label className="text-xs text-gray-400">Web Search</label>
+                                    <label className="text-xs text-gray-400">{t('params.webSearch')}</label>
                                     <ToggleSwitch enabled={settings.webSearchEnabled} onChange={(v) => setSettings({ ...settings, webSearchEnabled: v })} size="sm" />
                                 </div>
                             </div>
@@ -214,27 +216,27 @@ export function ParametersPanel({
 
                     {/* Column 4: Actions */}
                     <div className="space-y-4">
-                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">Actions</div>
+                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.actions')}</div>
                         <div className="flex flex-wrap gap-1.5">
                             {[
-                                { key: 'longer', label: 'Longer' },
-                                { key: 'shorter', label: 'Shorter' },
-                                { key: 'formal', label: 'Formal' },
-                                { key: 'casual', label: 'Casual' },
-                                { key: 'technical', label: 'Technical' },
-                                { key: 'translate', label: 'Translate' },
-                                { key: 'devil', label: "Devil's Advocate" },
-                                { key: 'perspective_ceo', label: 'CEO' },
-                                { key: 'perspective_child', label: 'ELI8' },
-                                { key: 'perspective_scientist', label: 'Scientist' },
-                                { key: 'perspective_poet', label: 'Poet' },
-                                { key: 'improve', label: 'Improve' },
-                                { key: 'secure', label: 'Secure' },
-                                { key: 'faster', label: 'Faster' },
-                                { key: 'docs', label: 'Docs' },
-                                { key: 'tests', label: 'Tests' },
-                                { key: 'selfAssess', label: 'Ethical' },
-                                { key: 'selfCritique', label: 'Self-Critique' },
+                                { key: 'longer', label: t('params.actionLonger') },
+                                { key: 'shorter', label: t('params.actionShorter') },
+                                { key: 'formal', label: t('params.actionFormal') },
+                                { key: 'casual', label: t('params.actionCasual') },
+                                { key: 'technical', label: t('params.actionTechnical') },
+                                { key: 'translate', label: t('params.actionTranslate') },
+                                { key: 'devil', label: t('params.actionDevil') },
+                                { key: 'perspective_ceo', label: t('params.actionCEO') },
+                                { key: 'perspective_child', label: t('params.actionELI8') },
+                                { key: 'perspective_scientist', label: t('params.actionScientist') },
+                                { key: 'perspective_poet', label: t('params.actionPoet') },
+                                { key: 'improve', label: t('params.actionImprove') },
+                                { key: 'secure', label: t('params.actionSecure') },
+                                { key: 'faster', label: t('params.actionFaster') },
+                                { key: 'docs', label: t('params.actionDocs') },
+                                { key: 'tests', label: t('params.actionTests') },
+                                { key: 'selfAssess', label: t('params.actionEthical') },
+                                { key: 'selfCritique', label: t('params.actionSelfCritique') },
                             ].map(a => {
                                 const enabled = settings.enabledActions?.[a.key] !== false;
                                 return (

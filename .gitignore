@@ -42,3 +42,6 @@ docs/package-lock.json
 PLAN.md
 PLAN_v*.md
 .claude/
+silicondev-coder-agent-analysis.md
+silicondev-pareto-opportunities.md
+silicondev-vs-vmlx-roadmap.md

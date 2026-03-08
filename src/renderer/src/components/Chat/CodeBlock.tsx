@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Copy, Check, Play, Loader2, ChevronLeft, ChevronRight, Square, CircleCheck, CircleX, Wand2, Shield, Zap, FileText, TestTube2 } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import type { SandboxResult, SyntaxCheckResult } from '../../api/client'
@@ -49,6 +50,7 @@ export const CodeBlock = memo(function CodeBlock({
     autoFixSyntax?: boolean;
     piiRedaction?: boolean;
 }) {
+    const { t } = useTranslation()
     const [copied, setCopied] = useState(false);
     const [running, setRunning] = useState(false);
     const [result, setResult] = useState<SandboxResult | null>(null);
@@ -202,8 +204,8 @@ export const CodeBlock = memo(function CodeBlock({
                     {checking && <Loader2 className="w-3 h-3 animate-spin text-gray-500" />}
                     {!checking && checkResult && !checkResult.skipped && (
                         checkResult.valid
-                            ? <span title="Syntax valid"><CircleCheck className="w-3 h-3 text-green-500" /></span>
-                            : <span title={stripAnsi(checkResult.errors) || 'Syntax error'}><CircleX className="w-3 h-3 text-red-400" /></span>
+                            ? <span title={t('codeblock.syntaxOk')}><CircleCheck className="w-3 h-3 text-green-500" /></span>
+                            : <span title={stripAnsi(checkResult.errors) || t('codeblock.syntaxError')}><CircleX className="w-3 h-3 text-red-400" /></span>
                     )}
                     {rewriting && (
                         <span className="flex items-center gap-1 text-[10px] text-blue-400">
@@ -244,21 +246,21 @@ export const CodeBlock = memo(function CodeBlock({
                         <button
                             type="button"
                             onClick={handleKill}
-                            title="Kill process"
+                            title={t('codeblock.stop')}
                             className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-red-400 hover:bg-red-500/10 transition-colors"
                         >
                             <Square className="w-3 h-3 fill-current" />
-                            <span>Kill</span>
+                            <span>{t('codeblock.stop')}</span>
                         </button>
                     ) : (
                         <button
                             type="button"
                             onClick={handleRun}
-                            title="Run code"
+                            title={t('codeblock.run')}
                             className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-green-400 hover:bg-green-500/10 transition-colors"
                         >
                             <Play className="w-3 h-3 fill-current" />
-                            <span>Run</span>
+                            <span>{t('codeblock.run')}</span>
                         </button>
                     )}
                     <div className="w-px h-3 bg-white/10 mx-1" />
@@ -297,11 +299,11 @@ export const CodeBlock = memo(function CodeBlock({
                     <button
                         type="button"
                         onClick={handleCopy}
-                        title="Copy code"
+                        title={t('codeblock.copy')}
                         className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
                     >
                         {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                        <span>{copied ? 'Copied' : 'Copy'}</span>
+                        <span>{copied ? t('codeblock.copied') : t('codeblock.copy')}</span>
                     </button>
                 </div>
             </div>
@@ -321,7 +323,7 @@ export const CodeBlock = memo(function CodeBlock({
             {syntaxCheck && checkResult && !checkResult.valid && !checkResult.skipped && (
                 <div className="border-t border-red-500/10 bg-red-500/[0.03] px-3 py-2">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-medium text-red-400">Syntax error</span>
+                        <span className="text-[10px] font-medium text-red-400">{t('codeblock.syntaxError')}</span>
                         {autoFixSyntax && (
                             <button
                                 type="button"
@@ -346,7 +348,7 @@ export const CodeBlock = memo(function CodeBlock({
                 <div className="border-t border-white/5">
                     <div className="flex items-center justify-between px-3 py-1 bg-white/[0.02]">
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-mono text-gray-500">Output</span>
+                            <span className="text-[10px] font-mono text-gray-500">{t('codeblock.output')}</span>
                             {running && <Loader2 className="w-3 h-3 animate-spin text-blue-400" />}
                             {result && (
                                 <>
@@ -378,7 +380,7 @@ export const CodeBlock = memo(function CodeBlock({
                         </pre>
                     )}
                     {running && !hasOutput && (
-                        <div className="px-4 py-3 text-xs text-gray-600">Running...</div>
+                        <div className="px-4 py-3 text-xs text-gray-600">{t('codeblock.running')}</div>
                     )}
                 </div>
             )}

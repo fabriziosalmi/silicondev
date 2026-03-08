@@ -1,6 +1,6 @@
 """Tests for the NanoCore XML tool call parser and safety tools."""
 
-from app.agents.nanocore.parser import extract_tool_calls, has_partial_tool_tag, strip_tool_calls
+from app.agents.nanocore.parser import extract_tool_calls, has_partial_tool_tag, strip_tool_calls, sanitize_path_arg, sanitize_patch_args
 from app.agents.nanocore.tools import strip_ansi, _is_blocked, _is_destructive
 from app.agents.nanocore.supervisor import _strip_think_tags, _truncate
 
@@ -136,3 +136,53 @@ def test_truncate_long():
     result = _truncate(text, 100)
     assert len(result) < 200
     assert "truncated" in result
+
+
+# --- Path and arg sanitization ---
+
+def test_sanitize_path_empty():
+    path, err = sanitize_path_arg("")
+    assert err is not None
+    assert "Empty" in err
+
+def test_sanitize_path_whitespace():
+    path, err = sanitize_path_arg("   ")
+    assert err is not None
+    assert "Empty" in err
+
+def test_sanitize_path_shell_command():
+    path, err = sanitize_path_arg("$ cat /Users/fab/test.py")
+    assert err is not None
+    assert "shell command" in err
+
+def test_sanitize_path_cat_command():
+    path, err = sanitize_path_arg("cat /Users/fab/test.py")
+    assert err is not None
+    assert "shell command" in err
+
+def test_sanitize_path_valid():
+    path, err = sanitize_path_arg("/Users/fab/project/main.py")
+    assert err is None
+    assert path == "/Users/fab/project/main.py"
+
+def test_sanitize_path_strips_whitespace():
+    path, err = sanitize_path_arg("  /tmp/test.py  ")
+    assert err is None
+    assert path == "/tmp/test.py"
+
+def test_sanitize_patch_args_shell_in_search():
+    err = sanitize_patch_args({"search": "$ cat /tmp/file.py", "replace": "new code"})
+    assert err is not None
+    assert "shell command" in err
+
+def test_sanitize_patch_args_valid():
+    err = sanitize_patch_args({"search": "def old():", "replace": "def new():"})
+    assert err is None
+
+def test_sanitize_patch_args_multiline_not_flagged():
+    # Multiline search/replace with shell-like first line should NOT be flagged
+    err = sanitize_patch_args({
+        "search": "echo hello\necho world",
+        "replace": "print('hello')\nprint('world')",
+    })
+    assert err is None

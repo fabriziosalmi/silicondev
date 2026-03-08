@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Trash2, WifiOff, Wifi } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { MessageFeed } from './MessageFeed'
 import { InputBar } from './InputBar'
@@ -18,12 +19,30 @@ function loadPersistedFeed(): FeedItem[] {
 }
 
 export function AgentTerminal() {
+  const { t } = useTranslation()
   const [feedItems, setFeedItems] = useState<FeedItem[]>(loadPersistedFeed)
   const [isRunning, setIsRunning] = useState(false)
   const [sessionId, setSessionId] = useState('')
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'ok' | 'error'>('checking')
 
   const toolOutputIdRef = useRef<string | null>(null)
+  const lastCommandRef = useRef<string>('')
   const abortRef = useRef<AbortController | null>(null)
+
+  // Check backend connectivity on mount
+  useEffect(() => {
+    let cancelled = false
+    const check = async () => {
+      try {
+        const res = await fetch(`${apiClient.API_BASE}/api/monitor/stats`, { signal: AbortSignal.timeout(5000) })
+        if (!cancelled) setBackendStatus(res.ok ? 'ok' : 'error')
+      } catch {
+        if (!cancelled) setBackendStatus('error')
+      }
+    }
+    check()
+    return () => { cancelled = true }
+  }, [])
 
   // Abort stream on unmount
   useEffect(() => {
@@ -125,7 +144,7 @@ export function AgentTerminal() {
               type: 'tool_output',
               content: text,
               timestamp: Date.now(),
-              toolMeta: { callId, tool: 'bash' },
+              toolMeta: { callId, tool: 'bash', command: lastCommandRef.current },
             })
           } else {
             updateFeedItem(toolOutputIdRef.current, (it) => ({ ...it, content: it.content + text }))
@@ -172,6 +191,7 @@ export function AgentTerminal() {
     addFeedItem({ id: crypto.randomUUID(), type: 'user', content: input, timestamp: Date.now() })
     setIsRunning(true)
     toolOutputIdRef.current = null
+    lastCommandRef.current = input
 
     const { url, body } = apiClient.terminal.execUrl(input)
     await consumeSSE(url, body)
@@ -204,19 +224,43 @@ export function AgentTerminal() {
           <span className="text-gray-600">~</span>
           {isRunning && <span className="inline-block w-1.5 h-3 bg-green-400 animate-pulse rounded-sm" />}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {backendStatus === 'error' && (
+            <button
+              type="button"
+              onClick={() => { setBackendStatus('checking'); fetch(`${apiClient.API_BASE}/api/monitor/stats`, { signal: AbortSignal.timeout(5000) }).then(r => setBackendStatus(r.ok ? 'ok' : 'error')).catch(() => setBackendStatus('error')) }}
+              className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-md hover:bg-red-500/20 transition-colors"
+              title="Backend unreachable — click to retry"
+            >
+              <WifiOff size={10} />
+              <span>offline</span>
+            </button>
+          )}
+          {backendStatus === 'ok' && (
+            <span className="flex items-center gap-1 text-[10px] text-green-500/60">
+              <Wifi size={10} />
+            </span>
+          )}
           {feedItems.length > 0 && !isRunning && (
             <button
               type="button"
               onClick={clearHistory}
               className="p-1.5 text-gray-600 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
-              title="Clear history"
+              title={t('terminal.clear')}
             >
               <Trash2 size={13} />
             </button>
           )}
         </div>
       </div>
+
+      {/* Backend offline banner */}
+      {backendStatus === 'error' && (
+        <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/20 text-xs text-red-300 flex items-center gap-2">
+          <WifiOff size={12} />
+          <span>Backend not reachable at <code className="text-red-400">{apiClient.API_BASE}</code>. Make sure the server is running.</span>
+        </div>
+      )}
 
       {/* Main area */}
       <div className="flex-1 flex flex-col overflow-hidden">

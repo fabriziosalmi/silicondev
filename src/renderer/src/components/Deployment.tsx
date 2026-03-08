@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Server, Copy, Check, Globe, ChevronRight, Terminal } from 'lucide-react'
 import { ToggleSwitch } from './ui/ToggleSwitch'
 import { useGlobalState } from '../context/GlobalState'
@@ -11,6 +12,7 @@ interface LogEntry {
 }
 
 export function Deployment() {
+    const { t } = useTranslation()
     const { activeModel } = useGlobalState()
     const [serverRunning, setServerRunning] = useState(false)
     const [host, setHost] = useState('127.0.0.1')
@@ -187,13 +189,13 @@ print(response.choices[0].message.content)`
                             ) : (
                                 <Server className="w-4 h-4" />
                             )}
-                            {serverRunning ? 'Stop Server' : 'Start Server'}
+                            {serverRunning ? t('deployment.stop') : t('deployment.start')}
                         </button>
 
                         <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${serverRunning ? 'bg-green-500' : 'bg-gray-600'}`} />
                             <span className="text-xs text-gray-400">
-                                {serverRunning ? 'Running' : 'Stopped'}
+                                {serverRunning ? t('deployment.running') : t('deployment.notRunning')}
                             </span>
                         </div>
 
@@ -245,7 +247,7 @@ print(response.choices[0].message.content)`
                     {/* Endpoint URL when running */}
                     {serverRunning && (
                         <div className="flex items-center gap-2 bg-white/[0.03] border border-white/5 rounded-lg px-3 py-2">
-                            <span className="text-xs text-gray-500">Endpoint</span>
+                            <span className="text-xs text-gray-500">{t('deployment.status')}</span>
                             <code className="text-xs font-mono text-gray-300 flex-1">{endpoint}/v1</code>
                             <button
                                 onClick={() => handleCopy(`${endpoint}/v1`, 'endpoint')}
@@ -293,7 +295,7 @@ print(response.choices[0].message.content)`
                     <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-white/[0.02] shrink-0">
                         <div className="flex items-center gap-2">
                             <Terminal className="w-3.5 h-3.5 text-gray-500" />
-                            <span className="text-xs font-medium text-gray-400">Server Log</span>
+                            <span className="text-xs font-medium text-gray-400">{t('deployment.logs')}</span>
                             <span className="text-[10px] text-gray-600 font-mono">{logs.length} entries</span>
                         </div>
                         <div className="flex items-center gap-3">
