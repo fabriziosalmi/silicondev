@@ -77,7 +77,25 @@ class DebuggerService(bdb.Bdb):
             elif cmd.startswith("eval:"):
                 expr = cmd[5:]
                 try:
-                    res = eval(expr, self.current_frame.f_globals, self.current_frame.f_locals)
+                    # Compile first to catch syntax errors; restrict to expressions only
+                    code = compile(expr, "<debugger>", "eval")
+                    # Block dangerous builtins while allowing inspection
+                    safe_builtins = {
+                        k: v for k, v in __builtins__.items()
+                        if k not in (
+                            "exec", "eval", "compile", "__import__",
+                            "open", "input", "breakpoint", "exit", "quit",
+                        )
+                    } if isinstance(__builtins__, dict) else {
+                        k: getattr(__builtins__, k)
+                        for k in dir(__builtins__)
+                        if k not in (
+                            "exec", "eval", "compile", "__import__",
+                            "open", "input", "breakpoint", "exit", "quit",
+                        ) and not k.startswith("_")
+                    }
+                    safe_globals = {**self.current_frame.f_globals, "__builtins__": safe_builtins}
+                    res = eval(code, safe_globals, self.current_frame.f_locals)
                     self.state_queue.put({"eval_result": str(res)})
                 except Exception as e:
                     self.state_queue.put({"eval_error": str(e)})

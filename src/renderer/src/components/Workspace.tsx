@@ -319,7 +319,7 @@ export function Workspace() {
         const shouldAppend = appendCommands.includes(command);
 
         try {
-            const response = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
+            const response = await apiClient.apiFetch(`${apiClient.API_BASE}/api/engine/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

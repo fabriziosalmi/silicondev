@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     selectDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
     getBackendPort: () => ipcRenderer.invoke('get-backend-port'),
     getLogPath: () => ipcRenderer.invoke('get-log-path'),
+    getAuthToken: () => ipcRenderer.invoke('get-auth-token'),
     openPath: (path: string) => ipcRenderer.invoke('open-path', path),
     installUpdate: () => ipcRenderer.invoke('install-update'),
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),

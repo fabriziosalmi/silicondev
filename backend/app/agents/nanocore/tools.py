@@ -83,15 +83,13 @@ def _is_blocked(command: str) -> str | None:
     """Check if a command should be blocked. Returns reason or None."""
     normalized = command.strip().lower()
 
-    # Strip shell wrapper attempts: bash -c "...", sh -c "...", zsh -c "..."
-    # This catches `bash -c "rm -rf /"` style bypasses
+    # Strip shell wrapper attempts: any common shell with -c "..." or -c ...
+    # Covers: sh, bash, dash, zsh, ksh, csh, tcsh, fish
     _shell_wrap = re.match(
-        r"^(?:ba)?sh\s+-c\s+[\"'](.+?)[\"']\s*$", normalized
-    ) or re.match(
-        r"^(?:z|k|c)?sh\s+-c\s+[\"'](.+?)[\"']\s*$", normalized
+        r"^(?:ba|da|z|k|c|tc|fi)?sh\s+-c\s+(?:[\"'](.+?)[\"']|(.+))\s*$", normalized
     )
     if _shell_wrap:
-        inner = _shell_wrap.group(1)
+        inner = _shell_wrap.group(1) or _shell_wrap.group(2)
         inner_block = _is_blocked(inner)
         if inner_block:
             return f"{inner_block} (via shell -c wrapper)"

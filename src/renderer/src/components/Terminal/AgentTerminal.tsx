@@ -34,7 +34,7 @@ export function AgentTerminal() {
     let cancelled = false
     const check = async () => {
       try {
-        const res = await fetch(`${apiClient.API_BASE}/api/monitor/stats`, { signal: AbortSignal.timeout(5000) })
+        const res = await apiClient.apiFetch(`${apiClient.API_BASE}/api/monitor/stats`, { signal: AbortSignal.timeout(5000) })
         if (!cancelled) setBackendStatus(res.ok ? 'ok' : 'error')
       } catch {
         if (!cancelled) setBackendStatus('error')
@@ -73,7 +73,7 @@ export function AgentTerminal() {
     abortRef.current = controller
 
     try {
-      const res = await fetch(url, {
+      const res = await apiClient.apiFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -228,7 +228,7 @@ export function AgentTerminal() {
           {backendStatus === 'error' && (
             <button
               type="button"
-              onClick={() => { setBackendStatus('checking'); fetch(`${apiClient.API_BASE}/api/monitor/stats`, { signal: AbortSignal.timeout(5000) }).then(r => setBackendStatus(r.ok ? 'ok' : 'error')).catch(() => setBackendStatus('error')) }}
+              onClick={() => { setBackendStatus('checking'); apiClient.apiFetch(`${apiClient.API_BASE}/api/monitor/stats`, { signal: AbortSignal.timeout(5000) }).then(r => setBackendStatus(r.ok ? 'ok' : 'error')).catch(() => setBackendStatus('error')) }}
               className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-md hover:bg-red-500/20 transition-colors"
               title="Backend unreachable — click to retry"
             >

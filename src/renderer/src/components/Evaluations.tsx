@@ -85,7 +85,7 @@ export function Evaluations() {
             for (let i = 0; i < cases.length; i++) {
                 setProgress(Math.floor(((i + 1) / cases.length) * 100));
 
-                const response = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
+                const response = await apiClient.apiFetch(`${apiClient.API_BASE}/api/engine/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

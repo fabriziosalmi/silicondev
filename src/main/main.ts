@@ -2,6 +2,7 @@ import { app, BrowserWindow, screen, ipcMain, dialog, shell } from 'electron';
 import * as path from 'path';
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import log from 'electron-log/main';
 import { autoUpdater } from 'electron-updater';
 
@@ -28,6 +29,9 @@ if (!gotLock) {
 let backendProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
+
+// Shared auth token: prevents other local processes from calling our backend
+const authToken = crypto.randomBytes(32).toString('hex');
 
 // Dynamic port: resolved when backend prints SILICON_PORT=<port>
 let backendPort = 8000;
@@ -72,7 +76,7 @@ function startBackend() {
         backendProcess = spawn(command, args, {
             cwd: isDev ? path.join(__dirname, '../../backend') : path.join(process.resourcesPath, 'backend', 'dist', 'silicon_server'),
             stdio: ['ignore', 'pipe', 'pipe'],
-            env: { ...process.env, SILICON_PARENT_PID: String(process.pid) },
+            env: { ...process.env, SILICON_PARENT_PID: String(process.pid), SILICON_AUTH_TOKEN: authToken },
         });
 
         backendProcess.on('error', (err) => {
@@ -240,9 +244,20 @@ app.whenReady().then(() => {
         return log.transports.file.getFile().path;
     });
 
-    // Open a filesystem path in Finder
+    // Auth token IPC: renderer uses this to authenticate with the backend
+    ipcMain.handle('get-auth-token', () => {
+        return authToken;
+    });
+
+    // Open a filesystem path in Finder (restricted to user home directory)
     ipcMain.handle('open-path', (_event, dirPath: string) => {
-        return shell.openPath(dirPath);
+        const resolved = path.resolve(dirPath);
+        const home = app.getPath('home');
+        if (!resolved.startsWith(home + path.sep) && resolved !== home) {
+            log.warn(`Blocked open-path outside home directory: ${resolved}`);
+            return 'Path outside home directory';
+        }
+        return shell.openPath(resolved);
     });
 
     // Auto-updater: only in packaged builds

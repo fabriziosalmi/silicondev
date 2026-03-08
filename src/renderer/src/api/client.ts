@@ -1,7 +1,12 @@
 let API_BASE = 'http://127.0.0.1:8000'
+let AUTH_TOKEN = ''
 
 export function getApiBase(): string {
     return API_BASE;
+}
+
+export function getAuthHeaders(): Record<string, string> {
+    return AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {};
 }
 
 export async function initApiBase(): Promise<void> {
@@ -13,6 +18,25 @@ export async function initApiBase(): Promise<void> {
     } catch {
         // Keep default port 8000
     }
+    try {
+        const token = await window.electronAPI?.getAuthToken?.();
+        if (token && typeof token === 'string') {
+            AUTH_TOKEN = token;
+        }
+    } catch {
+        // No auth token — standalone/dev mode
+    }
+}
+
+/**
+ * Wrapper around fetch that automatically includes the auth token.
+ */
+export function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+    const headers = new Headers(init?.headers);
+    if (AUTH_TOKEN) {
+        headers.set('Authorization', `Bearer ${AUTH_TOKEN}`);
+    }
+    return fetch(url, { ...init, headers });
 }
 
 // --- Shared Types ---
@@ -257,24 +281,26 @@ async function throwIfNotOk(res: Response, fallback: string): Promise<void> {
 
 export const apiClient = {
     get API_BASE() { return API_BASE; },
+    apiFetch,
+    getAuthHeaders,
     monitor: {
         getStats: async (): Promise<SystemStats> => {
-            const res = await fetch(`${API_BASE}/api/monitor/stats`);
+            const res = await apiFetch(`${API_BASE}/api/monitor/stats`);
             await throwIfNotOk(res, 'Failed to fetch stats');
             return res.json();
         },
         getStorage: async (): Promise<{ total_bytes: number; breakdown: Record<string, number>; path: string }> => {
-            const res = await fetch(`${API_BASE}/api/monitor/storage`);
+            const res = await apiFetch(`${API_BASE}/api/monitor/storage`);
             await throwIfNotOk(res, 'Failed to fetch storage info');
             return res.json();
         },
         getLogs: async (lines: number = 200): Promise<{ lines: string[] }> => {
-            const res = await fetch(`${API_BASE}/api/monitor/logs?lines=${lines}`);
+            const res = await apiFetch(`${API_BASE}/api/monitor/logs?lines=${lines}`);
             await throwIfNotOk(res, 'Failed to fetch logs');
             return res.json();
         },
         cleanupStorage: async (targets: string[]): Promise<{ freed_bytes: number; cleaned: string[] }> => {
-            const res = await fetch(`${API_BASE}/api/monitor/storage/cleanup`, {
+            const res = await apiFetch(`${API_BASE}/api/monitor/storage/cleanup`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targets })
@@ -285,7 +311,7 @@ export const apiClient = {
     },
     preparation: {
         previewCsv: async (filePath: string, limit: number = 5): Promise<{ data: PreviewRow[] }> => {
-            const res = await fetch(`${API_BASE}/api/preparation/preview`, {
+            const res = await apiFetch(`${API_BASE}/api/preparation/preview`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ file_path: filePath, limit })
@@ -294,7 +320,7 @@ export const apiClient = {
             return res.json();
         },
         convertCsv: async (filePath: string, outputPath: string, instructionCol: string, inputCol?: string, outputCol?: string): Promise<ConvertResult> => {
-            const res = await fetch(`${API_BASE}/api/preparation/convert`, {
+            const res = await apiFetch(`${API_BASE}/api/preparation/convert`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ file_path: filePath, output_path: outputPath, instruction_col: instructionCol, input_col: inputCol, output_col: outputCol })
@@ -303,7 +329,7 @@ export const apiClient = {
             return res.json();
         },
         generateMcp: async (modelId: string, serverId: string, prompt: string, outputPath: string): Promise<{ data: PreviewRow[]; rows: number }> => {
-            const res = await fetch(`${API_BASE}/api/preparation/generate-mcp`, {
+            const res = await apiFetch(`${API_BASE}/api/preparation/generate-mcp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId, server_id: serverId, prompt, output_path: outputPath })
@@ -314,12 +340,12 @@ export const apiClient = {
     },
     engine: {
         getModels: async (): Promise<ModelEntry[]> => {
-            const res = await fetch(`${API_BASE}/api/engine/models`);
+            const res = await apiFetch(`${API_BASE}/api/engine/models`);
             await throwIfNotOk(res, 'Failed to fetch models');
             return res.json();
         },
         downloadModel: async (modelId: string): Promise<{ status: string; model_id: string }> => {
-            const res = await fetch(`${API_BASE}/api/engine/models/download`, {
+            const res = await apiFetch(`${API_BASE}/api/engine/models/download`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId })
@@ -328,7 +354,7 @@ export const apiClient = {
             return res.json();
         },
         deleteModel: async (modelId: string): Promise<{ status: string; model_id: string }> => {
-            const res = await fetch(`${API_BASE}/api/engine/models/delete`, {
+            const res = await apiFetch(`${API_BASE}/api/engine/models/delete`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId })
@@ -337,7 +363,7 @@ export const apiClient = {
             return res.json();
         },
         registerModel: async (name: string, path: string, url: string = ""): Promise<ModelEntry> => {
-            const res = await fetch(`${API_BASE}/api/engine/models/register`, {
+            const res = await apiFetch(`${API_BASE}/api/engine/models/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, path, url })
@@ -346,7 +372,7 @@ export const apiClient = {
             return res.json();
         },
         scanModels: async (path: string): Promise<ModelEntry[]> => {
-            const res = await fetch(`${API_BASE}/api/engine/models/scan`, {
+            const res = await apiFetch(`${API_BASE}/api/engine/models/scan`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path })
@@ -355,12 +381,12 @@ export const apiClient = {
             return res.json();
         },
         getJobStatus: async (jobId: string): Promise<JobStatus> => {
-            const res = await fetch(`${API_BASE}/api/engine/jobs/${jobId}`);
+            const res = await apiFetch(`${API_BASE}/api/engine/jobs/${jobId}`);
             await throwIfNotOk(res, 'Failed to get job status');
             return res.json();
         },
         finetune: async (params: FineTuneParams): Promise<{ job_id: string; status: string; job_name: string }> => {
-            const res = await fetch(`${API_BASE}/api/engine/finetune`, {
+            const res = await apiFetch(`${API_BASE}/api/engine/finetune`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(params)
@@ -369,7 +395,7 @@ export const apiClient = {
             return res.json();
         },
         chatStream: async (modelId: string, messages: ChatMessage[], params: Record<string, unknown> = {}): Promise<Response> => {
-            const res = await fetch(`${API_BASE}/api/engine/chat`, {
+            const res = await apiFetch(`${API_BASE}/api/engine/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId, messages, ...params })
@@ -378,14 +404,14 @@ export const apiClient = {
             return res;
         },
         stopChat: async (): Promise<{ status: string }> => {
-            const res = await fetch(`${API_BASE}/api/engine/chat/stop`, {
+            const res = await apiFetch(`${API_BASE}/api/engine/chat/stop`, {
                 method: 'POST'
             });
             await throwIfNotOk(res, 'Failed to stop chat generation');
             return res.json();
         },
         predict: async (modelId: string, prompt: string, maxTokens: number = 50): Promise<{ completion: string }> => {
-            const res = await fetch(`${API_BASE}/api/engine/predict`, {
+            const res = await apiFetch(`${API_BASE}/api/engine/predict`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId, prompt, max_tokens: maxTokens })
@@ -394,17 +420,17 @@ export const apiClient = {
             return res.json();
         },
         listAdapters: async (): Promise<ModelEntry[]> => {
-            const res = await fetch(`${API_BASE}/api/engine/models/adapters`);
+            const res = await apiFetch(`${API_BASE}/api/engine/models/adapters`);
             await throwIfNotOk(res, 'Failed to fetch adapters');
             return res.json();
         },
         getModelFormat: async (modelId: string): Promise<ModelFormatInfo> => {
-            const res = await fetch(`${API_BASE}/api/engine/models/${encodeURIComponent(modelId)}/format`);
+            const res = await apiFetch(`${API_BASE}/api/engine/models/${encodeURIComponent(modelId)}/format`);
             await throwIfNotOk(res, 'Failed to fetch model format');
             return res.json();
         },
         exportModel: async (modelId: string, outputPath: string, qBits: number = 4): Promise<{ status: string; path: string }> => {
-            const res = await fetch(`${API_BASE}/api/engine/models/export`, {
+            const res = await apiFetch(`${API_BASE}/api/engine/models/export`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId, output_path: outputPath, q_bits: qBits })
@@ -413,7 +439,7 @@ export const apiClient = {
             return res.json();
         },
         loadModel: async (modelId: string): Promise<{ status: string; model_id: string; context_window?: number; architecture?: string; warning?: string; is_vision?: boolean }> => {
-            const res = await fetch(`${API_BASE}/api/engine/models/load`, {
+            const res = await apiFetch(`${API_BASE}/api/engine/models/load`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_id: modelId })
@@ -422,26 +448,26 @@ export const apiClient = {
             return res.json();
         },
         unloadModel: async (): Promise<{ status: string }> => {
-            const res = await fetch(`${API_BASE}/api/engine/models/unload`, {
+            const res = await apiFetch(`${API_BASE}/api/engine/models/unload`, {
                 method: 'POST'
             });
             await throwIfNotOk(res, 'Failed to unload model');
             return res.json();
         },
         getActiveModel: async (): Promise<{ model: { id: string; name: string; size: string; path: string; architecture?: string; context_window?: number; is_vision?: boolean } | null }> => {
-            const res = await fetch(`${API_BASE}/api/engine/models/active`);
+            const res = await apiFetch(`${API_BASE}/api/engine/models/active`);
             await throwIfNotOk(res, 'Failed to get active model');
             return res.json();
         }
     },
     rag: {
         getCollections: async (): Promise<RagCollection[]> => {
-            const res = await fetch(`${API_BASE}/api/rag/collections`);
+            const res = await apiFetch(`${API_BASE}/api/rag/collections`);
             await throwIfNotOk(res, 'Failed to fetch collections');
             return res.json();
         },
         createCollection: async (name: string): Promise<RagCollection> => {
-            const res = await fetch(`${API_BASE}/api/rag/collections`, {
+            const res = await apiFetch(`${API_BASE}/api/rag/collections`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name })
@@ -450,14 +476,14 @@ export const apiClient = {
             return res.json();
         },
         deleteCollection: async (id: string): Promise<{ status: string }> => {
-            const res = await fetch(`${API_BASE}/api/rag/collections/${id}`, {
+            const res = await apiFetch(`${API_BASE}/api/rag/collections/${id}`, {
                 method: 'DELETE'
             });
             await throwIfNotOk(res, 'Failed to delete collection');
             return res.json();
         },
         ingest: async (collectionId: string, files: string[], chunkSize: number, overlap: number): Promise<RagCollection> => {
-            const res = await fetch(`${API_BASE}/api/rag/ingest`, {
+            const res = await apiFetch(`${API_BASE}/api/rag/ingest`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ collection_id: collectionId, files, chunk_size: chunkSize, overlap })
@@ -466,7 +492,7 @@ export const apiClient = {
             return res.json();
         },
         query: async (collectionId: string, query: string, nResults: number = 5): Promise<{ results: { text: string; score: number; index: number; method?: string; boosted?: boolean }[] }> => {
-            const res = await fetch(`${API_BASE}/api/rag/query`, {
+            const res = await apiFetch(`${API_BASE}/api/rag/query`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ collection_id: collectionId, query, n_results: nResults })
@@ -475,7 +501,7 @@ export const apiClient = {
             return res.json();
         },
         recordUsage: async (collectionId: string, chunkIndices: number[]): Promise<{ status: string }> => {
-            const res = await fetch(`${API_BASE}/api/rag/usage`, {
+            const res = await apiFetch(`${API_BASE}/api/rag/usage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ collection_id: collectionId, chunk_indices: chunkIndices })
@@ -484,19 +510,19 @@ export const apiClient = {
             return res.json();
         },
         getAnalytics: async (collectionId: string): Promise<RagAnalytics> => {
-            const res = await fetch(`${API_BASE}/api/rag/analytics/${collectionId}`);
+            const res = await apiFetch(`${API_BASE}/api/rag/analytics/${collectionId}`);
             await throwIfNotOk(res, 'Failed to fetch analytics');
             return res.json();
         },
     },
     agents: {
         getAgents: async (): Promise<AgentDefinition[]> => {
-            const res = await fetch(`${API_BASE}/api/agents/`);
+            const res = await apiFetch(`${API_BASE}/api/agents/`);
             await throwIfNotOk(res, 'Failed to fetch agents');
             return res.json();
         },
         saveAgent: async (agent: AgentDefinition): Promise<AgentDefinition> => {
-            const res = await fetch(`${API_BASE}/api/agents/`, {
+            const res = await apiFetch(`${API_BASE}/api/agents/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(agent)
@@ -505,14 +531,14 @@ export const apiClient = {
             return res.json();
         },
         deleteAgent: async (agentId: string): Promise<{ status: string }> => {
-            const res = await fetch(`${API_BASE}/api/agents/${agentId}`, {
+            const res = await apiFetch(`${API_BASE}/api/agents/${agentId}`, {
                 method: 'DELETE'
             });
             await throwIfNotOk(res, 'Failed to delete agent');
             return res.json();
         },
         execute: async (agentId: string, input: string): Promise<AgentExecutionResult> => {
-            const res = await fetch(`${API_BASE}/api/agents/${agentId}/execute`, {
+            const res = await apiFetch(`${API_BASE}/api/agents/${agentId}/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ input })
@@ -523,17 +549,17 @@ export const apiClient = {
     },
     conversations: {
         list: async (): Promise<ConversationSummary[]> => {
-            const res = await fetch(`${API_BASE}/api/conversations/`);
+            const res = await apiFetch(`${API_BASE}/api/conversations/`);
             await throwIfNotOk(res, 'Failed to fetch conversations');
             return res.json();
         },
         get: async (id: string): Promise<Conversation> => {
-            const res = await fetch(`${API_BASE}/api/conversations/${id}`);
+            const res = await apiFetch(`${API_BASE}/api/conversations/${id}`);
             await throwIfNotOk(res, 'Failed to fetch conversation');
             return res.json();
         },
         create: async (title?: string, messages?: ConversationMessage[], modelId?: string): Promise<Conversation> => {
-            const res = await fetch(`${API_BASE}/api/conversations/`, {
+            const res = await apiFetch(`${API_BASE}/api/conversations/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title, messages, model_id: modelId })
@@ -542,7 +568,7 @@ export const apiClient = {
             return res.json();
         },
         update: async (id: string, updates: { title?: string; messages?: ConversationMessage[]; model_id?: string; pinned?: boolean }): Promise<Conversation> => {
-            const res = await fetch(`${API_BASE}/api/conversations/${id}`, {
+            const res = await apiFetch(`${API_BASE}/api/conversations/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates)
@@ -551,14 +577,14 @@ export const apiClient = {
             return res.json();
         },
         delete: async (id: string): Promise<{ status: string }> => {
-            const res = await fetch(`${API_BASE}/api/conversations/${id}`, {
+            const res = await apiFetch(`${API_BASE}/api/conversations/${id}`, {
                 method: 'DELETE'
             });
             await throwIfNotOk(res, 'Failed to delete conversation');
             return res.json();
         },
         search: async (query: string): Promise<ConversationSummary[]> => {
-            const res = await fetch(`${API_BASE}/api/conversations/search`, {
+            const res = await apiFetch(`${API_BASE}/api/conversations/search`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ q: query })
@@ -567,7 +593,7 @@ export const apiClient = {
             return res.json();
         },
         branch: async (id: string, messageIndex: number): Promise<Conversation> => {
-            const res = await fetch(`${API_BASE}/api/conversations/${id}/branch`, {
+            const res = await apiFetch(`${API_BASE}/api/conversations/${id}/branch`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message_index: messageIndex })
@@ -578,7 +604,7 @@ export const apiClient = {
     },
     sandbox: {
         startDebug: async (code: string, filename: string = 'script.py'): Promise<{ session_id: string }> => {
-            const res = await fetch(`${API_BASE}/api/sandbox/debug/start`, {
+            const res = await apiFetch(`${API_BASE}/api/sandbox/debug/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, filename })
@@ -587,17 +613,18 @@ export const apiClient = {
             return res.json();
         },
         sendCommand: async (sessionId: string, cmd: string): Promise<{ status: string }> => {
-            const res = await fetch(`${API_BASE}/api/sandbox/debug/${sessionId}/command?cmd=${encodeURIComponent(cmd)}`, {
+            const res = await apiFetch(`${API_BASE}/api/sandbox/debug/${sessionId}/command?cmd=${encodeURIComponent(cmd)}`, {
                 method: 'POST'
             });
             await throwIfNotOk(res, 'Failed to send debug command');
             return res.json();
         },
         getDebugStream: (sessionId: string): string => {
-            return `${API_BASE}/api/sandbox/debug/${sessionId}/events`;
+            const tokenParam = AUTH_TOKEN ? `?token=${AUTH_TOKEN}` : '';
+            return `${API_BASE}/api/sandbox/debug/${sessionId}/events${tokenParam}`;
         },
         check: async (code: string, language: string = ''): Promise<SyntaxCheckResult> => {
-            const res = await fetch(`${API_BASE}/api/sandbox/check`, {
+            const res = await apiFetch(`${API_BASE}/api/sandbox/check`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, language })
@@ -606,7 +633,7 @@ export const apiClient = {
             return res.json();
         },
         run: async (code: string, language: string = '', timeout?: number): Promise<SandboxResult> => {
-            const res = await fetch(`${API_BASE}/api/sandbox/run`, {
+            const res = await apiFetch(`${API_BASE}/api/sandbox/run`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, language, timeout })
@@ -615,7 +642,7 @@ export const apiClient = {
             return res.json();
         },
         kill: async (runId: string): Promise<{ killed: boolean }> => {
-            const res = await fetch(`${API_BASE}/api/sandbox/kill`, {
+            const res = await apiFetch(`${API_BASE}/api/sandbox/kill`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ run_id: runId })
@@ -626,7 +653,7 @@ export const apiClient = {
     },
     deployment: {
         start: async (modelPath: string, host: string, port: number): Promise<{ status: string; message: string; pid: number }> => {
-            const res = await fetch(`${API_BASE}/api/deployment/start`, {
+            const res = await apiFetch(`${API_BASE}/api/deployment/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model_path: modelPath, host, port })
@@ -635,36 +662,36 @@ export const apiClient = {
             return res.json();
         },
         stop: async (): Promise<{ status: string; message: string }> => {
-            const res = await fetch(`${API_BASE}/api/deployment/stop`, {
+            const res = await apiFetch(`${API_BASE}/api/deployment/stop`, {
                 method: 'POST'
             });
             await throwIfNotOk(res, 'Failed to stop deployment');
             return res.json();
         },
         getStatus: async (): Promise<DeploymentStatus> => {
-            const res = await fetch(`${API_BASE}/api/deployment/status`);
+            const res = await apiFetch(`${API_BASE}/api/deployment/status`);
             await throwIfNotOk(res, 'Failed to fetch deployment status');
             return res.json();
         },
         getLogs: async (since: number = 0): Promise<{ logs: { timestamp: number; source: string; message: string }[] }> => {
-            const res = await fetch(`${API_BASE}/api/deployment/logs?since=${since}`);
+            const res = await apiFetch(`${API_BASE}/api/deployment/logs?since=${since}`);
             await throwIfNotOk(res, 'Failed to fetch deployment logs');
             return res.json();
         }
     },
     notes: {
         list: async (): Promise<NoteSummary[]> => {
-            const res = await fetch(`${API_BASE}/api/notes/`);
+            const res = await apiFetch(`${API_BASE}/api/notes/`);
             await throwIfNotOk(res, 'Failed to fetch notes');
             return res.json();
         },
         get: async (id: string): Promise<Note> => {
-            const res = await fetch(`${API_BASE}/api/notes/${id}`);
+            const res = await apiFetch(`${API_BASE}/api/notes/${id}`);
             await throwIfNotOk(res, 'Failed to fetch note');
             return res.json();
         },
         create: async (title?: string, content?: string): Promise<Note> => {
-            const res = await fetch(`${API_BASE}/api/notes/`, {
+            const res = await apiFetch(`${API_BASE}/api/notes/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title, content })
@@ -673,7 +700,7 @@ export const apiClient = {
             return res.json();
         },
         update: async (id: string, updates: { title?: string; content?: string; pinned?: boolean }): Promise<Note> => {
-            const res = await fetch(`${API_BASE}/api/notes/${id}`, {
+            const res = await apiFetch(`${API_BASE}/api/notes/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates)
@@ -682,7 +709,7 @@ export const apiClient = {
             return res.json();
         },
         delete: async (id: string): Promise<{ status: string }> => {
-            const res = await fetch(`${API_BASE}/api/notes/${id}`, {
+            const res = await apiFetch(`${API_BASE}/api/notes/${id}`, {
                 method: 'DELETE'
             });
             await throwIfNotOk(res, 'Failed to delete note');
@@ -691,12 +718,12 @@ export const apiClient = {
     },
     mcp: {
         listServers: async (): Promise<{ id: string; name: string; command: string; args: string[]; env: Record<string, string>; transport: string }[]> => {
-            const res = await fetch(`${API_BASE}/api/mcp/servers`);
+            const res = await apiFetch(`${API_BASE}/api/mcp/servers`);
             await throwIfNotOk(res, 'Failed to fetch MCP servers');
             return res.json();
         },
         addServer: async (server: { name: string; command: string; args?: string[]; env?: Record<string, string>; transport?: string }): Promise<{ id: string; name: string; command: string }> => {
-            const res = await fetch(`${API_BASE}/api/mcp/servers`, {
+            const res = await apiFetch(`${API_BASE}/api/mcp/servers`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(server)
@@ -705,19 +732,19 @@ export const apiClient = {
             return res.json();
         },
         removeServer: async (serverId: string): Promise<{ status: string }> => {
-            const res = await fetch(`${API_BASE}/api/mcp/servers/${serverId}`, {
+            const res = await apiFetch(`${API_BASE}/api/mcp/servers/${serverId}`, {
                 method: 'DELETE'
             });
             await throwIfNotOk(res, 'Failed to remove MCP server');
             return res.json();
         },
         listTools: async (serverId: string): Promise<{ tools: { name: string; description: string; inputSchema: Record<string, unknown> }[] }> => {
-            const res = await fetch(`${API_BASE}/api/mcp/servers/${serverId}/tools`);
+            const res = await apiFetch(`${API_BASE}/api/mcp/servers/${serverId}/tools`);
             await throwIfNotOk(res, 'Failed to list MCP tools');
             return res.json();
         },
         executeTool: async (serverId: string, toolName: string, toolArgs: Record<string, unknown> = {}): Promise<{ result: string }> => {
-            const res = await fetch(`${API_BASE}/api/mcp/execute`, {
+            const res = await apiFetch(`${API_BASE}/api/mcp/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ server_id: serverId, tool_name: toolName, tool_args: toolArgs })
@@ -728,7 +755,7 @@ export const apiClient = {
     },
     search: {
         web: async (query: string, maxResults: number = 3, extractContent: boolean = true): Promise<{ title: string; snippet: string; url: string; content: string | null }[]> => {
-            const res = await fetch(`${API_BASE}/api/search/web`, {
+            const res = await apiFetch(`${API_BASE}/api/search/web`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query, max_results: maxResults, extract_content: extractContent })
@@ -741,7 +768,7 @@ export const apiClient = {
             return data.results;
         },
         deep: async (query: string, maxPages: number = 5): Promise<{ results: { title: string; snippet: string; url: string; content: string | null }[]; queries_used: string[]; pages_fetched: number }> => {
-            const res = await fetch(`${API_BASE}/api/search/deep`, {
+            const res = await apiFetch(`${API_BASE}/api/search/deep`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query, max_pages: maxPages })
@@ -755,12 +782,12 @@ export const apiClient = {
     },
     indexer: {
         getSources: async (): Promise<{ sources: IndexerSource[] }> => {
-            const res = await fetch(`${API_BASE}/api/indexer/sources`);
+            const res = await apiFetch(`${API_BASE}/api/indexer/sources`);
             await throwIfNotOk(res, 'Failed to fetch indexer sources');
             return res.json();
         },
         addSource: async (url: string, label?: string): Promise<IndexerSource> => {
-            const res = await fetch(`${API_BASE}/api/indexer/sources`, {
+            const res = await apiFetch(`${API_BASE}/api/indexer/sources`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url, label })
@@ -769,14 +796,14 @@ export const apiClient = {
             return res.json();
         },
         removeSource: async (sourceId: string): Promise<{ ok: boolean }> => {
-            const res = await fetch(`${API_BASE}/api/indexer/sources/${sourceId}`, {
+            const res = await apiFetch(`${API_BASE}/api/indexer/sources/${sourceId}`, {
                 method: 'DELETE'
             });
             await throwIfNotOk(res, 'Failed to remove indexer source');
             return res.json();
         },
         toggleSource: async (sourceId: string, enabled: boolean): Promise<{ ok: boolean }> => {
-            const res = await fetch(`${API_BASE}/api/indexer/sources/${sourceId}/toggle`, {
+            const res = await apiFetch(`${API_BASE}/api/indexer/sources/${sourceId}/toggle`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ enabled })
@@ -785,12 +812,12 @@ export const apiClient = {
             return res.json();
         },
         crawl: async (): Promise<{ status: string; indexed: number; fetched?: number }> => {
-            const res = await fetch(`${API_BASE}/api/indexer/crawl`, { method: 'POST' });
+            const res = await apiFetch(`${API_BASE}/api/indexer/crawl`, { method: 'POST' });
             await throwIfNotOk(res, 'Crawl failed');
             return res.json();
         },
         getStatus: async (): Promise<IndexerStatus> => {
-            const res = await fetch(`${API_BASE}/api/indexer/status`);
+            const res = await apiFetch(`${API_BASE}/api/indexer/status`);
             await throwIfNotOk(res, 'Failed to fetch indexer status');
             return res.json();
         },
@@ -798,19 +825,19 @@ export const apiClient = {
             const url = intervalMinutes
                 ? `${API_BASE}/api/indexer/start?interval_minutes=${intervalMinutes}`
                 : `${API_BASE}/api/indexer/start`;
-            const res = await fetch(url, { method: 'POST' });
+            const res = await apiFetch(url, { method: 'POST' });
             await throwIfNotOk(res, 'Failed to start indexer');
             return res.json();
         },
         stop: async (): Promise<{ status: string }> => {
-            const res = await fetch(`${API_BASE}/api/indexer/stop`, { method: 'POST' });
+            const res = await apiFetch(`${API_BASE}/api/indexer/stop`, { method: 'POST' });
             await throwIfNotOk(res, 'Failed to stop indexer');
             return res.json();
         },
     },
     codebase: {
         index: async (directory: string): Promise<{ status: string; directory: string; file_count: number; chunk_count: number }> => {
-            const res = await fetch(`${API_BASE}/api/codebase/index`, {
+            const res = await apiFetch(`${API_BASE}/api/codebase/index`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ directory })
@@ -819,7 +846,7 @@ export const apiClient = {
             return res.json();
         },
         search: async (query: string, topK: number = 10): Promise<{ results: { file_path: string; start_line: number; end_line: number; symbol: string; kind: string; content: string; score: number; method: string }[] }> => {
-            const res = await fetch(`${API_BASE}/api/codebase/search`, {
+            const res = await apiFetch(`${API_BASE}/api/codebase/search`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query, top_k: topK })
@@ -828,19 +855,19 @@ export const apiClient = {
             return res.json();
         },
         getStatus: async (): Promise<{ indexed: boolean; directory?: string; file_count?: number; chunk_count?: number; indexed_at?: number; has_embeddings?: boolean }> => {
-            const res = await fetch(`${API_BASE}/api/codebase/status`);
+            const res = await apiFetch(`${API_BASE}/api/codebase/status`);
             await throwIfNotOk(res, 'Failed to fetch codebase status');
             return res.json();
         },
         deleteIndex: async (): Promise<{ status: string }> => {
-            const res = await fetch(`${API_BASE}/api/codebase/index`, { method: 'DELETE' });
+            const res = await apiFetch(`${API_BASE}/api/codebase/index`, { method: 'DELETE' });
             await throwIfNotOk(res, 'Failed to delete codebase index');
             return res.json();
         },
     },
     workspace: {
         tree: async (directory: string, maxDepth: number = 5): Promise<{ name: string; path: string; type: 'file' | 'dir'; children?: any[] }> => {
-            const res = await fetch(`${API_BASE}/api/workspace/tree`, {
+            const res = await apiFetch(`${API_BASE}/api/workspace/tree`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ directory, max_depth: maxDepth })
@@ -849,7 +876,7 @@ export const apiClient = {
             return res.json();
         },
         readFile: async (path: string): Promise<{ content: string; language: string }> => {
-            const res = await fetch(`${API_BASE}/api/workspace/read`, {
+            const res = await apiFetch(`${API_BASE}/api/workspace/read`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path })
@@ -858,7 +885,7 @@ export const apiClient = {
             return res.json();
         },
         createFile: async (path: string): Promise<{ ok: boolean; path: string }> => {
-            const res = await fetch(`${API_BASE}/api/workspace/create`, {
+            const res = await apiFetch(`${API_BASE}/api/workspace/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path })
@@ -867,7 +894,7 @@ export const apiClient = {
             return res.json();
         },
         renameFile: async (path: string, newName: string): Promise<{ ok: boolean; old_path: string; new_path: string }> => {
-            const res = await fetch(`${API_BASE}/api/workspace/rename`, {
+            const res = await apiFetch(`${API_BASE}/api/workspace/rename`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path, new_name: newName })
@@ -875,17 +902,17 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to rename file');
             return res.json();
         },
-        deleteFile: async (path: string): Promise<{ ok: boolean }> => {
-            const res = await fetch(`${API_BASE}/api/workspace/delete`, {
+        deleteFile: async (path: string, confirmRecursive = true): Promise<{ ok: boolean }> => {
+            const res = await apiFetch(`${API_BASE}/api/workspace/delete`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path })
+                body: JSON.stringify({ path, confirm_recursive: confirmRecursive })
             });
             await throwIfNotOk(res, 'Failed to delete file');
             return res.json();
         },
         saveFile: async (path: string, content: string): Promise<{ ok: boolean; bytes: number }> => {
-            const res = await fetch(`${API_BASE}/api/workspace/save`, {
+            const res = await apiFetch(`${API_BASE}/api/workspace/save`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path, content })
@@ -895,7 +922,7 @@ export const apiClient = {
         },
         gitInfo: async (directory: string = '.'): Promise<{ git: boolean; branch?: string; modified?: number; staged?: number; untracked?: number; clean?: boolean }> => {
             try {
-                const res = await fetch(`${API_BASE}/api/workspace/git-info`, {
+                const res = await apiFetch(`${API_BASE}/api/workspace/git-info`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ directory })
@@ -935,7 +962,7 @@ export const apiClient = {
             }
         },
         decideDiff: async (sessionId: string, callId: string, approved: boolean, reason: string = ''): Promise<void> => {
-            const res = await fetch(`${API_BASE}/api/terminal/diff/decide`, {
+            const res = await apiFetch(`${API_BASE}/api/terminal/diff/decide`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: sessionId, call_id: callId, approved, reason })
@@ -943,7 +970,7 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to decide diff');
         },
         respondToEscalation: async (sessionId: string, escalationId: string, userMessage: string): Promise<void> => {
-            const res = await fetch(`${API_BASE}/api/terminal/escalation/respond`, {
+            const res = await apiFetch(`${API_BASE}/api/terminal/escalation/respond`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: sessionId, escalation_id: escalationId, user_message: userMessage })
@@ -951,7 +978,7 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to respond to escalation');
         },
         stop: async (sessionId: string): Promise<void> => {
-            const res = await fetch(`${API_BASE}/api/terminal/stop`, {
+            const res = await apiFetch(`${API_BASE}/api/terminal/stop`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: sessionId })
@@ -959,7 +986,7 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to stop terminal session');
         },
         undo: async (sessionId: string): Promise<{ file_path: string }> => {
-            const res = await fetch(`${API_BASE}/api/terminal/undo`, {
+            const res = await apiFetch(`${API_BASE}/api/terminal/undo`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: sessionId })
@@ -980,7 +1007,7 @@ export const apiClient = {
             }
         },
         decidePlan: async (sessionId: string, approved: boolean, modifications?: Array<{ file: string; action: string; description: string }>): Promise<void> => {
-            const res = await fetch(`${API_BASE}/api/terminal/plan/decide`, {
+            const res = await apiFetch(`${API_BASE}/api/terminal/plan/decide`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: sessionId, approved, modifications: modifications ?? null })
@@ -988,13 +1015,13 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to decide plan');
         },
         getCheckpoints: async (sessionId: string): Promise<Array<{ index: number; file_path: string; tool: string; timestamp: number }>> => {
-            const res = await fetch(`${API_BASE}/api/terminal/checkpoints/${encodeURIComponent(sessionId)}`);
+            const res = await apiFetch(`${API_BASE}/api/terminal/checkpoints/${encodeURIComponent(sessionId)}`);
             await throwIfNotOk(res, 'Failed to get checkpoints');
             const data = await res.json();
             return data.checkpoints;
         },
         rollbackTo: async (sessionId: string, index: number): Promise<{ files: string[] }> => {
-            const res = await fetch(`${API_BASE}/api/terminal/rollback`, {
+            const res = await apiFetch(`${API_BASE}/api/terminal/rollback`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: sessionId, index })
@@ -1005,7 +1032,7 @@ export const apiClient = {
     },
     checkHealth: async (): Promise<boolean> => {
         try {
-            const res = await fetch(`${API_BASE}/health`);
+            const res = await apiFetch(`${API_BASE}/health`);
             return res.ok;
         } catch {
             return false;

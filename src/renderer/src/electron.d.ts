@@ -9,6 +9,7 @@ interface ElectronAPI {
   selectDirectory: () => Promise<string | null>
   getBackendPort: () => Promise<number>
   getLogPath: () => Promise<string>
+  getAuthToken: () => Promise<string>
   openPath: (path: string) => Promise<string>
   installUpdate: () => Promise<void>
   checkForUpdates: () => Promise<{ status: string; version?: string; message?: string }>

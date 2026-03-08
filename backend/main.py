@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from app.middleware.auth import LocalAuthMiddleware
 import uvicorn
 import os
 import sys
@@ -85,7 +86,11 @@ def _start_parent_watchdog():
     parent_pid_str = os.environ.get("SILICON_PARENT_PID")
     if not parent_pid_str:
         return  # not launched by Electron — skip
-    parent_pid = int(parent_pid_str)
+    try:
+        parent_pid = int(parent_pid_str)
+    except ValueError:
+        logger.error(f"Invalid SILICON_PARENT_PID: {parent_pid_str!r}")
+        return
     import threading, signal
 
     def _watch():
@@ -170,6 +175,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Local auth: require Bearer token from Electron (skipped if SILICON_AUTH_TOKEN is unset)
+app.add_middleware(LocalAuthMiddleware)
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Return validation errors in a readable format instead of raw 422."""
@@ -212,7 +220,11 @@ if __name__ == "__main__":
     import socket
     multiprocessing.freeze_support()
 
-    preferred = int(os.getenv("PORT", 8000))
+    try:
+        preferred = int(os.getenv("PORT", "8000"))
+    except ValueError:
+        logger.warning("Invalid PORT env var, falling back to 8000")
+        preferred = 8000
     port = preferred
 
     for candidate in [preferred] + list(range(8001, 8100)):

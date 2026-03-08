@@ -158,6 +158,7 @@ class RenameRequest(BaseModel):
 
 class DeleteRequest(BaseModel):
     path: str = Field(min_length=1, max_length=4096)
+    confirm_recursive: bool = Field(default=False, description="Must be true to delete non-empty directories")
 
 
 class SaveRequest(BaseModel):
@@ -241,6 +242,11 @@ async def delete_file(req: DeleteRequest):
             try:
                 path.rmdir()
             except OSError:
+                if not req.confirm_recursive:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Directory is not empty. Set confirm_recursive=true to delete recursively.",
+                    )
                 import shutil
                 shutil.rmtree(path)
         else:

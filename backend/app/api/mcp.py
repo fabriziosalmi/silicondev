@@ -1,4 +1,5 @@
 import logging
+import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
@@ -8,6 +9,36 @@ from app.mcp.service import MCPService
 logger = logging.getLogger(__name__)
 router = APIRouter()
 service = MCPService()
+
+# Allowed MCP server commands (executables, not arbitrary shell commands)
+_MCP_ALLOWED_COMMANDS = {
+    "npx", "uvx", "node", "python", "python3", "deno", "bun",
+    "docker", "podman",
+}
+
+# Patterns that must never appear in MCP command or args
+_MCP_BLOCKED_PATTERNS = [
+    "rm ", "rm\t", "rmdir", "mkfs", "dd ", "chmod", "chown",
+    "curl ", "wget ", "nc ", "ncat",
+    "> /dev/", "| sh", "| bash", "| zsh",
+    "eval ", "exec ", "sudo ",
+    ":(){ :|:& };:",
+]
+
+
+def _validate_mcp_command(command: str, args: list[str]) -> str | None:
+    """Validate an MCP server command. Returns error string or None if safe."""
+    cmd_base = command.strip().split("/")[-1]  # basename
+    if cmd_base not in _MCP_ALLOWED_COMMANDS:
+        return (
+            f"Command '{command}' is not allowed. "
+            f"Allowed commands: {', '.join(sorted(_MCP_ALLOWED_COMMANDS))}"
+        )
+    full = f"{command} {' '.join(args)}".lower()
+    for pat in _MCP_BLOCKED_PATTERNS:
+        if pat in full:
+            return f"Blocked: MCP command contains dangerous pattern '{pat.strip()}'"
+    return None
 
 
 class AddServerRequest(BaseModel):
@@ -33,6 +64,9 @@ async def list_servers():
 @router.post("/servers")
 async def add_server(request: AddServerRequest):
     """Add or update an MCP server configuration."""
+    error = _validate_mcp_command(request.command, request.args)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
     return service.add_server(
         name=request.name,
         command=request.command,

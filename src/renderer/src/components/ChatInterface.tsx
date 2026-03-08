@@ -939,7 +939,7 @@ export function ChatInterface() {
 
             abortRef.current?.abort();
             abortRef.current = new AbortController();
-            const response = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
+            const response = await apiClient.apiFetch(`${apiClient.API_BASE}/api/engine/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 signal: abortRef.current.signal,
@@ -1140,7 +1140,7 @@ export function ChatInterface() {
         const buildPrompt = codeActionPrompts[action];
         if (!buildPrompt || !currentModelId) throw new Error('Cannot rewrite');
         const prompt = buildPrompt(code, context);
-        const response = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
+        const response = await apiClient.apiFetch(`${apiClient.API_BASE}/api/engine/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1217,7 +1217,7 @@ ${response.slice(0, 2000)}
 Return exactly: {"privacy":N,"fairness":N,"safety":N,"transparency":N,"ethics":N,"reliability":N}`;
 
         try {
-            const res = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
+            const res = await apiClient.apiFetch(`${apiClient.API_BASE}/api/engine/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1300,7 +1300,7 @@ AI response: ${currentResponse}
 
 Return ONLY the numbered critiques, nothing else.`;
 
-                const critiqueResponse = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
+                const critiqueResponse = await apiClient.apiFetch(`${apiClient.API_BASE}/api/engine/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1342,7 +1342,7 @@ ${critique}
 
 Improved response:`;
 
-                const improveResponse = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
+                const improveResponse = await apiClient.apiFetch(`${apiClient.API_BASE}/api/engine/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1419,7 +1419,7 @@ Return exactly this JSON structure (no other text):
 {"topics":[{"name":"short name","summary":"1 sentence","messageRange":[start,end]}],"codeContext":[{"language":"lang","description":"what it does","lastVersion":"brief"}],"decisions":[{"what":"what was decided","why":"why"}],"keyFacts":["fact1","fact2"]}`;
 
         try {
-            const res = await fetch(`${apiClient.API_BASE}/api/engine/chat`, {
+            const res = await apiClient.apiFetch(`${apiClient.API_BASE}/api/engine/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
