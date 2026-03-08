@@ -35,6 +35,7 @@ function App() {
   const conversations = useConversations()
   const notes = useNotes()
   const [loadingMessage, setLoadingMessage] = useState('Initializing backend...')
+  const [loadProgress, setLoadProgress] = useState(0)
   const [updateReady, setUpdateReady] = useState(false)
   const [updateVersion, setUpdateVersion] = useState('')
 
@@ -116,6 +117,20 @@ function App() {
     return () => document.removeEventListener('keydown', handler);
   }, [conversations, toggleSidebar]);
 
+  // Fake progress bar — fast start, slows down, never reaches 100 until ready
+  useEffect(() => {
+    if (backendReady) { setLoadProgress(100); return }
+    const start = Date.now()
+    const tick = () => {
+      const elapsed = (Date.now() - start) / 1000
+      // Asymptotic: ~50% at 2s, ~80% at 5s, ~90% at 10s, caps at 95%
+      const progress = 95 * (1 - Math.exp(-elapsed / 4))
+      setLoadProgress(Math.round(progress))
+    }
+    const id = setInterval(tick, 200)
+    return () => clearInterval(id)
+  }, [backendReady])
+
   // Update loading message after a few seconds if backend isn't ready yet
   useEffect(() => {
     if (backendReady) return;
@@ -128,17 +143,19 @@ function App() {
   // Show loading screen while backend starts
   if (!backendReady) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0a0a0f] relative overflow-hidden">
-        {/* Subtle radial glow behind icon */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[60%] w-[500px] h-[500px] rounded-full bg-indigo-500/[0.04] blur-[100px] pointer-events-none" />
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-black relative overflow-hidden">
+        {/* Fast metallic gleam across the whole background */}
+        <div className="absolute inset-0 animate-metallic pointer-events-none z-0">
+          <div className="w-[20%] h-[300%] -mt-[100%] mx-auto bg-gradient-to-r from-transparent via-white/[0.08] to-transparent blur-[12px]" />
+        </div>
 
         <div className="flex flex-col items-center gap-6 relative z-10">
           {/* Animated chip icon */}
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" className="w-40 h-40 drop-shadow-[0_0_40px_rgba(99,102,241,0.2)]">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" className="w-40 h-40">
             <defs>
               <linearGradient id="s-bg" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#1a1a2e"/>
-                <stop offset="100%" stopColor="#0f0f1a"/>
+                <stop offset="0%" stopColor="#111113"/>
+                <stop offset="100%" stopColor="#0a0a0c"/>
               </linearGradient>
               <linearGradient id="s-chip" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0%" stopColor="#3b82f6"/>
@@ -152,36 +169,23 @@ function App() {
                 <stop offset="0%" stopColor="#93c5fd"/>
                 <stop offset="100%" stopColor="#a5b4fc"/>
               </linearGradient>
-              <radialGradient id="s-glow" cx="512" cy="512" r="200" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#6366f1" stopOpacity="0.15"/>
-                <stop offset="100%" stopColor="#6366f1" stopOpacity="0"/>
-              </radialGradient>
             </defs>
-            {/* Background */}
             <rect width="1024" height="1024" rx="220" fill="url(#s-bg)"/>
-            {/* Inner glow */}
-            <circle cx="512" cy="512" r="200" fill="url(#s-glow)">
-              <animate attributeName="r" values="180;220;180" dur="3s" repeatCount="indefinite"/>
-            </circle>
-            {/* Chip body */}
-            <rect x="302" y="302" width="420" height="420" rx="48" fill="url(#s-chip)" opacity="0.12" stroke="url(#s-chip)" strokeWidth="5"/>
-            {/* Pins — top/bottom/left/right */}
-            {[390,460,530,600].map(x => <rect key={`t${x}`} x={x} y="222" width="16" height="96" rx="8" fill="url(#s-trace)" opacity="0.6"/>)}
-            {[390,460,530,600].map(x => <rect key={`b${x}`} x={x} y="706" width="16" height="96" rx="8" fill="url(#s-trace)" opacity="0.6"/>)}
-            {[390,460,530,600].map(y => <rect key={`l${y}`} x="222" y={y} width="96" height="16" rx="8" fill="url(#s-trace)" opacity="0.6"/>)}
-            {[390,460,530,600].map(y => <rect key={`r${y}`} x="706" y={y} width="96" height="16" rx="8" fill="url(#s-trace)" opacity="0.6"/>)}
-            {/* Grid traces */}
-            <line x1="380" y1="440" x2="644" y2="440" stroke="url(#s-trace)" strokeWidth="3" opacity="0.3"/>
-            <line x1="380" y1="512" x2="644" y2="512" stroke="url(#s-trace)" strokeWidth="3" opacity="0.3"/>
-            <line x1="380" y1="584" x2="644" y2="584" stroke="url(#s-trace)" strokeWidth="3" opacity="0.3"/>
-            <line x1="440" y1="380" x2="440" y2="644" stroke="url(#s-trace)" strokeWidth="3" opacity="0.3"/>
-            <line x1="512" y1="380" x2="512" y2="644" stroke="url(#s-trace)" strokeWidth="3" opacity="0.3"/>
-            <line x1="584" y1="380" x2="584" y2="644" stroke="url(#s-trace)" strokeWidth="3" opacity="0.3"/>
-            {/* Diagonal traces */}
-            <line x1="440" y1="440" x2="512" y2="512" stroke="url(#s-trace)" strokeWidth="2" opacity="0.2"/>
-            <line x1="584" y1="440" x2="512" y2="512" stroke="url(#s-trace)" strokeWidth="2" opacity="0.2"/>
-            <line x1="440" y1="584" x2="512" y2="512" stroke="url(#s-trace)" strokeWidth="2" opacity="0.2"/>
-            <line x1="584" y1="584" x2="512" y2="512" stroke="url(#s-trace)" strokeWidth="2" opacity="0.2"/>
+            <rect x="302" y="302" width="420" height="420" rx="48" fill="url(#s-chip)" opacity="0.10" stroke="url(#s-chip)" strokeWidth="4"/>
+            {[390,460,530,600].map(x => <rect key={`t${x}`} x={x} y="222" width="16" height="96" rx="8" fill="url(#s-trace)" opacity="0.5"/>)}
+            {[390,460,530,600].map(x => <rect key={`b${x}`} x={x} y="706" width="16" height="96" rx="8" fill="url(#s-trace)" opacity="0.5"/>)}
+            {[390,460,530,600].map(y => <rect key={`l${y}`} x="222" y={y} width="96" height="16" rx="8" fill="url(#s-trace)" opacity="0.5"/>)}
+            {[390,460,530,600].map(y => <rect key={`r${y}`} x="706" y={y} width="96" height="16" rx="8" fill="url(#s-trace)" opacity="0.5"/>)}
+            <line x1="380" y1="440" x2="644" y2="440" stroke="url(#s-trace)" strokeWidth="3" opacity="0.25"/>
+            <line x1="380" y1="512" x2="644" y2="512" stroke="url(#s-trace)" strokeWidth="3" opacity="0.25"/>
+            <line x1="380" y1="584" x2="644" y2="584" stroke="url(#s-trace)" strokeWidth="3" opacity="0.25"/>
+            <line x1="440" y1="380" x2="440" y2="644" stroke="url(#s-trace)" strokeWidth="3" opacity="0.25"/>
+            <line x1="512" y1="380" x2="512" y2="644" stroke="url(#s-trace)" strokeWidth="3" opacity="0.25"/>
+            <line x1="584" y1="380" x2="584" y2="644" stroke="url(#s-trace)" strokeWidth="3" opacity="0.25"/>
+            <line x1="440" y1="440" x2="512" y2="512" stroke="url(#s-trace)" strokeWidth="2" opacity="0.15"/>
+            <line x1="584" y1="440" x2="512" y2="512" stroke="url(#s-trace)" strokeWidth="2" opacity="0.15"/>
+            <line x1="440" y1="584" x2="512" y2="512" stroke="url(#s-trace)" strokeWidth="2" opacity="0.15"/>
+            <line x1="584" y1="584" x2="512" y2="512" stroke="url(#s-trace)" strokeWidth="2" opacity="0.15"/>
             {/* Animated dots — wave pulse from center outward */}
             {[
               { cx: 512, cy: 512, r: 14, delay: '0s' },
@@ -204,7 +208,6 @@ function App() {
                 <animate attributeName="opacity" values="0.15;1;0.15" dur="2s" begin={d.delay} repeatCount="indefinite"/>
               </circle>
             ))}
-            {/* Center bright core */}
             <circle cx="512" cy="512" r="6" fill="white">
               <animate attributeName="opacity" values="0.4;1;0.4" dur="1.5s" repeatCount="indefinite"/>
               <animate attributeName="r" values="5;7;5" dur="1.5s" repeatCount="indefinite"/>
@@ -215,15 +218,16 @@ function App() {
             <h1 className="text-[26px] font-bold text-white tracking-tight mb-1">SiliconDev</h1>
             <p className="text-[11px] text-gray-600 font-mono mb-5">v{__APP_VERSION__}</p>
 
-            {/* Loading indicator */}
             <p className="text-[12px] text-gray-500 mb-3">{loadingMessage}</p>
             <div className="w-48 h-[2px] rounded-full bg-white/5 overflow-hidden">
-              <div className="h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-indigo-400/60 to-transparent animate-shimmer" />
+              <div
+                className="h-full rounded-full bg-white/25 transition-all duration-300 ease-out"
+                style={{ width: `${loadProgress}%` }}
+              />
             </div>
           </div>
         </div>
 
-        {/* Footer credits — pinned to bottom */}
         <div className="absolute bottom-6 left-0 right-0 text-center">
           <p className="text-[10px] font-semibold text-gray-700/50">Made with ❤️ by Fabrizio Salmi</p>
           <p className="text-[10px] font-semibold text-gray-700/50 mt-0.5">MIT License</p>
@@ -500,22 +504,26 @@ function App() {
 
         {/* Standard tabs with scroll container */}
         <div className={`flex-1 overflow-y-auto no-drag relative ${activeTab === 'terminal' || activeTab === 'code' ? 'hidden' : ''}`}>
-          <div className="w-full h-full p-4 md:p-8 overflow-x-hidden">
+          <div className="w-full h-full overflow-x-hidden">
             {/* Keep-alive: tabs with expensive in-memory state stay mounted but hidden */}
-            <div className={activeTab === 'chat' ? '' : 'hidden'}><ChatInterface /></div>
-            <div className={activeTab === 'engine' ? '' : 'hidden'}><EngineInterface /></div>
+            <div className={activeTab === 'chat' ? 'h-full' : 'hidden'}><ChatInterface /></div>
+            <div className={`${activeTab === 'engine' ? '' : 'hidden'} p-4 md:p-8`}><EngineInterface /></div>
             {/* Mount-on-demand: lightweight tabs that refetch on mount */}
-            {activeTab === 'studio' && <DataPreparation />}
-            {activeTab === 'models' && <ModelsInterface />}
-            {activeTab === 'evaluations' && <Evaluations />}
-            {activeTab === 'rag' && <RagKnowledge />}
-            {activeTab === 'mcp' && <MCPServers />}
-            {activeTab === 'pipelines' && <PipelinesJobs />}
-            {activeTab === 'deployment' && <Deployment />}
-            {activeTab === 'workspace' && <Workspace />}
-            {activeTab === 'export' && <ModelExport />}
-            {activeTab === 'docs' && <Documentation />}
-            {activeTab === 'settings' && <Settings />}
+            {activeTab !== 'chat' && activeTab !== 'engine' && (
+              <div className="p-4 md:p-8">
+                {activeTab === 'studio' && <DataPreparation />}
+                {activeTab === 'models' && <ModelsInterface />}
+                {activeTab === 'evaluations' && <Evaluations />}
+                {activeTab === 'rag' && <RagKnowledge />}
+                {activeTab === 'mcp' && <MCPServers />}
+                {activeTab === 'pipelines' && <PipelinesJobs />}
+                {activeTab === 'deployment' && <Deployment />}
+                {activeTab === 'workspace' && <Workspace />}
+                {activeTab === 'export' && <ModelExport />}
+                {activeTab === 'docs' && <Documentation />}
+                {activeTab === 'settings' && <Settings />}
+              </div>
+            )}
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { apiClient, cleanModelName } from '../api/client';
 import type { ModelEntry } from '../api/client';
 import { PageHeader } from './ui/PageHeader';
@@ -6,6 +6,7 @@ import { useToast } from './ui/Toast';
 import { Search, Download, Trash2, Database, HardDrive, FileText, Play, LogOut, Zap, Loader2, FolderOpen } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import { useGlobalState } from '../context/GlobalState';
 
 const RECOMMENDED_MODELS = [
@@ -67,16 +68,22 @@ export function ModelsInterface() {
     const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
     const [scanning, setScanning] = useState(false);
 
-    // Filtering
+    // Filtering & sorting
     const [searchQuery, setSearchQuery] = useState("");
+    const [sortBy, setSortBy] = useState<'name' | 'size' | 'arch'>('name');
+    const readmeAbortRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         fetchModels();
-        const interval = setInterval(() => {
-            fetchModels(true)
-        }, 5000)
-        return () => clearInterval(interval)
+        return () => { readmeAbortRef.current?.abort(); };
     }, []);
+
+    // Only poll while downloads are active
+    useEffect(() => {
+        if (downloading.size === 0) return;
+        const interval = setInterval(() => fetchModels(true), 5000);
+        return () => clearInterval(interval);
+    }, [downloading.size]);
 
     const fetchModels = async (silent = false) => {
         try {
@@ -120,6 +127,9 @@ export function ModelsInterface() {
         if (!confirm('Delete this model from disk? This cannot be undone.')) return;
         try {
             setLoading(true);
+            if (activeModel?.id === modelId) {
+                await handleEject();
+            }
             await apiClient.engine.deleteModel(modelId);
             await fetchModels();
         } catch (e: unknown) {
@@ -166,10 +176,12 @@ export function ModelsInterface() {
     };
 
     const fetchReadme = async (id: string) => {
+        readmeAbortRef.current?.abort();
         setReadmeLoading(true);
         try {
             if (id.startsWith('mlx-community/') || id.includes('/')) {
                 const controller = new AbortController();
+                readmeAbortRef.current = controller;
                 const timeout = setTimeout(() => controller.abort(), 5000);
                 try {
                     const response = await fetch(`https://huggingface.co/${id}/raw/main/README.md`, { signal: controller.signal });
@@ -180,9 +192,11 @@ export function ModelsInterface() {
                     } else {
                         setReadmeContent("README not found or model is private.");
                     }
-                } catch (e) {
+                } catch {
                     clearTimeout(timeout);
-                    setReadmeContent("Unable to fetch README. You may be offline.");
+                    if (!controller.signal.aborted) {
+                        setReadmeContent("Unable to fetch README. You may be offline.");
+                    }
                 }
             } else {
                 setReadmeContent("No README available for custom local models.");
@@ -261,43 +275,69 @@ export function ModelsInterface() {
         setSelectedPaths(next);
     };
 
-    // Filter Logic
-    const downloadedModels = models.filter(m => m.downloaded || downloading.has(m.id) || m.is_custom);
-    const discoverableModels = models.filter(m => !m.is_custom && !m.downloaded && !downloading.has(m.id));
+    // Filter Logic (memoized)
+    const availableRamBytes = systemStats?.memory.available ?? 0;
+    const diskFreeGB = systemStats ? (systemStats.disk.total - systemStats.disk.used) / (1024 * 1024 * 1024) : null;
 
-    const displayedMyModels = downloadedModels.filter(m =>
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.id.toLowerCase().includes(searchQuery.toLowerCase())
+    const downloadedModels = useMemo(() =>
+        models.filter(m => m.downloaded || downloading.has(m.id) || m.is_custom),
+        [models, downloading]
     );
 
-    const availableRamBytes = systemStats?.memory.available ?? 0;
+    const discoverableModels = useMemo(() =>
+        models.filter(m => !m.is_custom && !m.downloaded && !downloading.has(m.id)),
+        [models, downloading]
+    );
 
-    const displayedDiscoverModels = discoverableModels.filter(m => {
-        const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            m.id.toLowerCase().includes(searchQuery.toLowerCase());
-        if (!matchesSearch) return false;
-        const sizeGB = parseSizeGB(m.size);
-        if (sizeGB > 0 && availableRamBytes > 0 && sizeGB * 1.07e9 > availableRamBytes) return false;
-        return true;
-    });
+    const displayedMyModels = useMemo(() => {
+        const q = searchQuery.toLowerCase();
+        const filtered = downloadedModels.filter(m =>
+            m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q)
+        );
+        if (sortBy === 'size') {
+            filtered.sort((a, b) => parseSizeGB(b.size) - parseSizeGB(a.size));
+        } else if (sortBy === 'arch') {
+            filtered.sort((a, b) => (a.architecture || '').localeCompare(b.architecture || ''));
+        } else {
+            filtered.sort((a, b) => cleanModelName(a.name).localeCompare(cleanModelName(b.name)));
+        }
+        return filtered;
+    }, [downloadedModels, searchQuery, sortBy]);
+
+    const displayedDiscoverModels = useMemo(() =>
+        discoverableModels.filter(m => {
+            const q = searchQuery.toLowerCase();
+            const matchesSearch = m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q);
+            if (!matchesSearch) return false;
+            const sizeGB = parseSizeGB(m.size);
+            if (sizeGB > 0 && availableRamBytes > 0 && sizeGB * 1.07e9 > availableRamBytes) return false;
+            return true;
+        }),
+        [discoverableModels, searchQuery, availableRamBytes]
+    );
 
     // Group models by architecture for "My Models"
-    const archGroups = new Map<string, ModelEntry[]>();
-    for (const m of displayedMyModels) {
-        const arch = m.architecture || 'Other';
-        if (!archGroups.has(arch)) archGroups.set(arch, []);
-        archGroups.get(arch)!.push(m);
-    }
-    // Sort groups: active model's arch first, then alphabetical
-    const sortedArchKeys = Array.from(archGroups.keys()).sort((a, b) => {
-        const aHasActive = archGroups.get(a)!.some(m => m.id === activeModel?.id);
-        const bHasActive = archGroups.get(b)!.some(m => m.id === activeModel?.id);
-        if (aHasActive && !bHasActive) return -1;
-        if (!aHasActive && bHasActive) return 1;
-        return a.localeCompare(b);
-    });
+    const { archGroups, sortedArchKeys } = useMemo(() => {
+        const groups = new Map<string, ModelEntry[]>();
+        for (const m of displayedMyModels) {
+            const arch = m.architecture || 'Other';
+            if (!groups.has(arch)) groups.set(arch, []);
+            groups.get(arch)!.push(m);
+        }
+        const keys = Array.from(groups.keys()).sort((a, b) => {
+            const aHasActive = groups.get(a)!.some(m => m.id === activeModel?.id);
+            const bHasActive = groups.get(b)!.some(m => m.id === activeModel?.id);
+            if (aHasActive && !bHasActive) return -1;
+            if (!aHasActive && bHasActive) return 1;
+            return a.localeCompare(b);
+        });
+        return { archGroups: groups, sortedArchKeys: keys };
+    }, [displayedMyModels, activeModel?.id]);
 
-    const totalSizeGB = downloadedModels.reduce((sum, m) => sum + parseSizeGB(m.size), 0);
+    const totalSizeGB = useMemo(() =>
+        downloadedModels.reduce((sum, m) => sum + parseSizeGB(m.size), 0),
+        [downloadedModels]
+    );
 
     return (
         <div className="h-full flex flex-col text-white overflow-hidden pb-4">
@@ -317,7 +357,7 @@ export function ModelsInterface() {
                 <div className="flex gap-6">
                     <button
                         type="button"
-                        onClick={() => setActiveTab('my-models')}
+                        onClick={() => { setActiveTab('my-models'); setSearchQuery(''); }}
                         className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'my-models' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
                     >
                         My Models ({downloadedModels.length})
@@ -332,18 +372,26 @@ export function ModelsInterface() {
                         {activeTab === 'discover' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400 rounded-full" />}
                     </button>
                 </div>
-                {activeTab === 'my-models' && downloadedModels.length > 0 && (
-                    <div className="flex items-center gap-4 pb-3 text-[11px] text-gray-500">
-                        <span>{downloadedModels.length} models</span>
-                        {totalSizeGB > 0 && <span>{totalSizeGB.toFixed(1)} GB total</span>}
-                        {activeModel && (
-                            <span className="flex items-center gap-1.5 text-emerald-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                {cleanModelName(activeModel.name)} loaded
-                            </span>
-                        )}
-                    </div>
-                )}
+                <div className="flex items-center gap-4 pb-3 text-[11px] text-gray-500">
+                    {activeTab === 'my-models' && downloadedModels.length > 0 && (
+                        <>
+                            <span>{downloadedModels.length} models</span>
+                            {totalSizeGB > 0 && <span>{totalSizeGB.toFixed(1)} GB used</span>}
+                        </>
+                    )}
+                    {diskFreeGB !== null && (
+                        <span className={diskFreeGB < 5 ? 'text-red-400' : diskFreeGB < 20 ? 'text-amber-400' : ''}>
+                            <HardDrive size={10} className="inline mr-1" />
+                            {diskFreeGB.toFixed(0)} GB free
+                        </span>
+                    )}
+                    {activeModel && (
+                        <span className="flex items-center gap-1.5 text-emerald-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            {cleanModelName(activeModel.name)} loaded
+                        </span>
+                    )}
+                </div>
             </div>
 
             {error && (
@@ -358,9 +406,9 @@ export function ModelsInterface() {
                 {/* --- MY MODELS VIEW (Card Grid) --- */}
                 {activeTab === 'my-models' && (
                     <div className="h-full flex flex-col">
-                        {/* Search */}
-                        <div className="mb-4">
-                            <div className="relative max-w-sm">
+                        {/* Search + Sort */}
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className="relative max-w-sm flex-1">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                                 <input
                                     type="text"
@@ -369,6 +417,22 @@ export function ModelsInterface() {
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-white outline-none focus:border-blue-500 text-sm transition-colors"
                                 />
+                            </div>
+                            <div className="flex items-center gap-1">
+                                {(['name', 'size', 'arch'] as const).map(s => (
+                                    <button
+                                        key={s}
+                                        type="button"
+                                        onClick={() => setSortBy(s)}
+                                        className={`px-2.5 py-1.5 rounded text-[10px] font-medium transition-colors ${
+                                            sortBy === s
+                                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                                : 'bg-white/[0.03] text-gray-500 border border-white/5 hover:text-gray-400'
+                                        }`}
+                                    >
+                                        {s === 'name' ? 'Name' : s === 'size' ? 'Size' : 'Arch'}
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
@@ -406,7 +470,7 @@ export function ModelsInterface() {
                                             </p>
                                             <button
                                                 type="button"
-                                                onClick={() => setActiveTab('discover')}
+                                                onClick={() => { setActiveTab('discover'); setSearchQuery(''); }}
                                                 className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
                                             >
                                                 Go to Discover
@@ -417,7 +481,12 @@ export function ModelsInterface() {
                             ) : (
                                 <div className="space-y-6">
                                     {sortedArchKeys.map(arch => {
-                                        const groupModels = archGroups.get(arch)!;
+                                        const groupModels = archGroups.get(arch)!.slice().sort((a, b) => {
+                                            const aActive = activeModel?.id === a.id ? 0 : 1;
+                                            const bActive = activeModel?.id === b.id ? 0 : 1;
+                                            if (aActive !== bActive) return aActive - bActive;
+                                            return cleanModelName(a.name).localeCompare(cleanModelName(b.name));
+                                        });
                                         const colors = archColor(arch);
                                         return (
                                             <div key={arch}>
@@ -490,6 +559,7 @@ export function ModelsInterface() {
                                                                         <button
                                                                             type="button"
                                                                             onClick={handleEject}
+                                                                            aria-label="Eject model"
                                                                             className="flex-1 h-8 flex items-center justify-center gap-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors text-[11px] font-bold uppercase tracking-wide"
                                                                         >
                                                                             <LogOut size={12} />
@@ -500,6 +570,7 @@ export function ModelsInterface() {
                                                                             type="button"
                                                                             onClick={() => loadModelIntoMemory(model)}
                                                                             disabled={isLoading}
+                                                                            aria-label={`Load ${cleanModelName(model.name)}`}
                                                                             className="flex-1 h-8 flex items-center justify-center gap-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-colors text-[11px] font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
                                                                         >
                                                                             {isLoading ? (
@@ -512,9 +583,10 @@ export function ModelsInterface() {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => handleDelete(model.id)}
-                                                                        disabled={isActive}
+                                                                        disabled={isActive || downloading.has(model.id)}
+                                                                        aria-label={`Delete ${cleanModelName(model.name)}`}
                                                                         className="h-8 w-8 flex items-center justify-center rounded-lg border border-white/[0.06] text-gray-600 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                        title="Delete model"
+                                                                        title={downloading.has(model.id) ? 'Cannot delete while downloading' : 'Delete model'}
                                                                     >
                                                                         <Trash2 size={13} />
                                                                     </button>
@@ -655,7 +727,7 @@ export function ModelsInterface() {
                                             </div>
                                         ) : (
                                             <div className="prose prose-invert prose-sm max-w-none prose-pre:bg-black/50 prose-a:text-blue-400">
-                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                                                     {readmeContent}
                                                 </ReactMarkdown>
                                             </div>
@@ -682,6 +754,13 @@ export function ModelsInterface() {
                             <HardDrive className="w-5 h-5 text-blue-400" />
                             Add Local Model Directory
                         </h3>
+
+                        {error && (
+                            <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 px-3 py-2 rounded-lg text-xs flex justify-between items-center">
+                                <span>{error}</span>
+                                <button type="button" onClick={() => setError(null)} className="text-red-400/60 hover:text-red-400 ml-2 shrink-0" aria-label="Dismiss error">✕</button>
+                            </div>
+                        )}
 
                         <div className="space-y-4">
                             <div>
@@ -779,6 +858,7 @@ export function ModelsInterface() {
                                                 </div>
                                                 <input
                                                     type="checkbox"
+                                                    title={`Select ${m.name}`}
                                                     checked={selectedPaths.has(m.path || '')}
                                                     onChange={() => togglePathSelection(m.path || '')}
                                                     className="w-4 h-4 rounded border-white/10 bg-black/40 text-blue-500"

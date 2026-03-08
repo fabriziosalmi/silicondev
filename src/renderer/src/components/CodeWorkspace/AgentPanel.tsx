@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, useMemo } from 'react'
-import { Trash2, AlertCircle, Bot, Undo2, Eye, Pencil, Brain, Zap, Search, Shield } from 'lucide-react'
+import { Trash2, AlertCircle, Undo2, Eye, Pencil, Brain, Zap, Search, Shield } from 'lucide-react'
 import { type ActiveFileContext } from './useAgentSession'
 import { AgentInputBar } from './AgentInputBar'
+import { PreLayerBar } from './PreLayerBar'
 import { MessageFeed } from '../Terminal/MessageFeed'
 import { TimelineRail, type Checkpoint } from '../Terminal/TimelineRail'
 import { apiClient } from '../../api/client'
@@ -23,8 +24,8 @@ function formatMs(ms: number): string {
   return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`
 }
 
-const ROLE_ICONS = { architetto: Brain, operaio: Zap, ispettore: Search } as const
-const ROLE_COLORS = { architetto: 'text-blue-400', operaio: 'text-amber-400', ispettore: 'text-emerald-400' } as const
+const ROLE_ICONS = { architect: Brain, worker: Zap, inspector: Search } as const
+const ROLE_COLORS = { architect: 'text-blue-400', worker: 'text-amber-400', inspector: 'text-emerald-400' } as const
 
 export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: AgentPanelProps & { session: any }) {
   const {
@@ -44,6 +45,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
     setAgentMode,
     clearHistory,
     activeAgencyRole,
+    promptProfile,
   } = session
 
   // Cycling idle info (model name, context window, status)
@@ -158,7 +160,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
         <div className="flex items-center justify-between px-3 py-1.5 gap-2">
           {/* Left: icon + dynamic status */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Bot size={13} className={isRunning ? 'text-blue-400 animate-pulse' : 'text-blue-400/60'} />
+            <img src="/icon.svg" alt="" className={`w-3.5 h-3.5 rounded-sm ${isRunning ? 'animate-pulse' : 'opacity-60'}`} />
             <span
               className={`text-[11px] font-mono truncate transition-colors duration-300 ${statusInfo.color}`}
               title={activeModel?.name ?? undefined}
@@ -278,6 +280,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
             </div>
           )}
         </div>
+        {promptProfile && <PreLayerBar profile={promptProfile} />}
         <AgentInputBar
           onSubmit={handleSubmit}
           onPlanSubmit={handlePlanSubmit}

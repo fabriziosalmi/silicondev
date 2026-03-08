@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useGlobalState } from '../context/GlobalState';
 import { apiClient, cleanModelName } from '../api/client';
 import type { ModelEntry } from '../api/client';
-import { DatabaseZap, LogOut, ChevronDown, Loader2, Zap, HardDrive, Search } from 'lucide-react';
+import { DatabaseZap, LogOut, ChevronDown, Loader2, Zap, HardDrive, Search, Cpu, MemoryStick } from 'lucide-react';
 
 const TOPBAR_SETTINGS_KEY = 'silicon-studio-topbar-settings';
 
@@ -17,39 +17,33 @@ function getThresholds(): { warn: number; critical: number } {
     return { warn: 60, critical: 85 };
 }
 
-function barColor(percent: number, thresholds: { warn: number; critical: number }): string {
-    if (percent >= thresholds.critical) return 'bg-red-500';
-    if (percent >= thresholds.warn) return 'bg-amber-500';
-    return 'bg-emerald-500';
-}
-
-function textColor(percent: number, thresholds: { warn: number; critical: number }): string {
-    if (percent >= thresholds.critical) return 'text-red-400';
-    if (percent >= thresholds.warn) return 'text-amber-400';
-    return 'text-gray-400';
-}
-
-function MiniBar({ percent, thresholds, width = 'w-14' }: { percent: number; thresholds: { warn: number; critical: number }; width?: string }) {
+function MiniBar({ percent }: { percent: number; thresholds: { warn: number; critical: number }; width?: string }) {
+    // 5 vertical bars: 1-3 green, 4 amber, 5 red
+    const level = Math.round((Math.min(percent, 100) / 100) * 5)
+    const heights = [4, 6, 8, 10, 12]
+    const barColors = ['bg-emerald-500', 'bg-emerald-500', 'bg-emerald-500', 'bg-amber-500', 'bg-red-500']
     return (
-        <div className={`${width} h-[3px] rounded-full bg-white/[0.06] overflow-hidden`}>
-            <div
-                className={`h-full rounded-full transition-all duration-700 ease-out ${barColor(percent, thresholds)}`}
-                style={{ width: `${Math.min(percent, 100)}%` }}
-            />
+        <div className="flex items-end gap-[2px] h-3">
+            {heights.map((h, i) => (
+                <div
+                    key={i}
+                    className={`w-[3.5px] rounded-[1px] transition-all duration-500 ${
+                        i < level ? barColors[i] : 'bg-white/10'
+                    }`}
+                    style={{ height: `${h}px` }}
+                />
+            ))}
         </div>
     );
 }
 
-function StatGroup({ label, percent, thresholds, detail }: {
-    label: string; percent: number; thresholds: { warn: number; critical: number }; detail: string
+function StatGroup({ icon, percent, thresholds, detail }: {
+    icon: React.ReactNode; percent: number; thresholds: { warn: number; critical: number }; detail: string
 }) {
     return (
         <div className="flex items-center gap-1.5 group cursor-default" title={detail}>
-            <span className="text-[9px] text-gray-600 font-mono uppercase tracking-wider">{label}</span>
+            {icon}
             <MiniBar percent={percent} thresholds={thresholds} />
-            <span className={`text-[10px] font-mono tabular-nums min-w-[26px] text-right ${textColor(percent, thresholds)}`}>
-                {percent.toFixed(0)}%
-            </span>
         </div>
     );
 }
@@ -259,26 +253,25 @@ export function TopBar() {
 
                 {/* System stats */}
                 {systemStats ? (
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3.5 bg-black/40 rounded-md h-7 px-2.5">
                         <StatGroup
-                            label="RAM"
+                            icon={<Cpu size={10} className="text-gray-600" />}
+                            percent={systemStats.cpu.percent}
+                            thresholds={thresholds}
+                            detail={`CPU: ${systemStats.cpu.percent.toFixed(0)}% (${systemStats.cpu.cores} cores)`}
+                        />
+                        <StatGroup
+                            icon={<MemoryStick size={10} className="text-gray-600" />}
                             percent={systemStats.memory.percent}
                             thresholds={thresholds}
                             detail={`RAM: ${ramUsedGB} / ${ramTotalGB} GB`}
                         />
                         <StatGroup
-                            label="CPU"
-                            percent={systemStats.cpu.percent}
+                            icon={<HardDrive size={10} className="text-gray-600" />}
+                            percent={systemStats.disk.percent}
                             thresholds={thresholds}
-                            detail={`CPU: ${systemStats.cpu.percent.toFixed(0)}% (${systemStats.cpu.cores} cores)`}
+                            detail={`Disk: ${diskUsedGB} / ${diskTotalGB} GB`}
                         />
-                        <div className="flex items-center gap-1.5 cursor-default" title={`Disk: ${diskUsedGB} / ${diskTotalGB} GB`}>
-                            <HardDrive size={10} className="text-gray-700" />
-                            <MiniBar percent={systemStats.disk.percent} thresholds={thresholds} width="w-10" />
-                            <span className={`text-[10px] font-mono tabular-nums min-w-[26px] text-right ${textColor(systemStats.disk.percent, thresholds)}`}>
-                                {systemStats.disk.percent.toFixed(0)}%
-                            </span>
-                        </div>
                     </div>
                 ) : (
                     <div className="flex items-center gap-1.5">

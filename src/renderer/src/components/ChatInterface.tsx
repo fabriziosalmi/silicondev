@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { apiClient, cleanModelName } from '../api/client'
-import type { SandboxResult, SyntaxCheckResult, SelfAssessment, ConversationMemory, ContentPart } from '../api/client'
+import type { SelfAssessment, ConversationMemory, ContentPart, ModelEntry } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
-import { ToggleSwitch } from './ui/ToggleSwitch'
-import { Settings2, Cpu, Copy, Check, ChevronRight, ChevronLeft, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, Eye, User, Baby, FlaskConical, Feather, Plus, Download, GitFork, Play, Loader2, CircleCheck, CircleX, ShieldCheck, Brain, RefreshCcw, Database, Bot, Search, X, ChevronUp, ChevronDown, ChevronsRight, ImagePlus } from 'lucide-react'
+import { Settings2, Cpu, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, User, Baby, FlaskConical, Feather, Plus, Download, Loader2, Brain, Database, Search, X, ChevronUp, ChevronDown, ImagePlus, RefreshCcw, Trash2, Pencil } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import rehypeSanitize from 'rehype-sanitize';
 import { useGlobalState } from '../context/GlobalState'
 import { useConversations } from '../context/ConversationContext'
+import { ParametersPanel, type ChatSettings } from './Chat/ParametersPanel'
+import { CodeBlock, redactPII } from './Chat/CodeBlock'
+import { MemoryMapPanel } from './Chat/MemoryMapPanel'
+import { ResponseActions } from './Chat/ResponseActions'
 
 interface SourceRef {
     index: number
@@ -35,7 +39,48 @@ interface Message {
 
 const CHAT_STORAGE_KEY = 'silicon-studio-chat-history';
 const SETTINGS_STORAGE_KEY = 'silicon-studio-chat-settings';
+const MODEL_SETTINGS_PREFIX = 'silicon-studio-model-settings-';
 const CONVERSATIONS_MIGRATED_KEY = 'silicon-studio-conversations-migrated';
+
+function getDefaultSettings(): ChatSettings {
+    const allActions = [
+        'longer', 'shorter', 'formal', 'casual', 'technical', 'translate',
+        'devil', 'perspective_ceo', 'perspective_child', 'perspective_scientist', 'perspective_poet',
+        'improve', 'secure', 'faster', 'docs', 'tests', 'selfAssess', 'selfCritique',
+    ];
+    const defaultEnabledActions: Record<string, boolean> = {};
+    allActions.forEach(a => { defaultEnabledActions[a] = true; });
+    return {
+        systemPrompt: "You are a helpful AI assistant running locally on Apple Silicon.",
+        temperature: 0.7,
+        maxTokens: 2048,
+        topP: 0.9,
+        repetitionPenalty: 1.1,
+        reasoningMode: 'auto',
+        seed: null,
+        translateLanguage: '',
+        showPrompt: false,
+        syntaxCheck: true,
+        autoFixSyntax: false,
+        enabledActions: defaultEnabledActions,
+        memoryMapEnabled: false,
+        memoryInterval: 5,
+        piiRedaction: false,
+        ragEnabled: false,
+        ragCollectionId: '',
+        webSearchEnabled: false,
+    };
+}
+
+function loadSettings(storageKey: string): ChatSettings {
+    const defaults = getDefaultSettings();
+    try {
+        const saved = localStorage.getItem(storageKey);
+        return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
+    } catch {
+        return defaults;
+    }
+}
 
 export function ChatInterface() {
     const { activeModel, setActiveModel, backendReady, pendingChatInput, setPendingChatInput } = useGlobalState()
@@ -71,48 +116,14 @@ export function ChatInterface() {
             return next;
         });
     }
-    const [settings, setSettings] = useState(() => {
-        const allActions = [
-            'longer', 'shorter', 'formal', 'casual', 'technical', 'translate',
-            'devil', 'perspective_ceo', 'perspective_child', 'perspective_scientist', 'perspective_poet',
-            'improve', 'secure', 'faster', 'docs', 'tests', 'selfAssess', 'selfCritique',
-        ];
-        const defaultEnabledActions: Record<string, boolean> = {};
-        allActions.forEach(a => { defaultEnabledActions[a] = true; });
-        const defaults = {
-            systemPrompt: "You are a helpful AI assistant running locally on Apple Silicon.",
-            temperature: 0.7,
-            maxTokens: 2048,
-            maxContext: 4096,
-            topP: 0.9,
-            repetitionPenalty: 1.1,
-            reasoningMode: 'auto' as 'off' | 'auto' | 'low' | 'high',
-            seed: null as number | null,
-            translateLanguage: '',
-            showPrompt: false,
-            syntaxCheck: true,
-            autoFixSyntax: false,
-            enabledActions: defaultEnabledActions,
-            memoryMapEnabled: false,
-            memoryInterval: 5,
-            piiRedaction: false,
-            ragEnabled: false,
-            ragCollectionId: '',
-            webSearchEnabled: false,
-        };
-        try {
-            const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
-            return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
-        } catch {
-            return defaults;
-        }
-    })
+    const [settings, setSettings] = useState<ChatSettings>(() => loadSettings(SETTINGS_STORAGE_KEY))
+    const prevModelIdRef = useRef<string | null>(activeModel?.id ?? null)
 
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const { isGenerating, setIsGenerating } = useGlobalState()
 
     // Conversation context (list + active ID managed in sidebar)
-    const { activeConversationId, setActiveConversationId, fetchConversations, conversationList } = useConversations()
+    const { activeConversationId, setActiveConversationId, fetchConversations, conversationList, handleRenameConversation } = useConversations()
     const activeConversationIdRef = useRef<string | null>(null)
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const skipLoadRef = useRef(false)
@@ -122,6 +133,11 @@ export function ChatInterface() {
     const [assessments, setAssessments] = useState<Record<number, SelfAssessment | 'loading'>>({})
     // Self-critique loading state per message index
     const [selfCritiqueLoading, setSelfCritiqueLoading] = useState<Record<number, boolean>>({})
+
+    const showError = useCallback((msg: string) => {
+        setFlashError(msg);
+        setTimeout(() => setFlashError(null), 4000);
+    }, []);
 
     // RAG collections cache
     const [ragCollections, setRagCollections] = useState<{ id: string; name: string; chunks: number }[]>([])
@@ -144,6 +160,10 @@ export function ChatInterface() {
     const [walkthroughError, setWalkthroughError] = useState<string | null>(null)
     const walkthroughPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
     const [hasDownloadedModels, setHasDownloadedModels] = useState(false)
+    const [renamingTitle, setRenamingTitle] = useState<string | null>(null)
+    const [flashError, setFlashError] = useState<string | null>(null)
+    const [suggestedModel, setSuggestedModel] = useState<ModelEntry | null>(null)
+    const [loadingSuggested, setLoadingSuggested] = useState(false)
 
     const startWalkthrough = async (modelId: string) => {
         setWalkthroughModel(modelId)
@@ -151,8 +171,16 @@ export function ChatInterface() {
         setWalkthroughError(null)
         try {
             await apiClient.engine.downloadModel(modelId)
-            // Poll models list until downloaded
+            // Poll models list until downloaded (timeout after 5 min)
+            const pollStart = Date.now();
             walkthroughPollRef.current = setInterval(async () => {
+                if (Date.now() - pollStart > 5 * 60 * 1000) {
+                    if (walkthroughPollRef.current) clearInterval(walkthroughPollRef.current);
+                    walkthroughPollRef.current = null;
+                    setWalkthroughStep('error');
+                    setWalkthroughError('Download timed out. Check the Models tab for progress.');
+                    return;
+                }
                 try {
                     const models = await apiClient.engine.getModels()
                     const target = models.find(m => m.id === modelId)
@@ -193,16 +221,50 @@ export function ChatInterface() {
     }, [])
 
     // Check once if any models are already downloaded (hide walkthrough if so)
+    // Also pick a suggested model: prefer middle-sized downloaded model
     useEffect(() => {
         if (!backendReady) return
         apiClient.engine.getModels()
             .then(models => {
-                if (models.some(m => m.downloaded)) {
+                const downloaded = models.filter(m => m.downloaded)
+                if (downloaded.length > 0) {
                     setHasDownloadedModels(true)
+                    // Sort by size string (e.g. "1.2 GB") and pick the middle one
+                    const sorted = [...downloaded].sort((a, b) => {
+                        const parseSize = (s: string) => {
+                            const m = s.match(/([\d.]+)\s*(GB|MB)/i)
+                            if (!m) return 0
+                            return parseFloat(m[1]) * (m[2].toUpperCase() === 'GB' ? 1024 : 1)
+                        }
+                        return parseSize(a.size) - parseSize(b.size)
+                    })
+                    const midIdx = Math.floor(sorted.length / 2)
+                    setSuggestedModel(sorted[midIdx])
                 }
             })
             .catch(err => console.error('Failed to check downloaded models:', err))
     }, [backendReady])
+
+    const handleLoadSuggested = useCallback(async () => {
+        if (!suggestedModel || loadingSuggested) return
+        setLoadingSuggested(true)
+        try {
+            const result = await apiClient.engine.loadModel(suggestedModel.id)
+            setActiveModel({
+                id: suggestedModel.id,
+                name: cleanModelName(suggestedModel.name),
+                size: suggestedModel.size,
+                path: suggestedModel.local_path || suggestedModel.id,
+                architecture: suggestedModel.architecture,
+                context_window: result.context_window,
+                is_vision: result.is_vision,
+            })
+        } catch (err) {
+            console.error('Failed to load suggested model:', err)
+        } finally {
+            setLoadingSuggested(false)
+        }
+    }, [suggestedModel, loadingSuggested, setActiveModel])
 
     // DOM windowing: only render last N messages to avoid DOM bloat on long conversations
     const RENDER_WINDOW = 100;
@@ -220,12 +282,14 @@ export function ChatInterface() {
     const searchInputRef = useRef<HTMLInputElement>(null)
 
     // Compute search matches: [messageIndex, ...] of messages containing query
-    const searchMatches = searchQuery.trim()
-        ? messages.reduce<number[]>((acc, msg, i) => {
-            if (msg.content.toLowerCase().includes(searchQuery.toLowerCase())) acc.push(i)
-            return acc
-        }, [])
-        : []
+    const searchMatches = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return [];
+        return messages.reduce<number[]>((acc, msg, i) => {
+            if (msg.content.toLowerCase().includes(q)) acc.push(i);
+            return acc;
+        }, []);
+    }, [searchQuery, messages])
 
     const toggleSearch = () => {
         setShowSearch(prev => {
@@ -239,6 +303,7 @@ export function ChatInterface() {
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+                if (messages.length === 0) return; // nothing to search
                 e.preventDefault()
                 if (!showSearch) toggleSearch()
                 else searchInputRef.current?.focus()
@@ -246,7 +311,7 @@ export function ChatInterface() {
         }
         document.addEventListener('keydown', handler)
         return () => document.removeEventListener('keydown', handler)
-    }, [showSearch])
+    }, [showSearch, messages.length])
 
     // Auto-scroll to first match when search query changes
     useEffect(() => {
@@ -256,8 +321,13 @@ export function ChatInterface() {
         }
     }, [searchQuery]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Keep ref in sync for use in async callbacks
-    useEffect(() => { activeConversationIdRef.current = activeConversationId }, [activeConversationId])
+    // Keep ref in sync for use in async callbacks; close search on conversation change
+    useEffect(() => {
+        activeConversationIdRef.current = activeConversationId;
+        setShowSearch(false);
+        setSearchQuery('');
+        setSearchMatchIndex(0);
+    }, [activeConversationId])
 
     // Dynamic defaults: adjust maxTokens when a model with known context_window is loaded
     useEffect(() => {
@@ -265,7 +335,7 @@ export function ChatInterface() {
         if (!cw) return;
         // Set maxTokens to half the context window, clamped between 2048 and 16384
         const recommended = Math.min(Math.max(Math.floor(cw / 2), 2048), 16384);
-        setSettings((prev: Record<string, unknown>) => {
+        setSettings((prev) => {
             // Only auto-adjust if user hasn't manually changed from a previous default
             // (i.e., the current value is one of the known static defaults)
             const isDefault = prev.maxTokens === 1024 || prev.maxTokens === 512 || prev.maxTokens === 2048;
@@ -380,26 +450,61 @@ export function ChatInterface() {
 
     useEffect(() => {
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-    }, [settings]);
+        // Also persist under model-specific key if a model is active
+        if (activeModel?.id) {
+            localStorage.setItem(MODEL_SETTINGS_PREFIX + activeModel.id, JSON.stringify(settings));
+        }
+    }, [settings, activeModel?.id]);
+
+    // Load per-model settings when the active model changes
+    useEffect(() => {
+        const prevId = prevModelIdRef.current;
+        const newId = activeModel?.id ?? null;
+        if (prevId === newId) return;
+        prevModelIdRef.current = newId;
+        if (newId) {
+            const modelKey = MODEL_SETTINGS_PREFIX + newId;
+            setSettings(loadSettings(modelKey));
+        }
+    }, [activeModel?.id]);
 
     // Track whether user has scrolled up from the bottom
+    const [showScrollDown, setShowScrollDown] = useState(false);
     useEffect(() => {
         const container = messagesContainerRef.current;
         if (!container) return;
         const handleScroll = () => {
             const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-            userScrolledUpRef.current = distanceFromBottom > 80;
+            userScrolledUpRef.current = distanceFromBottom > 150;
+            setShowScrollDown(distanceFromBottom > 300);
         };
         container.addEventListener('scroll', handleScroll, { passive: true });
         return () => container.removeEventListener('scroll', handleScroll);
     }, []);
 
-    // Auto-scroll only when user is near bottom
+    // Auto-scroll: instant for new messages, smooth for streaming tokens
+    const prevMsgLenRef = useRef(messages.length);
     useEffect(() => {
-        if (!userScrolledUpRef.current) {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        if (userScrolledUpRef.current) return;
+        const container = messagesContainerRef.current;
+        if (!container) return;
+        const isNewMessage = messages.length !== prevMsgLenRef.current;
+        prevMsgLenRef.current = messages.length;
+        if (isNewMessage) {
+            container.scrollTop = container.scrollHeight;
+        } else {
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
         }
     }, [messages])
+
+    const scrollToBottom = () => {
+        const container = messagesContainerRef.current;
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+            userScrolledUpRef.current = false;
+            setShowScrollDown(false);
+        }
+    };
 
     // Auto-build memory map every N messages
     useEffect(() => {
@@ -478,7 +583,7 @@ export function ChatInterface() {
             setMessages(branch.messages);
             localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(branch.messages));
         } catch {
-            // branch failed silently
+            showError('Failed to branch conversation');
         }
     };
 
@@ -634,7 +739,7 @@ export function ChatInterface() {
                         ).catch(() => {});
                     }
                 } catch {
-                    // RAG query failed silently
+                    showError('RAG query failed');
                 }
             }
 
@@ -723,7 +828,7 @@ export function ChatInterface() {
                             const dataString = line.slice(6).trim()
                             if (!dataString) continue
 
-                            let data: any
+                            let data: { text?: string; done?: boolean; error?: string }
                             try {
                                 data = JSON.parse(dataString)
                             } catch {
@@ -771,6 +876,31 @@ export function ChatInterface() {
         }
     }
 
+    const handleDeleteMessage = (msgIndex: number) => {
+        if (isGenerating) return;
+        // Delete message and its paired response (if user msg) or paired question (if assistant msg)
+        setMessages(prev => {
+            const msg = prev[msgIndex];
+            if (msg.role === 'user' && prev[msgIndex + 1]?.role === 'assistant') {
+                return prev.filter((_, i) => i !== msgIndex && i !== msgIndex + 1);
+            }
+            if (msg.role === 'assistant' && msgIndex > 0 && prev[msgIndex - 1]?.role === 'user') {
+                return prev.filter((_, i) => i !== msgIndex && i !== msgIndex - 1);
+            }
+            return prev.filter((_, i) => i !== msgIndex);
+        });
+    };
+
+    const handleRetry = (errorMsgIndex: number) => {
+        // Find the user message before this error
+        const userMsg = messages.slice(0, errorMsgIndex).reverse().find(m => m.role === 'user');
+        if (!userMsg) return;
+        // Remove the error message
+        setMessages(prev => prev.filter((_, i) => i !== errorMsgIndex));
+        // Resend
+        handleSend(userMsg.content);
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
@@ -792,8 +922,8 @@ export function ChatInterface() {
         fix: (c, errors) => `Fix the syntax errors in the following code. The syntax checker reported:\n\n${errors}\n\nCode:\n\`\`\`\n${c}\n\`\`\`\n\nReturn ONLY the fixed code inside a single code block, no explanation.`,
     };
 
-    // Inline rewrite: calls the model API directly, returns the rewritten code
-    const rewriteSnippet = useCallback(async (code: string, action: string, context?: string): Promise<string> => {
+    // Inline rewrite: streams tokens via callback, returns final code
+    const rewriteSnippet = useCallback(async (code: string, action: string, context?: string, onToken?: (partial: string) => void): Promise<string> => {
         const buildPrompt = codeActionPrompts[action];
         if (!buildPrompt || !currentModelId) throw new Error('Cannot rewrite');
         const prompt = buildPrompt(code, context);
@@ -823,7 +953,19 @@ export function ChatInterface() {
                     if (line.startsWith('data: ')) {
                         try {
                             const data = JSON.parse(line.slice(6).trim());
-                            if (data.text) accumulated += data.text;
+                            if (data.text) {
+                                accumulated += data.text;
+                                // Stream partial extraction to callback
+                                if (onToken) {
+                                    const partial = accumulated
+                                        .replace(/<(?:think|talk)>[\s\S]*?<\/(?:think|talk)>/g, '')
+                                        .replace(/<(?:think|talk)>[\s\S]*/g, '')
+                                        .trim();
+                                    const fence = partial.match(/```[\w]*\n([\s\S]*)/);
+                                    const display = fence ? fence[1].replace(/```\s*$/, '').trimEnd() : partial;
+                                    if (display) onToken(display);
+                                }
+                            }
                             if (data.done) break;
                         } catch { continue; }
                     }
@@ -918,6 +1060,7 @@ Return exactly: {"privacy":N,"fairness":N,"safety":N,"transparency":N,"ethics":N
                 delete next[msgIndex];
                 return next;
             });
+            showError('Assessment failed');
         }
     };
 
@@ -1027,7 +1170,7 @@ Improved response:`;
             };
             setMessages(prev => [...prev, improvedMsg]);
         } catch {
-            // self-critique failed silently
+            showError('Self-critique failed');
         } finally {
             setSelfCritiqueLoading(prev => ({ ...prev, [msgIndex]: false }));
         }
@@ -1111,7 +1254,7 @@ Return exactly this JSON structure (no other text):
                 return memory;
             }
         } catch {
-            // memory map build failed silently
+            showError('Memory map build failed');
         } finally {
             setMemoryBuilding(false);
             memoryBuildingRef.current = false;
@@ -1205,11 +1348,50 @@ Return exactly this JSON structure (no other text):
     }
 
     return (
-        <div className="h-full flex flex-col text-white overflow-hidden pb-4">
+        <div className="h-full flex flex-col text-white overflow-hidden px-4 pt-2">
             <PageHeader>
                 <div className="flex items-center gap-2">
+                    {activeConversationId && (() => {
+                        const conv = conversationList.find(c => c.id === activeConversationId);
+                        const title = conv?.title || 'Untitled';
+                        if (renamingTitle !== null) {
+                            return (
+                                <input
+                                    type="text"
+                                    value={renamingTitle}
+                                    onChange={(e) => setRenamingTitle(e.target.value)}
+                                    onBlur={() => {
+                                        if (renamingTitle.trim() && renamingTitle !== title) {
+                                            handleRenameConversation(activeConversationId, renamingTitle.trim());
+                                        }
+                                        setRenamingTitle(null);
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                        if (e.key === 'Escape') setRenamingTitle(null);
+                                    }}
+                                    autoFocus
+                                    className="text-xs text-gray-300 bg-white/5 border border-white/10 rounded px-2 py-1 outline-none focus:border-white/20 max-w-[200px]"
+                                    placeholder="Conversation title"
+                                />
+                            );
+                        }
+                        return (
+                            <button
+                                type="button"
+                                onClick={() => setRenamingTitle(title)}
+                                className="group/rename flex items-center gap-1.5 px-2 py-1 rounded text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors max-w-[200px] truncate"
+                                title="Click to rename"
+                            >
+                                <Pencil className="w-3 h-3 shrink-0 opacity-0 group-hover/rename:opacity-100 transition-opacity" />
+                                <span className="truncate">{title}</span>
+                            </button>
+                        );
+                    })()}
+                    {activeConversationId && <div className="w-px h-4 bg-white/10" />}
                     {messages.length > 0 && (
                         <button
+                            type="button"
                             onClick={handleNewConversation}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                         >
@@ -1220,6 +1402,7 @@ Return exactly this JSON structure (no other text):
                     {messages.length > 0 && (
                         <div className="relative group/export">
                             <button
+                                type="button"
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                             >
                                 <Download className="w-3.5 h-3.5" />
@@ -1228,12 +1411,14 @@ Return exactly this JSON structure (no other text):
                             <div className="hidden group-hover/export:block absolute top-full left-0 pt-1 z-50">
                                 <div className="bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 min-w-[110px]">
                                     <button
+                                        type="button"
                                         onClick={() => handleExport('md')}
                                         className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                                     >
                                         Markdown
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => handleExport('json')}
                                         className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                                     >
@@ -1246,6 +1431,7 @@ Return exactly this JSON structure (no other text):
                     {settings.piiRedaction && messages.length > 0 && (
                         <div className="relative group/redact">
                             <button
+                                type="button"
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                             >
                                 <Shield className="w-3.5 h-3.5" />
@@ -1257,12 +1443,14 @@ Return exactly this JSON structure (no other text):
                             <div className="hidden group-hover/redact:block absolute top-full left-0 pt-1 z-50">
                                 <div className="bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 min-w-[140px]">
                                     <button
+                                        type="button"
                                         onClick={() => handleRedactConversation('all')}
                                         className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                                     >
                                         Redact all
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => handleRedactConversation('outgoing')}
                                         className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                                     >
@@ -1272,15 +1460,18 @@ Return exactly this JSON structure (no other text):
                             </div>
                         </div>
                     )}
-                    <button
-                        onClick={toggleSearch}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showSearch ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-                        title="Search in conversation (Ctrl+F)"
-                    >
-                        <Search className="w-3.5 h-3.5" />
-                        Search
-                    </button>
-                    {settings.memoryMapEnabled && (
+                    {messages.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={toggleSearch}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showSearch ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            title="Search in conversation (Ctrl+F)"
+                        >
+                            <Search className="w-3.5 h-3.5" />
+                            Search
+                        </button>
+                    )}
+                    {settings.memoryMapEnabled && messages.length > 0 && (
                         <button
                             type="button"
                             onClick={() => setShowMemoryMap(!showMemoryMap)}
@@ -1291,6 +1482,7 @@ Return exactly this JSON structure (no other text):
                         </button>
                     )}
                     <button
+                        type="button"
                         onClick={toggleParams}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${paramsExpanded ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                     >
@@ -1300,9 +1492,28 @@ Return exactly this JSON structure (no other text):
                 </div>
             </PageHeader>
 
-            <div className="flex-1 flex overflow-hidden min-h-0">
-                {/* Main Chat Area */}
-                <div className="flex-1 flex flex-col overflow-hidden relative">
+            {/* Parameters Panel — full width, collapsible */}
+            {paramsExpanded && (
+                <ParametersPanel
+                    settings={settings}
+                    setSettings={setSettings}
+                    maxContextWindow={activeModel?.context_window || 32768}
+                    ragCollections={ragCollections}
+                    fetchRagCollections={fetchRagCollections}
+                />
+            )}
+
+            {/* Flash error banner */}
+            {flashError && (
+                <div className="shrink-0 px-4 py-2 bg-red-500/10 border-b border-red-500/20 flex items-center justify-between">
+                    <span className="text-xs text-red-400">{flashError}</span>
+                    <button type="button" onClick={() => setFlashError(null)} className="text-red-400/60 hover:text-red-400" aria-label="Dismiss error">
+                        <X size={14} />
+                    </button>
+                </div>
+            )}
+
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0 relative">
 
                     {/* Search Bar */}
                     {showSearch && (
@@ -1374,16 +1585,40 @@ Return exactly this JSON structure (no other text):
                                     <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
                                         <Cpu className="w-5 h-5 text-gray-500" />
                                     </div>
-                                    <p className="text-sm text-gray-400 mb-1">
-                                        {currentModelName
-                                            ? <>Ready with <span className="text-gray-200 font-medium">{currentModelName}</span></>
-                                            : 'No model loaded'
-                                        }
-                                    </p>
+                                    {currentModelName ? (
+                                        <p className="text-sm text-gray-400 mb-1">
+                                            Ready with <span className="text-gray-200 font-medium">{currentModelName}</span>
+                                        </p>
+                                    ) : (
+                                        <div className="flex items-center justify-center gap-2 mb-1">
+                                            <span className="text-sm text-gray-400">No model loaded</span>
+                                            {suggestedModel && (
+                                                <>
+                                                    <span className="text-sm text-gray-600">—</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleLoadSuggested}
+                                                        disabled={loadingSuggested}
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/20 text-blue-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                                                    >
+                                                        {loadingSuggested ? (
+                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                        ) : (
+                                                            <Zap className="w-3 h-3" />
+                                                        )}
+                                                        {loadingSuggested ? 'Loading...' : `Load ${cleanModelName(suggestedModel.name)}`}
+                                                        {suggestedModel.size && !loadingSuggested && (
+                                                            <span className="text-blue-400/50 font-mono text-[10px]">{suggestedModel.size}</span>
+                                                        )}
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                     <p className="text-xs text-gray-500">
                                         {currentModelId
                                             ? 'Type a message below. Shift+Enter for newlines.'
-                                            : 'Load a model from the Models tab to start chatting.'
+                                            : !suggestedModel ? 'Load a model from the Models tab to start chatting.' : ''
                                         }
                                     </p>
 
@@ -1469,25 +1704,6 @@ Return exactly this JSON structure (no other text):
                                     }
 
                                     if (msg.role === 'user') {
-                                        // Icon map for action types
-                                        const actionIcons: Record<string, React.ReactNode> = {
-                                            improve: <Wand2 className="w-3.5 h-3.5" />,
-                                            secure: <Shield className="w-3.5 h-3.5" />,
-                                            faster: <Zap className="w-3.5 h-3.5" />,
-                                            docs: <FileText className="w-3.5 h-3.5" />,
-                                            tests: <TestTube2 className="w-3.5 h-3.5" />,
-                                            longer: <Expand className="w-3.5 h-3.5" />,
-                                            shorter: <Shrink className="w-3.5 h-3.5" />,
-                                            formal: <Briefcase className="w-3.5 h-3.5" />,
-                                            casual: <MessageCircle className="w-3.5 h-3.5" />,
-                                            technical: <GraduationCap className="w-3.5 h-3.5" />,
-                                            translate: <Languages className="w-3.5 h-3.5" />,
-                                            devil: <Scale className="w-3.5 h-3.5" />,
-                                            perspective_ceo: <User className="w-3.5 h-3.5" />,
-                                            perspective_child: <Baby className="w-3.5 h-3.5" />,
-                                            perspective_scientist: <FlaskConical className="w-3.5 h-3.5" />,
-                                            perspective_poet: <Feather className="w-3.5 h-3.5" />,
-                                        };
                                         const isLastMsg = idx === messages.length - 1 || (idx === messages.length - 2 && messages[messages.length - 1]?.role === 'assistant');
                                         const showSpinner = isLastMsg && isGenerating;
 
@@ -1495,7 +1711,7 @@ Return exactly this JSON structure (no other text):
                                         const isActiveHit = isSearchHit && searchMatches[searchMatchIndex] === idx;
 
                                         return (
-                                            <div key={idx} id={`msg-${idx}`} className={`mb-6 rounded-lg transition-colors ${isActiveHit ? 'bg-yellow-500/10 ring-1 ring-yellow-500/30' : isSearchHit ? 'bg-white/[0.02]' : ''}`}>
+                                            <div key={idx} id={`msg-${idx}`} className={`mb-6 group rounded-lg transition-colors ${isActiveHit ? 'bg-yellow-500/10 ring-1 ring-yellow-500/30' : isSearchHit ? 'bg-white/[0.02]' : ''}`}>
                                                 <div className="flex items-start gap-3">
                                                     <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center shrink-0 mt-0.5">
                                                         <User size={14} className="text-gray-400" />
@@ -1504,10 +1720,11 @@ Return exactly this JSON structure (no other text):
                                                         <details className="min-w-0 group/action">
                                                             <summary className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-gray-300 cursor-pointer select-none list-none hover:bg-white/[0.06] transition-colors">
                                                                 <span className="text-blue-400 shrink-0">
-                                                                    {(msg.actionType && actionIcons[msg.actionType]) || <Settings2 className="w-3.5 h-3.5" />}
+                                                                    {(msg.actionType && ACTION_ICONS[msg.actionType]) || <Settings2 className="w-3.5 h-3.5" />}
                                                                 </span>
                                                                 <ReactMarkdown
                                                                     remarkPlugins={[remarkGfm]}
+                                                                    rehypePlugins={[rehypeSanitize]}
                                                                     components={{ p: ({ children }) => <span>{children}</span> }}
                                                                 >
                                                                     {msg.displayContent}
@@ -1524,6 +1741,7 @@ Return exactly this JSON structure (no other text):
                                                     ) : (
                                                         <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-black/30 prose-pre:border prose-pre:border-white/5 prose-pre:rounded-lg prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 prose-hr:border-transparent min-w-0">
                                                             <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}
+                                                                rehypePlugins={[rehypeSanitize]}
                                                                 components={{ hr: () => <hr className="border-white/[0.03] my-3" /> }}
                                                             >
                                                                 {msg.content}
@@ -1538,6 +1756,19 @@ Return exactly this JSON structure (no other text):
                                                         ))}
                                                     </div>
                                                 )}
+                                                {!isGenerating && (
+                                                    <div className="ml-9 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteMessage(idx)}
+                                                            className="p-1 rounded text-gray-700 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                                            aria-label="Delete message"
+                                                            title="Delete message and response"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         )
                                     }
@@ -1548,9 +1779,7 @@ Return exactly this JSON structure (no other text):
                                     return (
                                         <div key={idx} id={`msg-${idx}`} className={`mb-6 group rounded-lg transition-colors ${isActiveHitAst ? 'bg-yellow-500/10 ring-1 ring-yellow-500/30' : isSearchHitAst ? 'bg-white/[0.02]' : ''}`}>
                                             <div className="flex items-start gap-3">
-                                                <div className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0 mt-1">
-                                                    <Bot size={14} className="text-blue-400" />
-                                                </div>
+                                                <img src="/icon.svg" alt="" className="w-6 h-6 rounded-md shrink-0 mt-1" />
                                                 <div className="min-w-0 flex-1">
                                                     {/* Reasoning trace */}
                                                     {thinkingContent && (
@@ -1563,7 +1792,7 @@ Return exactly this JSON structure (no other text):
                                                                 </span>
                                                             </summary>
                                                             <div className="mt-2 pl-4 border-l border-white/5 text-xs text-gray-500 leading-relaxed max-h-64 overflow-y-auto">
-                                                                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={{ hr: () => <hr className="border-white/[0.03] my-2" /> }}>
+                                                                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[rehypeSanitize]} components={{ hr: () => <hr className="border-white/[0.03] my-2" /> }}>
                                                                     {thinkingContent}
                                                                 </ReactMarkdown>
                                                             </div>
@@ -1571,14 +1800,26 @@ Return exactly this JSON structure (no other text):
                                                     )}
 
                                                     {/* Response */}
-                                                    <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0 prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 prose-hr:border-transparent">
-                                                        <ReactMarkdown
-                                                            remarkPlugins={[remarkGfm, remarkBreaks]}
-                                                            components={markdownComponents}
-                                                        >
-                                                            {visibleContent}
-                                                        </ReactMarkdown>
-                                                    </div>
+                                                    {!visibleContent && !thinkingContent && isGenerating && idx === messages.length - 1 ? (
+                                                        <div className="flex items-center gap-1.5 py-2">
+                                                            <div className="flex gap-1">
+                                                                <div className="w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-bounce [animation-delay:0ms]" />
+                                                                <div className="w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-bounce [animation-delay:150ms]" />
+                                                                <div className="w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-bounce [animation-delay:300ms]" />
+                                                            </div>
+                                                            <span className="text-xs text-gray-500 ml-1">Thinking...</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0 prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 prose-hr:border-transparent">
+                                                            <ReactMarkdown
+                                                                remarkPlugins={[remarkGfm, remarkBreaks]}
+                                                                rehypePlugins={[rehypeSanitize]}
+                                                                components={markdownComponents}
+                                                            >
+                                                                {visibleContent}
+                                                            </ReactMarkdown>
+                                                        </div>
+                                                    )}
 
                                                     {/* Sources citations */}
                                                     {msg.sources && msg.sources.length > 0 && visibleContent && (
@@ -1608,8 +1849,20 @@ Return exactly this JSON structure (no other text):
                                                         </details>
                                                     )}
 
+                                                    {/* Error retry */}
+                                                    {visibleContent.startsWith('Error:') && !isGenerating && (
+                                                        <button
+                                                            onClick={() => handleRetry(idx)}
+                                                            className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400 hover:bg-red-500/20 transition-colors"
+                                                            aria-label="Retry message"
+                                                        >
+                                                            <RefreshCcw size={12} />
+                                                            Retry
+                                                        </button>
+                                                    )}
+
                                                     {/* Footer: actions + stats, single row on hover */}
-                                                    {visibleContent && (
+                                                    {visibleContent && !visibleContent.startsWith('Error:') && (
                                                         <ResponseActions
                                                             content={visibleContent}
                                                             idx={idx}
@@ -1638,13 +1891,25 @@ Return exactly this JSON structure (no other text):
                         )}
                     </div>
 
+                    {/* Scroll to bottom button */}
+                    {showScrollDown && (
+                        <button
+                            type="button"
+                            onClick={scrollToBottom}
+                            className="absolute bottom-20 right-6 z-20 p-2 rounded-full bg-white/10 border border-white/10 text-gray-400 hover:text-white hover:bg-white/15 transition-colors shadow-lg backdrop-blur-sm"
+                            title="Scroll to bottom"
+                        >
+                            <ChevronDown className="w-4 h-4" />
+                        </button>
+                    )}
+
                     {/* Memory Map Panel */}
                     {showMemoryMap && settings.memoryMapEnabled && (
                         <MemoryMapPanel memory={memoryMap} building={memoryBuilding} />
                     )}
 
                     {/* Input Area */}
-                    <div className="px-4 pb-2 pt-3"
+                    <div className="px-4 pb-4 pt-3 shrink-0"
                         onDragOver={(e) => { if (activeModel?.is_vision) e.preventDefault() }}
                         onDrop={handleImageDrop}
                     >
@@ -1685,16 +1950,17 @@ Return exactly this JSON structure (no other text):
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyDown={handleKeyDown}
                                     onPaste={handleImagePaste}
-                                    placeholder={isGenerating ? "Generating..." : activeModel?.is_vision ? "Send a message or paste an image..." : "Send a message..."}
-                                    disabled={isGenerating}
-                                    className={`w-full bg-transparent px-4 py-3 ${activeModel?.is_vision ? 'pr-24' : 'pr-14'} text-sm text-gray-200 placeholder-gray-500 outline-none resize-none min-h-[44px] max-h-[200px] ${isGenerating ? 'opacity-40' : ''}`}
+                                    placeholder={activeModel?.is_vision ? "Send a message or paste an image..." : "Send a message..."}
+                                    className={`w-full bg-transparent px-4 py-3 ${activeModel?.is_vision ? 'pr-24' : 'pr-14'} text-sm text-gray-200 placeholder-gray-500 outline-none resize-none min-h-[44px] max-h-[200px]`}
                                     rows={1}
                                 />
                                 <div className="absolute right-2 bottom-2 flex items-center gap-1">
                                     {activeModel?.is_vision && !isGenerating && (
                                         <button
+                                            type="button"
                                             onClick={() => fileInputRef.current?.click()}
                                             className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+                                            aria-label="Attach image"
                                             title="Attach image"
                                         >
                                             <ImagePlus className="w-4 h-4" />
@@ -1702,16 +1968,20 @@ Return exactly this JSON structure (no other text):
                                     )}
                                     {isGenerating ? (
                                         <button
+                                            type="button"
                                             onClick={handleStop}
                                             className="p-1.5 rounded-lg bg-white/10 text-gray-400 hover:text-white hover:bg-white/15 transition-colors"
+                                            aria-label="Stop generating"
                                             title="Stop"
                                         >
                                             <Square className="w-4 h-4" />
                                         </button>
                                     ) : (
                                         <button
+                                            type="button"
                                             onClick={() => handleSend()}
                                             disabled={(!input.trim() && pendingImages.length === 0) || !currentModelId}
+                                            aria-label="Send message"
                                             title={!currentModelId ? 'Load a model first' : (!input.trim() && pendingImages.length === 0) ? 'Type a message' : 'Send message'}
                                             className={`p-1.5 rounded-lg transition-colors ${(input.trim() || pendingImages.length > 0) && currentModelId ? 'bg-white text-black hover:bg-gray-200' : 'bg-white/5 text-gray-700 cursor-not-allowed'}`}
                                         >
@@ -1720,1035 +1990,41 @@ Return exactly this JSON structure (no other text):
                                     )}
                                 </div>
                             </div>
-                            {!currentModelId && !isGenerating && (
-                                <p className="text-[10px] text-amber-500/70 mt-1.5 ml-1">No model loaded — select one from the Models tab</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Parameters Sidebar — mirrors left sidebar style */}
-                <div className={`${paramsExpanded ? 'w-72 border-l border-white/5 bg-black/40' : 'w-0'} flex flex-col shrink-0 transition-all duration-200 overflow-hidden`}>
-                    {paramsExpanded ? (
-                        <>
-                            <nav className="flex-1 overflow-y-auto px-4 pt-6">
-                                <div className="px-0 mb-4 text-[10px] font-bold tracking-wide text-gray-500 uppercase">Parameters</div>
-                                <div className="space-y-5">
-                                    <ParameterSlider
-                                        label="Temperature"
-                                        hint="Lower = more focused and deterministic. Higher = more creative and random."
-                                        value={settings.temperature}
-                                        min={0} max={2} step={0.05}
-                                        format={(v) => v.toFixed(2)}
-                                        onChange={(v) => setSettings({ ...settings, temperature: v })}
-                                    />
-                                    <ParameterSlider
-                                        label="Max Tokens"
-                                        hint="Maximum number of tokens the model will generate in its response."
-                                        value={settings.maxTokens}
-                                        min={64} max={activeModel?.context_window || 32768} step={64}
-                                        format={(v) => v.toString()}
-                                        onChange={(v) => setSettings({ ...settings, maxTokens: v })}
-                                    />
-                                    <ParameterSlider
-                                        label="Top-P"
-                                        hint="Nucleus sampling. Lower = only high-probability tokens. 1.0 = consider all tokens."
-                                        value={settings.topP}
-                                        min={0} max={1} step={0.05}
-                                        format={(v) => v.toFixed(2)}
-                                        onChange={(v) => setSettings({ ...settings, topP: v })}
-                                    />
-                                    <ParameterSlider
-                                        label="Repetition Penalty"
-                                        hint="Penalizes repeated tokens. Higher = less repetition. 1.0 = no penalty."
-                                        value={settings.repetitionPenalty}
-                                        min={0.5} max={2} step={0.05}
-                                        format={(v) => v.toFixed(2)}
-                                        onChange={(v) => setSettings({ ...settings, repetitionPenalty: v })}
-                                    />
-                                    <div>
-                                        <div className="flex justify-between items-center mb-1.5">
-                                            <label className="text-xs text-gray-500" title="Fixed random seed for reproducible outputs. Leave empty for random.">Seed</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Random"
-                                                value={settings.seed !== null ? String(settings.seed) : ''}
-                                                onChange={(e) => {
-                                                    const v = e.target.value;
-                                                    setSettings({ ...settings, seed: v ? parseInt(v) || null : null });
-                                                }}
-                                                className="w-16 text-right text-xs font-mono text-gray-400 tabular-nums bg-transparent outline-none border-b border-transparent focus:border-white/20 transition-colors"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t border-white/5 pt-5">
-                                        <div className="px-0 mb-3 text-[10px] font-bold tracking-wide text-gray-500 uppercase">Reasoning</div>
-                                        <div className="flex gap-1">
-                                            {(['off', 'auto', 'low', 'high'] as const).map(mode => (
-                                                <button
-                                                    key={mode}
-                                                    onClick={() => setSettings({ ...settings, reasoningMode: mode })}
-                                                    className={`flex-1 px-2 py-1.5 rounded text-[10px] font-medium transition-colors ${
-                                                        settings.reasoningMode === mode
-                                                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                                            : 'bg-white/[0.03] text-gray-500 border border-white/5 hover:text-gray-400 hover:bg-white/5'
-                                                    }`}
-                                                >
-                                                    {mode === 'off' ? 'Off' : mode === 'auto' ? 'Auto' : mode === 'low' ? 'Low' : 'High'}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <p className="text-[10px] text-gray-500 mt-1.5">
-                                            {settings.reasoningMode === 'off' && 'No reasoning instructions added.'}
-                                            {settings.reasoningMode === 'auto' && 'Let the model decide. Best for reasoning models.'}
-                                            {settings.reasoningMode === 'low' && 'Brief reasoning before answering.'}
-                                            {settings.reasoningMode === 'high' && 'Deep step-by-step reasoning.'}
-                                        </p>
-                                    </div>
-
-                                    <div className="border-t border-white/5 pt-5">
-                                        <div className="px-0 mb-3 text-[10px] font-bold tracking-wide text-gray-500 uppercase">Language</div>
-                                        <select
-                                            title="Translate Language"
-                                            value={settings.translateLanguage}
-                                            onChange={(e) => setSettings({ ...settings, translateLanguage: e.target.value })}
-                                            className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-gray-300 outline-none focus:border-white/20 transition-colors appearance-none cursor-pointer"
-                                        >
-                                            <option value="">Auto-detect (browser)</option>
-                                            {['English', 'Italian', 'French', 'German', 'Spanish', 'Portuguese', 'Japanese', 'Chinese', 'Korean', 'Arabic', 'Hindi', 'Russian', 'Dutch', 'Swedish', 'Polish', 'Turkish'].map(lang => (
-                                                <option key={lang} value={lang}>{lang}</option>
-                                            ))}
-                                        </select>
-                                        <p className="text-[10px] text-gray-500 mt-1.5">Target language for the Translate action.</p>
-                                    </div>
-
-                                    <div className="border-t border-white/5 pt-5">
-                                        <div className="px-0 mb-3 text-[10px] font-bold tracking-wide text-gray-500 uppercase">Toggles</div>
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-xs text-gray-400">Show Prompt</label>
-                                                <ToggleSwitch enabled={settings.showPrompt} onChange={(v) => setSettings({ ...settings, showPrompt: v })} size="sm" />
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-xs text-gray-400">Syntax Check</label>
-                                                <ToggleSwitch enabled={settings.syntaxCheck} onChange={(v) => setSettings({ ...settings, syntaxCheck: v })} size="sm" />
-                                            </div>
-                                            {settings.syntaxCheck && (
-                                                <div className="flex items-center justify-between pl-3">
-                                                    <label className="text-xs text-gray-500">Auto-fix</label>
-                                                    <ToggleSwitch enabled={settings.autoFixSyntax} onChange={(v) => setSettings({ ...settings, autoFixSyntax: v })} size="sm" />
-                                                </div>
-                                            )}
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-xs text-gray-400">Memory Map</label>
-                                                <ToggleSwitch enabled={settings.memoryMapEnabled} onChange={(v) => setSettings({ ...settings, memoryMapEnabled: v })} size="sm" />
-                                            </div>
-                                            {settings.memoryMapEnabled && (
-                                                <div className="pl-3">
-                                                    <ParameterSlider
-                                                        label="Build every N messages"
-                                                        value={settings.memoryInterval}
-                                                        min={3} max={20} step={1}
-                                                        format={(v) => v.toString()}
-                                                        onChange={(v) => setSettings({ ...settings, memoryInterval: v })}
-                                                    />
-                                                </div>
-                                            )}
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-xs text-gray-400">PII Redaction</label>
-                                                <ToggleSwitch enabled={settings.piiRedaction} onChange={(v) => setSettings({ ...settings, piiRedaction: v })} size="sm" />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t border-white/5 pt-5">
-                                        <div className="px-0 mb-3 text-[10px] font-bold tracking-wide text-gray-500 uppercase">Context</div>
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-xs text-gray-400">RAG Knowledge</label>
-                                                <ToggleSwitch enabled={settings.ragEnabled} onChange={(v) => {
-                                                    setSettings({ ...settings, ragEnabled: v });
-                                                    if (v && ragCollections.length === 0) fetchRagCollections();
-                                                }} size="sm" />
-                                            </div>
-                                            {settings.ragEnabled && (
-                                                <select
-                                                    title="RAG collection"
-                                                    value={settings.ragCollectionId}
-                                                    onChange={(e) => setSettings({ ...settings, ragCollectionId: e.target.value })}
-                                                    className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50"
-                                                >
-                                                    <option value="">Select collection...</option>
-                                                    {ragCollections.map(c => (
-                                                        <option key={c.id} value={c.id}>{c.name} ({c.chunks} chunks)</option>
-                                                    ))}
-                                                </select>
-                                            )}
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-xs text-gray-400">Web Search</label>
-                                                <ToggleSwitch enabled={settings.webSearchEnabled} onChange={(v) => setSettings({ ...settings, webSearchEnabled: v })} size="sm" />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t border-white/5 pt-5">
-                                        <div className="px-0 mb-3 text-[10px] font-bold tracking-wide text-gray-500 uppercase">Actions</div>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {[
-                                                { key: 'longer', label: 'Longer' },
-                                                { key: 'shorter', label: 'Shorter' },
-                                                { key: 'formal', label: 'Formal' },
-                                                { key: 'casual', label: 'Casual' },
-                                                { key: 'technical', label: 'Technical' },
-                                                { key: 'translate', label: 'Translate' },
-                                                { key: 'devil', label: "Devil's Advocate" },
-                                                { key: 'perspective_ceo', label: 'CEO' },
-                                                { key: 'perspective_child', label: 'ELI8' },
-                                                { key: 'perspective_scientist', label: 'Scientist' },
-                                                { key: 'perspective_poet', label: 'Poet' },
-                                                { key: 'improve', label: 'Improve' },
-                                                { key: 'secure', label: 'Secure' },
-                                                { key: 'faster', label: 'Faster' },
-                                                { key: 'docs', label: 'Docs' },
-                                                { key: 'tests', label: 'Tests' },
-                                                { key: 'selfAssess', label: 'Ethical' },
-                                                { key: 'selfCritique', label: 'Self-Critique' },
-                                            ].map(a => {
-                                                const enabled = settings.enabledActions?.[a.key] !== false;
-                                                return (
-                                                    <button
-                                                        key={a.key}
-                                                        onClick={() => setSettings({
-                                                            ...settings,
-                                                            enabledActions: { ...settings.enabledActions, [a.key]: !enabled },
-                                                        })}
-                                                        className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
-                                                            enabled
-                                                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                                                : 'bg-white/[0.03] text-gray-600 border border-white/5 hover:text-gray-400'
-                                                        }`}
-                                                    >
-                                                        {a.label}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t border-white/5 pt-5 pb-4">
-                                        <div className="px-0 mb-3 text-[10px] font-bold tracking-wide text-gray-500 uppercase">System Prompt</div>
-                                        <textarea
-                                            value={settings.systemPrompt}
-                                            onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
-                                            className="w-full bg-white/[0.03] border border-white/10 rounded-lg p-3 text-xs text-gray-300 h-28 resize-none outline-none focus:border-white/20 transition-colors leading-relaxed"
-                                            placeholder="Set model behavior..."
-                                        />
-                                    </div>
+                            <div className="flex items-center justify-between mt-1.5 mx-1">
+                                {!currentModelId && !isGenerating && messages.length > 0 ? (
+                                    <p className="text-[10px] text-gray-600">
+                                        No model loaded — select one from the Models tab
+                                    </p>
+                                ) : <span />}
+                                <div className="flex items-center gap-3 text-[10px] text-gray-600 ml-auto">
+                                    <span><kbd className="text-gray-500">Enter</kbd> send</span>
+                                    <span><kbd className="text-gray-500">Shift+Enter</kbd> newline</span>
                                 </div>
-                            </nav>
-
-                            {/* Collapse toggle — mirrors left sidebar */}
-                            <button
-                                onClick={toggleParams}
-                                className={`mx-auto mb-4 p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors shrink-0 ml-auto mr-4`}
-                                title="Collapse parameters"
-                            >
-                                <ChevronsRight size={16} />
-                            </button>
-                        </>
-                    ) : null}
-                </div>
-            </div>
-        </div>
-    )
-}
-
-function ResponseActions({
-    content,
-    idx,
-    copiedIndex,
-    stats,
-    onAction,
-    onCopy,
-    showPrompt,
-    fullPrompt,
-    enabledActions,
-    onBranch,
-    assessment,
-    onAssess,
-    onSelfCritique,
-    selfCritiqueLoading,
-    disabled,
-}: {
-    content: string;
-    idx: number;
-    copiedIndex: number | null;
-    stats?: { tokensPerSecond: number; timeToFirstToken: number; totalTokens: number };
-    onAction: (response: string, action: string) => void;
-    onCopy: (text: string, index: number) => void;
-    showPrompt: boolean;
-    fullPrompt: string;
-    enabledActions?: Record<string, boolean>;
-    onBranch?: () => void;
-    assessment?: SelfAssessment | 'loading';
-    onAssess?: () => void;
-    onSelfCritique?: () => void;
-    selfCritiqueLoading?: boolean;
-    disabled?: boolean;
-}) {
-    const isOn = (key: string) => enabledActions?.[key] !== false;
-    const [showPerspectives, setShowPerspectives] = useState(false);
-    const [showAssessment, setShowAssessment] = useState(false);
-    const [promptDetailsOpen, setPromptDetailsOpen] = useState(false);
-    const prevAssessmentRef = useRef(assessment);
-    const perspRef = useRef<HTMLDivElement>(null);
-    const assessRef = useRef<HTMLDivElement>(null);
-
-    // Auto-show panel when assessment finishes loading
-    useEffect(() => {
-        if (prevAssessmentRef.current === 'loading' && assessment && assessment !== 'loading') {
-            setShowAssessment(true);
-        }
-        prevAssessmentRef.current = assessment;
-    }, [assessment]);
-
-    // Close perspectives dropdown on outside click
-    useEffect(() => {
-        if (!showPerspectives) return;
-        const handler = (e: MouseEvent) => {
-            if (perspRef.current && !perspRef.current.contains(e.target as Node)) {
-                setShowPerspectives(false);
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [showPerspectives]);
-
-    // Close assessment popover on outside click
-    useEffect(() => {
-        if (!showAssessment) return;
-        const handler = (e: MouseEvent) => {
-            if (assessRef.current && !assessRef.current.contains(e.target as Node)) {
-                setShowAssessment(false);
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [showAssessment]);
-
-    const perspectives = [
-        { key: 'perspective_ceo', label: 'CEO', icon: <User className="w-3 h-3" /> },
-        { key: 'perspective_child', label: 'ELI8', icon: <Baby className="w-3 h-3" /> },
-        { key: 'perspective_scientist', label: 'Scientist', icon: <FlaskConical className="w-3 h-3" /> },
-        { key: 'perspective_poet', label: 'Poet', icon: <Feather className="w-3 h-3" /> },
-    ];
-    const enabledPerspectives = perspectives.filter(p => isOn(p.key));
-
-    // Once assessment scores are loaded, the inline bar is always visible
-    const hasScores = assessment && assessment !== 'loading';
-    const hasVisiblePanel =
-        hasScores ||
-        (showPrompt && promptDetailsOpen) ||
-        showPerspectives;
-
-    return (
-        <div className={`mt-2 transition-opacity ${hasVisiblePanel ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-            <div className="flex items-center gap-0.5">
-                {/* Tone & length actions */}
-                {[
-                    { key: 'longer', label: 'Longer', icon: <Expand className="w-3 h-3" /> },
-                    { key: 'shorter', label: 'Shorter', icon: <Shrink className="w-3 h-3" /> },
-                    { key: 'formal', label: 'Formal', icon: <Briefcase className="w-3 h-3" /> },
-                    { key: 'casual', label: 'Casual', icon: <MessageCircle className="w-3 h-3" /> },
-                    { key: 'technical', label: 'Technical', icon: <GraduationCap className="w-3 h-3" /> },
-                    { key: 'translate', label: 'Translate', icon: <Languages className="w-3 h-3" /> },
-                ].filter(a => isOn(a.key)).map(a => (
-                    <button
-                        key={a.key}
-                        onClick={() => onAction(content, a.key)}
-                        disabled={disabled}
-                        className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-gray-300 hover:bg-white/5'}`}
-                        title={disabled ? 'Wait for response...' : a.label}
-                    >
-                        {a.icon}
-                    </button>
-                ))}
-                {(isOn('devil') || enabledPerspectives.length > 0) && <div className="w-px h-3 bg-white/10 mx-1" />}
-                {/* Devil's Advocate */}
-                {isOn('devil') && (
-                    <button
-                        onClick={() => onAction(content, 'devil')}
-                        disabled={disabled}
-                        className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-orange-400 hover:bg-orange-500/5'}`}
-                        title={disabled ? 'Wait for response...' : "Devil's Advocate"}
-                    >
-                        <Scale className="w-3 h-3" />
-                    </button>
-                )}
-                {/* Perspective Shift dropdown */}
-                {enabledPerspectives.length > 0 && (
-                    <div className="relative" ref={perspRef}>
-                        <button
-                            onClick={() => !disabled && setShowPerspectives(!showPerspectives)}
-                            disabled={disabled}
-                            className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : showPerspectives ? 'text-blue-400 bg-blue-500/10' : 'text-gray-600 hover:text-blue-400 hover:bg-blue-500/5'}`}
-                            title={disabled ? 'Wait for response...' : "Change Perspective"}
-                        >
-                            <Eye className="w-3 h-3" />
-                        </button>
-                        {showPerspectives && (
-                            <div className="absolute bottom-full left-0 mb-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 z-50 min-w-[120px]">
-                                {enabledPerspectives.map(p => (
-                                    <button
-                                        key={p.key}
-                                        onClick={() => { onAction(content, p.key); setShowPerspectives(false); }}
-                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-                                    >
-                                        {p.icon}
-                                        {p.label}
-                                    </button>
-                                ))}
                             </div>
-                        )}
-                    </div>
-                )}
-                <div className="w-px h-3 bg-white/10 mx-1" />
-                <button
-                    onClick={() => onCopy(content, idx)}
-                    className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
-                    title="Copy response"
-                >
-                    {copiedIndex === idx
-                        ? <Check className="w-3 h-3 text-green-500" />
-                        : <Copy className="w-3 h-3" />
-                    }
-                </button>
-                {onBranch && (
-                    <button
-                        onClick={onBranch}
-                        disabled={disabled}
-                        className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-blue-400 hover:bg-blue-500/5'}`}
-                        title={disabled ? 'Wait for response...' : "Branch from here"}
-                    >
-                        <GitFork className="w-3 h-3" />
-                    </button>
-                )}
-                {/* Ethical self-assessment */}
-                {onAssess && (
-                    <div className="relative flex items-center" ref={assessRef}>
-                        <button
-                            onClick={() => {
-                                if (!assessment) onAssess();
-                                else setShowAssessment(!showAssessment);
-                            }}
-                            className={`p-1 rounded transition-colors ${
-                                assessment && assessment !== 'loading'
-                                    ? 'text-emerald-400 hover:bg-emerald-500/10'
-                                    : assessment === 'loading'
-                                        ? 'text-gray-500 cursor-wait'
-                                        : 'text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/5'
-                            }`}
-                            title={assessment === 'loading' ? 'Assessing...' : assessment ? 'Click for details' : 'Ethical assessment'}
-                            disabled={assessment === 'loading'}
-                        >
-                            {assessment === 'loading'
-                                ? <Loader2 className="w-3 h-3 animate-spin" />
-                                : <ShieldCheck className="w-3 h-3" />
-                            }
-                        </button>
-                        {/* Inline compact score */}
-                        {assessment && assessment !== 'loading' && (() => {
-                            const dims: (keyof SelfAssessment)[] = ['privacy', 'fairness', 'safety', 'transparency', 'ethics', 'reliability'];
-                            const avg = Math.round(dims.reduce((s, k) => s + assessment[k], 0) / dims.length);
-                            const color = avg >= 80 ? 'bg-emerald-500' : avg >= 60 ? 'bg-yellow-500' : avg >= 40 ? 'bg-orange-500' : 'bg-red-500';
-                            const textColor = avg >= 80 ? 'text-emerald-400' : avg >= 60 ? 'text-yellow-400' : avg >= 40 ? 'text-orange-400' : 'text-red-400';
-                            return (
-                                <button
-                                    onClick={() => setShowAssessment(!showAssessment)}
-                                    className="flex items-center gap-1.5 ml-0.5 px-1 py-0.5 rounded hover:bg-white/5 transition-colors"
-                                    title="Click for details"
-                                >
-                                    <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden">
-                                        <div className={`h-full rounded-full ${color}`} style={{ width: `${avg}%` }} />
-                                    </div>
-                                    <span className={`text-[10px] font-mono font-medium ${textColor}`}>{avg}</span>
-                                </button>
-                            );
-                        })()}
-                        {/* Detail popover */}
-                        {showAssessment && assessment && assessment !== 'loading' && (
-                            <AssessmentPopover scores={assessment} />
-                        )}
-                    </div>
-                )}
-                {/* Self-Critique */}
-                {onSelfCritique && isOn('selfCritique') && (
-                    <button
-                        type="button"
-                        onClick={onSelfCritique}
-                        disabled={disabled || selfCritiqueLoading}
-                        className={`p-1 rounded transition-colors ${
-                            selfCritiqueLoading
-                                ? 'text-amber-400 cursor-wait'
-                                : disabled
-                                    ? 'text-gray-700 cursor-not-allowed'
-                                    : 'text-gray-600 hover:text-amber-400 hover:bg-amber-500/5'
-                        }`}
-                        title={selfCritiqueLoading ? 'Critiquing...' : disabled ? 'Wait for response...' : 'Self-Critique (iterative improvement)'}
-                    >
-                        {selfCritiqueLoading
-                            ? <Loader2 className="w-3 h-3 animate-spin" />
-                            : <RefreshCcw className="w-3 h-3" />
-                        }
-                    </button>
-                )}
-                {/* Stats inline */}
-                {stats && stats.totalTokens > 0 && (
-                    <div className="flex items-center gap-2 ml-auto">
-                        <span className="text-[10px] text-gray-500 font-mono tabular-nums">
-                            {stats.tokensPerSecond} tok/s
-                        </span>
-                        <span className="text-[10px] text-gray-500 font-mono tabular-nums">
-                            {stats.totalTokens} tok
-                        </span>
-                    </div>
-                )}
-            </div>
-            {/* Show Prompt — what was actually sent */}
-            {showPrompt && (
-                <details className="mt-1.5" onToggle={(e) => setPromptDetailsOpen(e.currentTarget.open)}>
-                    <summary className="flex items-center gap-1 cursor-pointer text-[10px] text-gray-600 hover:text-gray-400 transition-colors select-none list-none">
-                        <ChevronRight className="w-2.5 h-2.5 chevron-rotate transition-transform" />
-                        <span>View raw response</span>
-                    </summary>
-                    <div className="mt-1 pl-3 border-l border-white/5 text-[10px] text-gray-500 max-h-32 overflow-y-auto">
-                        <pre className="whitespace-pre-wrap font-mono leading-relaxed">{fullPrompt}</pre>
-                    </div>
-                </details>
-            )}
-        </div>
-    );
-}
-
-function AssessmentPopover({ scores }: { scores: SelfAssessment }) {
-    const dimensions: { key: keyof SelfAssessment; label: string }[] = [
-        { key: 'privacy', label: 'Privacy' },
-        { key: 'fairness', label: 'Fairness' },
-        { key: 'safety', label: 'Safety' },
-        { key: 'transparency', label: 'Transparency' },
-        { key: 'ethics', label: 'Ethics' },
-        { key: 'reliability', label: 'Reliability' },
-    ];
-    const barColor = (v: number) =>
-        v >= 80 ? 'bg-emerald-500' : v >= 60 ? 'bg-yellow-500' : v >= 40 ? 'bg-orange-500' : 'bg-red-500';
-
-    return (
-        <div className="absolute bottom-full left-0 mb-1 p-2.5 rounded-lg bg-[#1a1a1a] border border-white/10 shadow-xl z-50 min-w-[220px]">
-            <div className="flex items-center gap-2 mb-2">
-                <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                <span className="text-[10px] font-medium text-gray-400">Self-Assessment</span>
-            </div>
-            <div className="space-y-1.5">
-                {dimensions.map(d => (
-                    <div key={d.key} className="flex items-center gap-2">
-                        <span className="text-[10px] text-gray-500 w-[76px] shrink-0">{d.label}</span>
-                        <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
-                            <div
-                                className={`h-full rounded-full ${barColor(scores[d.key])}`}
-                                style={{ width: `${scores[d.key]}%` }}
-                            />
-                        </div>
-                        <span className="text-[10px] font-mono text-gray-500 w-6 text-right">{scores[d.key]}</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function MemoryMapPanel({ memory, building }: { memory: ConversationMemory | null; building: boolean }) {
-    if (building && !memory) {
-        return (
-            <div className="px-4 py-2">
-                <div className="max-w-3xl mx-auto flex items-center gap-2 p-3 rounded-lg bg-white/[0.02] border border-white/5">
-                    <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin" />
-                    <span className="text-xs text-gray-500">Building memory map...</span>
-                </div>
-            </div>
-        );
-    }
-    if (!memory || memory.topics.length === 0) {
-        return (
-            <div className="px-4 py-2">
-                <div className="max-w-3xl mx-auto p-3 rounded-lg bg-white/[0.02] border border-white/5">
-                    <div className="flex items-center gap-2">
-                        <Brain className="w-3.5 h-3.5 text-gray-500" />
-                        <span className="text-xs text-gray-500">No memory context yet. Keep chatting and it will build automatically.</span>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-    return (
-        <div className="px-4 py-2">
-            <div className="max-w-3xl mx-auto p-3 rounded-lg bg-white/[0.02] border border-white/5 space-y-2">
-                <div className="flex items-center gap-2 mb-1">
-                    <Brain className="w-3.5 h-3.5 text-blue-400" />
-                    <span className="text-[10px] font-medium text-gray-400">Conversation Memory</span>
-                    {building && <Loader2 className="w-3 h-3 text-blue-400 animate-spin ml-auto" />}
-                </div>
-                {memory.topics.length > 0 && (
-                    <div>
-                        <span className="text-[10px] text-gray-500 font-medium">Topics</span>
-                        <div className="mt-1 space-y-0.5">
-                            {memory.topics.map((t, i) => (
-                                <div key={i} className="text-[10px] text-gray-400">
-                                    <span className="text-gray-300 font-medium">{t.name}</span>
-                                    <span className="text-gray-600"> — {t.summary}</span>
-                                </div>
-                            ))}
                         </div>
                     </div>
-                )}
-                {memory.decisions.length > 0 && (
-                    <div>
-                        <span className="text-[10px] text-gray-500 font-medium">Decisions</span>
-                        <div className="mt-1 space-y-0.5">
-                            {memory.decisions.map((d, i) => (
-                                <div key={i} className="text-[10px] text-gray-400">
-                                    <span className="text-gray-300">{d.what}</span>
-                                    <span className="text-gray-600"> — {d.why}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-                {memory.codeContext.length > 0 && (
-                    <div>
-                        <span className="text-[10px] text-gray-500 font-medium">Code</span>
-                        <div className="mt-1 space-y-0.5">
-                            {memory.codeContext.map((c, i) => (
-                                <div key={i} className="text-[10px] text-gray-400">
-                                    <span className="text-blue-400 font-mono">{c.language}</span>
-                                    <span className="text-gray-600"> — {c.description}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-                {memory.keyFacts.length > 0 && (
-                    <div>
-                        <span className="text-[10px] text-gray-500 font-medium">Key Facts</span>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                            {memory.keyFacts.map((f, i) => (
-                                <span key={i} className="text-[10px] text-gray-400 bg-white/[0.03] px-1.5 py-0.5 rounded">
-                                    {f}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                </div>
+
             </div>
-        </div>
-    );
-}
-
-// Strip ANSI escape sequences from error output
-const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
-
-// Lightweight PII redaction — regex patterns for common PII types
-const PII_PATTERNS: [RegExp, string][] = [
-    [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '[EMAIL]'],
-    [/\b(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g, '[PHONE]'],
-    [/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[IP]'],
-    [/\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g, '[CARD]'],
-    [/\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/g, '[SSN]'],
-    [/\b(?:sk-|ghp_|gho_|glpat-|xoxb-|xoxp-)[A-Za-z0-9_-]{20,}\b/g, '[KEY]'],
-];
-
-function redactPII(text: string): { text: string; count: number } {
-    let count = 0;
-    let result = text;
-    for (const [pattern, replacement] of PII_PATTERNS) {
-        result = result.replace(new RegExp(pattern.source, pattern.flags), () => { count++; return replacement; });
-    }
-    return { text: result, count };
-}
-
-interface SnippetVersion {
-    code: string;
-    action: string;
-    timestamp: number;
-}
-
-function CodeBlock({
-    code,
-    language,
-    onTestAction,
-    onRewrite,
-    enabledActions,
-    syntaxCheck,
-    autoFixSyntax,
-    piiRedaction,
-}: {
-    code: string;
-    language: string;
-    onTestAction: (code: string, action: string) => void;
-    onRewrite: (code: string, action: string, context?: string) => Promise<string>;
-    enabledActions?: Record<string, boolean>;
-    syntaxCheck?: boolean;
-    autoFixSyntax?: boolean;
-    piiRedaction?: boolean;
-}) {
-    const [copied, setCopied] = useState(false);
-    const [running, setRunning] = useState(false);
-    const [result, setResult] = useState<SandboxResult | null>(null);
-    const [showOutput, setShowOutput] = useState(false);
-    const runIdRef = useRef<string | null>(null);
-    const [checkResult, setCheckResult] = useState<SyntaxCheckResult | null>(null);
-    const [checking, setChecking] = useState(false);
-    const checkRanRef = useRef(false);
-
-    // Versioning state
-    const [versions, setVersions] = useState<SnippetVersion[]>([]);
-    const [versionIndex, setVersionIndex] = useState(-1);
-    const [rewriting, setRewriting] = useState(false);
-
-    // The code to display: active version or original
-    const displayCode = versionIndex >= 0 && versions[versionIndex] ? versions[versionIndex].code : code;
-    const totalVersions = versions.length;
-    const displayVersionNum = versionIndex >= 0 ? versionIndex + 1 : (totalVersions > 0 ? 0 : -1);
-
-    // Languages too vague for meaningful syntax checking
-    const skipLangs = new Set(['', 'code', 'text', 'txt', 'output', 'plaintext', 'log', 'console', 'terminal', 'stdout', 'stderr']);
-
-    // Auto-run syntax check on mount (only for blocks > 2 lines with a real language)
-    useEffect(() => {
-        if (!syntaxCheck || checkRanRef.current || code.split('\n').length <= 2 || skipLangs.has(language.toLowerCase())) return;
-        checkRanRef.current = true;
-        setChecking(true);
-        apiClient.sandbox.check(code, language)
-            .then(setCheckResult)
-            .catch(err => console.error('Syntax check failed:', err))
-            .finally(() => setChecking(false));
-    }, [syntaxCheck, code, language]);
-
-    // Re-check syntax when version changes
-    useEffect(() => {
-        if (!syntaxCheck || versionIndex < 0 || displayCode.split('\n').length <= 2 || skipLangs.has(language.toLowerCase())) return;
-        setChecking(true);
-        setCheckResult(null);
-        apiClient.sandbox.check(displayCode, language)
-            .then(setCheckResult)
-            .catch(err => console.error('Syntax check failed:', err))
-            .finally(() => setChecking(false));
-    }, [versionIndex]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText(displayCode);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    const handleRun = async () => {
-        setRunning(true);
-        setShowOutput(true);
-        setResult(null);
-        try {
-            const res = await apiClient.sandbox.run(displayCode, language);
-            runIdRef.current = res.run_id;
-            setResult(res);
-        } catch (e: unknown) {
-            setResult({
-                stdout: '',
-                stderr: e instanceof Error ? e.message : 'Execution failed',
-                exit_code: 1,
-                execution_time: 0,
-                language: language || 'unknown',
-                timed_out: false,
-                run_id: '',
-            });
-        } finally {
-            setRunning(false);
-        }
-    };
-
-    const handleKill = async () => {
-        if (runIdRef.current) {
-            try { await apiClient.sandbox.kill(runIdRef.current); } catch { /* ignore */ }
-        }
-    };
-
-    const handleInlineRewrite = async (action: string, context?: string) => {
-        if (rewriting) return;
-        setRewriting(true);
-        try {
-            const sourceCode = displayCode;
-            const result = await onRewrite(sourceCode, action, context);
-            // Initialize with original if first rewrite
-            const current = versions.length === 0
-                ? [{ code, action: 'original', timestamp: Date.now() }]
-                : [...versions];
-            // Truncate any "future" versions if user navigated back then rewrote
-            const base = versionIndex >= 0 ? current.slice(0, versionIndex + 1) : current;
-            const updated = [...base, { code: result, action, timestamp: Date.now() }];
-            setVersions(updated);
-            setVersionIndex(updated.length - 1);
-        } catch {
-            // rewrite failed silently
-        } finally {
-            setRewriting(false);
-        }
-    };
-
-    const handleRedactCode = () => {
-        const { text, count } = redactPII(displayCode);
-        if (count === 0 || text === displayCode) return;
-        const current = versions.length === 0
-            ? [{ code, action: 'original', timestamp: Date.now() }]
-            : [...versions];
-        const base = versionIndex >= 0 ? current.slice(0, versionIndex + 1) : current;
-        const updated = [...base, { code: text, action: 'redact', timestamp: Date.now() }];
-        setVersions(updated);
-        setVersionIndex(updated.length - 1);
-    };
-
-    const rewriteActions = [
-        { key: 'improve', label: 'Improve', icon: <Wand2 className="w-3 h-3" /> },
-        { key: 'secure', label: 'Secure', icon: <Shield className="w-3 h-3" /> },
-        { key: 'faster', label: 'Faster', icon: <Zap className="w-3 h-3" /> },
-        { key: 'docs', label: 'Docs', icon: <FileText className="w-3 h-3" /> },
-    ].filter(a => enabledActions?.[a.key] !== false);
-
-    const showTests = enabledActions?.['tests'] !== false;
-    const hasOutput = result && (result.stdout || result.stderr);
-
-    return (
-        <div className="rounded-lg border border-white/5 bg-black/30 overflow-hidden my-3 group/code">
-            {/* Header bar */}
-            <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.03] border-b border-white/5">
-                <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono text-gray-500">{language || 'code'}</span>
-                    {checking && <Loader2 className="w-3 h-3 animate-spin text-gray-500" />}
-                    {!checking && checkResult && !checkResult.skipped && (
-                        checkResult.valid
-                            ? <span title="Syntax valid"><CircleCheck className="w-3 h-3 text-green-500" /></span>
-                            : <span title={stripAnsi(checkResult.errors) || 'Syntax error'}><CircleX className="w-3 h-3 text-red-400" /></span>
-                    )}
-                    {rewriting && <Loader2 className="w-3 h-3 animate-spin text-blue-400" />}
-                    {/* Version navigation */}
-                    {totalVersions > 0 && (
-                        <div className="flex items-center gap-0.5 ml-1">
-                            <button
-                                onClick={() => setVersionIndex(Math.max(versionIndex - 1, -1))}
-                                disabled={versionIndex <= -1}
-                                className={`p-0.5 rounded transition-colors ${versionIndex > -1 ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-700 cursor-default'}`}
-                                title="Previous version"
-                            >
-                                <ChevronLeft className="w-3 h-3" />
-                            </button>
-                            <span className="text-[10px] font-mono text-gray-500 min-w-[32px] text-center">
-                                {versionIndex < 0 ? 'orig' : `v${displayVersionNum}`}/{totalVersions}
-                            </span>
-                            <button
-                                onClick={() => setVersionIndex(Math.min(versionIndex + 1, totalVersions - 1))}
-                                disabled={versionIndex >= totalVersions - 1}
-                                className={`p-0.5 rounded transition-colors ${versionIndex < totalVersions - 1 ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-700 cursor-default'}`}
-                                title="Next version"
-                            >
-                                <ChevronRight className="w-3 h-3" />
-                            </button>
-                        </div>
-                    )}
-                </div>
-                <div className="flex items-center gap-0.5">
-                    {/* Run button */}
-                    {running ? (
-                        <button
-                            onClick={handleKill}
-                            title="Kill process"
-                            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-red-400 hover:bg-red-500/10 transition-colors"
-                        >
-                            <Square className="w-3 h-3 fill-current" />
-                            <span>Kill</span>
-                        </button>
-                    ) : (
-                        <button
-                            onClick={handleRun}
-                            title="Run code"
-                            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-green-400 hover:bg-green-500/10 transition-colors"
-                        >
-                            <Play className="w-3 h-3 fill-current" />
-                            <span>Run</span>
-                        </button>
-                    )}
-                    <div className="w-px h-3 bg-white/10 mx-1" />
-                    {/* Inline rewrite actions */}
-                    {rewriteActions.map(a => (
-                        <button
-                            key={a.key}
-                            onClick={() => handleInlineRewrite(a.key)}
-                            title={rewriting ? 'Rewriting...' : a.label}
-                            disabled={rewriting}
-                            className={`p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors ${rewriting ? 'opacity-30 cursor-wait' : 'opacity-0 group-hover/code:opacity-100'}`}
-                        >
-                            {a.icon}
-                        </button>
-                    ))}
-                    {/* Tests (goes through chat) */}
-                    {showTests && (
-                        <button
-                            onClick={() => onTestAction(displayCode, 'tests')}
-                            title="Tests"
-                            className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors opacity-0 group-hover/code:opacity-100"
-                        >
-                            <TestTube2 className="w-3 h-3" />
-                        </button>
-                    )}
-                    {piiRedaction && (
-                        <button
-                            onClick={handleRedactCode}
-                            title="Redact PII"
-                            className="p-1 rounded text-gray-600 hover:text-orange-400 hover:bg-orange-500/5 transition-colors opacity-0 group-hover/code:opacity-100"
-                        >
-                            <Shield className="w-3 h-3" />
-                        </button>
-                    )}
-                    <div className="w-px h-3 bg-white/10 mx-1 opacity-0 group-hover/code:opacity-100" />
-                    <button
-                        onClick={handleCopy}
-                        title="Copy code"
-                        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
-                    >
-                        {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                        <span>{copied ? 'Copied' : 'Copy'}</span>
-                    </button>
-                </div>
-            </div>
-            {/* Code content */}
-            <pre className="p-4 overflow-x-auto">
-                <code className="text-sm font-mono text-blue-300 leading-relaxed">{displayCode}</code>
-            </pre>
-            {/* Version action label */}
-            {versionIndex >= 0 && versions[versionIndex] && versions[versionIndex].action !== 'original' && (
-                <div className="px-3 py-1 border-t border-white/5 bg-white/[0.02]">
-                    <span className="text-[10px] text-gray-500">
-                        {versions[versionIndex].action} rewrite
-                    </span>
-                </div>
-            )}
-            {/* Syntax errors — hidden when syntax check is toggled off */}
-            {syntaxCheck && checkResult && !checkResult.valid && !checkResult.skipped && (
-                <div className="border-t border-red-500/10 bg-red-500/[0.03] px-3 py-2">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-medium text-red-400">Syntax error</span>
-                        {autoFixSyntax && (
-                            <button
-                                onClick={() => handleInlineRewrite('fix', stripAnsi(checkResult.errors))}
-                                disabled={rewriting}
-                                className={`text-[10px] px-2 py-0.5 rounded transition-colors ${rewriting ? 'bg-red-500/5 text-red-400/50 cursor-wait' : 'bg-red-500/10 text-red-400 hover:bg-red-500/20'}`}
-                            >
-                                {rewriting ? 'Fixing...' : 'Fix syntax'}
-                            </button>
-                        )}
-                    </div>
-                    {checkResult.errors && (
-                        <pre className="text-[10px] font-mono text-red-400/70 mt-1 whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto">
-                            {stripAnsi(checkResult.errors)}
-                        </pre>
-                    )}
-                </div>
-            )}
-            {/* Sandbox output */}
-            {showOutput && (
-                <div className="border-t border-white/5">
-                    <div className="flex items-center justify-between px-3 py-1 bg-white/[0.02]">
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-mono text-gray-500">Output</span>
-                            {running && <Loader2 className="w-3 h-3 animate-spin text-blue-400" />}
-                            {result && (
-                                <>
-                                    <span className={`text-[10px] font-mono ${result.exit_code === 0 ? 'text-green-500' : 'text-red-400'}`}>
-                                        exit {result.exit_code}
-                                    </span>
-                                    <span className="text-[10px] font-mono text-gray-600">
-                                        {result.execution_time}s
-                                    </span>
-                                    {result.timed_out && (
-                                        <span className="text-[10px] text-yellow-500">timeout</span>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                        <button
-                            onClick={() => { setShowOutput(false); setResult(null); }}
-                            className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
-                        >
-                            Close
-                        </button>
-                    </div>
-                    {hasOutput && (
-                        <pre className="px-4 py-3 overflow-x-auto max-h-48 overflow-y-auto text-xs font-mono leading-relaxed">
-                            {result.stdout && <span className="text-gray-300">{result.stdout}</span>}
-                            {result.stderr && <span className="text-red-400/80">{result.stderr}</span>}
-                        </pre>
-                    )}
-                    {running && !hasOutput && (
-                        <div className="px-4 py-3 text-xs text-gray-600">Running...</div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
-
-function ParameterSlider({
-    label, value, min, max, step, format, onChange, hint
-}: {
-    label: string;
-    value: number;
-    min: number;
-    max: number;
-    step: number;
-    format: (v: number) => string;
-    onChange: (v: number) => void;
-    hint?: string;
-}) {
-    const [editing, setEditing] = useState(false);
-    const [editValue, setEditValue] = useState('');
-
-    const applyValue = () => {
-        const parsed = parseFloat(editValue);
-        if (!isNaN(parsed)) {
-            onChange(Math.min(max, Math.max(min, parsed)));
-        }
-        setEditing(false);
-    };
-
-    return (
-        <div>
-            <div className="flex justify-between items-center mb-1.5">
-                <label className="text-xs text-gray-500" title={hint}>{label}</label>
-                <input
-                    type="text"
-                    title={label}
-                    value={editing ? editValue : format(value)}
-                    onFocus={(e) => { setEditing(true); setEditValue(String(value)); e.target.select(); }}
-                    onBlur={applyValue}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { applyValue(); (e.target as HTMLInputElement).blur(); } if (e.key === 'Escape') { setEditing(false); } }}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    className="w-16 text-right text-xs font-mono text-gray-400 tabular-nums bg-transparent outline-none border-b border-transparent focus:border-white/20 transition-colors"
-                />
-            </div>
-            <input
-                type="range"
-                title={label}
-                min={min} max={max} step={step}
-                value={value}
-                onChange={(e) => onChange(parseFloat(e.target.value))}
-                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-white/50"
-            />
-        </div>
     )
+}
+
+// Action type → icon mapping (static, outside component to avoid re-creation)
+const ACTION_ICONS: Record<string, React.ReactNode> = {
+    improve: <Wand2 className="w-3.5 h-3.5" />,
+    secure: <Shield className="w-3.5 h-3.5" />,
+    faster: <Zap className="w-3.5 h-3.5" />,
+    docs: <FileText className="w-3.5 h-3.5" />,
+    tests: <TestTube2 className="w-3.5 h-3.5" />,
+    longer: <Expand className="w-3.5 h-3.5" />,
+    shorter: <Shrink className="w-3.5 h-3.5" />,
+    formal: <Briefcase className="w-3.5 h-3.5" />,
+    casual: <MessageCircle className="w-3.5 h-3.5" />,
+    technical: <GraduationCap className="w-3.5 h-3.5" />,
+    translate: <Languages className="w-3.5 h-3.5" />,
+    devil: <Scale className="w-3.5 h-3.5" />,
+    perspective_ceo: <User className="w-3.5 h-3.5" />,
+    perspective_child: <Baby className="w-3.5 h-3.5" />,
+    perspective_scientist: <FlaskConical className="w-3.5 h-3.5" />,
+    perspective_poet: <Feather className="w-3.5 h-3.5" />,
 }

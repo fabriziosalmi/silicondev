@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, memo, useCallback } from 'react'
-import { User, Bot, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, RefreshCw, XCircle, CheckCircle2, ChevronRight, Brain, FileEdit } from 'lucide-react'
+import { User, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, RefreshCw, XCircle, CheckCircle2, ChevronRight, Brain, FileEdit } from 'lucide-react'
 import { StreamingMarkdown } from './StreamingMarkdown'
 import { HolographicDiff } from './HolographicDiff'
 import { PlanCard } from './PlanCard'
@@ -118,7 +118,7 @@ function CollapsibleToolOutput({ item }: { item: FeedItem }) {
   const [showFull, setShowFull] = useState(false)
   const rendered = showFull || !hasMore ? item.content : lines.slice(-20).join('\n')
   const isError = item.toolMeta?.exitCode !== undefined && item.toolMeta.exitCode !== 0
-  const [open, setOpen] = useState(isError) // auto-expand on error
+  const [open, setOpen] = useState(true)
 
   useEffect(() => {
     if (isError && command) {
@@ -227,10 +227,10 @@ function TraceBlock({ item }: { item: FeedItem }) {
   const meta = item.agencyTraceMeta
   if (!meta) return null
 
-  const roleColors = {
-    architetto: 'text-blue-400 border-blue-500/20 bg-blue-500/5',
-    operaio: 'text-amber-400 border-amber-500/20 bg-amber-500/5',
-    ispettore: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5'
+  const roleColors: Record<string, string> = {
+    architect: 'text-blue-400 border-blue-500/20 bg-blue-500/5',
+    worker: 'text-amber-400 border-amber-500/20 bg-amber-500/5',
+    inspector: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5',
   }
 
   return (
@@ -565,7 +565,7 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
     if (!container) return
     const handleScroll = () => {
       const distFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-      userScrolledUpRef.current = distFromBottom > 80
+      userScrolledUpRef.current = distFromBottom > 150
     }
     container.addEventListener('scroll', handleScroll, { passive: true })
     return () => container.removeEventListener('scroll', handleScroll)
@@ -573,11 +573,20 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
 
   // Auto-scroll to bottom on content change — unless user scrolled up
   const lastItem = items[items.length - 1]
+  const prevItemsLenRef = useRef(items.length)
   useEffect(() => {
     if (userScrolledUpRef.current) return
     const container = containerRef.current
-    if (container) {
+    if (!container) return
+    // Use smooth scroll for streaming updates, instant for new items
+    const isNewItem = items.length !== prevItemsLenRef.current
+    prevItemsLenRef.current = items.length
+    if (isNewItem) {
+      // New item added — scroll instantly to avoid lag
       container.scrollTop = container.scrollHeight
+    } else {
+      // Streaming token update — smooth scroll
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })
     }
   }, [items.length, lastItem?.content])
 
@@ -585,9 +594,7 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/15 flex items-center justify-center mx-auto">
-            <Bot size={20} className="text-blue-400/60" />
-          </div>
+          <img src="/icon.svg" alt="" className="w-10 h-10 rounded-xl mx-auto" />
           <div className="space-y-1">
             <p className="text-xs text-gray-400 font-medium">What would you like to build?</p>
             <p className="text-[10px] text-gray-600">Describe a task or select code and right-click for quick actions.</p>
@@ -607,19 +614,21 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
   })()
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-      {items.map((item, idx) => (
-        <FeedItemView
-          key={item.id}
-          item={item}
-          sessionId={sessionId}
-          onDiffDecided={stableDiffDecided}
-          onEscalationResponded={stableEscalationResponded}
-          onPlanDecision={stablePlanDecision}
-          isLastThinking={item.type === 'thinking' && idx === lastThinkingIdx}
-        />
-      ))}
-      <div ref={bottomRef} />
+    <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-3">
+      <div className="min-h-full flex flex-col justify-end space-y-2">
+        {items.map((item, idx) => (
+          <FeedItemView
+            key={item.id}
+            item={item}
+            sessionId={sessionId}
+            onDiffDecided={stableDiffDecided}
+            onEscalationResponded={stableEscalationResponded}
+            onPlanDecision={stablePlanDecision}
+            isLastThinking={item.type === 'thinking' && idx === lastThinkingIdx}
+          />
+        ))}
+        <div ref={bottomRef} />
+      </div>
     </div>
   )
 }
