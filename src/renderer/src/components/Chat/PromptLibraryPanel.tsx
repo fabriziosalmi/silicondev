@@ -141,10 +141,10 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                             key={cat}
                             type="button"
                             onClick={() => setActiveCategory(cat)}
-                            className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors whitespace-nowrap ${
+                            className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors whitespace-nowrap border ${
                                 activeCategory === cat
-                                    ? 'bg-white/10 text-white border border-white/20'
-                                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
+                                    ? 'bg-white/10 text-white border-white/20'
+                                    : 'border-transparent text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
                             }`}
                         >
                             {CATEGORY_TAB_LABELS[cat]}
