@@ -2,7 +2,10 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { apiClient, cleanModelName } from '../api/client'
 import type { SelfAssessment, ConversationMemory, ContentPart, ModelEntry } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
-import { Settings2, Cpu, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, User, Baby, FlaskConical, Feather, Plus, Download, Loader2, Brain, Database, Search, X, ChevronUp, ChevronDown, ImagePlus, RefreshCcw, Trash2, Pencil } from 'lucide-react'
+import { Settings2, Cpu, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, User, Baby, FlaskConical, Feather, Plus, Download, Loader2, Brain, Database, Search, X, ChevronUp, ChevronDown, ImagePlus, RefreshCcw, Trash2, Pencil, Hash } from 'lucide-react'
+import { InputOverlay, detectTrigger, SLASH_COMMANDS, type FileEntry } from './Chat/InputOverlay'
+import { usePromptHistory } from '../hooks/usePromptHistory'
+import { useTokenEstimate } from '../hooks/useTokenEstimate'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -104,6 +107,16 @@ export function ChatInterface() {
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const abortRef = useRef<AbortController | null>(null)
     const sendingRef = useRef(false)
+
+    // ── Input enhancement state ──
+    const promptHistory = usePromptHistory()
+    const tokenEstimate = useTokenEstimate(input)
+    const [showTokenCounter, setShowTokenCounter] = useState(() => localStorage.getItem('silicon-studio-show-tokens') === 'true')
+    const [overlayVisible, setOverlayVisible] = useState(false)
+    const [cursorPosition, setCursorPosition] = useState(0)
+    const [pastedMultiline, setPastedMultiline] = useState(false)
+    const [workspaceFiles, setWorkspaceFiles] = useState<FileEntry[]>([])
+    const inputWrapperRef = useRef<HTMLDivElement>(null)
 
     // Abort any in-flight streaming fetch on unmount
     useEffect(() => {
@@ -653,6 +666,123 @@ export function ChatInterface() {
         }
     }, [activeModel?.is_vision])
 
+    // ── Workspace file loading for @mentions ──
+    useEffect(() => {
+        let cancelled = false
+        const loadFiles = async () => {
+            try {
+                const tree = await apiClient.workspace.tree('.', 3)
+                const flat: FileEntry[] = []
+                const walk = (node: any) => {
+                    if (node.type === 'file') flat.push({ name: node.name, path: node.path, type: 'file' })
+                    if (node.children) node.children.forEach(walk)
+                }
+                if (tree.children) tree.children.forEach(walk)
+                else walk(tree)
+                if (!cancelled) setWorkspaceFiles(flat)
+            } catch { /* workspace not available */ }
+        }
+        loadFiles()
+        return () => { cancelled = true }
+    }, [])
+
+    // ── Detect overlay triggers on input change ──
+    useEffect(() => {
+        const trigger = detectTrigger(input, cursorPosition)
+        setOverlayVisible(trigger !== null)
+    }, [input, cursorPosition])
+
+    // ── Slash command handler ──
+    const handleSlashCommand = useCallback((action: string) => {
+        switch (action) {
+            case 'help': {
+                const helpText = SLASH_COMMANDS.map(c => `**${c.name}** — ${c.description}`).join('\n')
+                setMessages(prev => [...prev, {
+                    role: 'assistant',
+                    content: `${t('chatInput.availableCommands')}:\n\n${helpText}\n\n${t('chatInput.atMentionHint')}`
+                }])
+                break
+            }
+            case 'clear':
+                setMessages([])
+                setAssessments({})
+                setMemoryMap(null)
+                localStorage.removeItem(CHAT_STORAGE_KEY)
+                break
+            case 'new':
+                handleNewConversation()
+                break
+            case 'system':
+                setParamsExpanded(true)
+                break
+            case 'model':
+                // Focus model picker in topbar — dispatch custom event
+                window.dispatchEvent(new CustomEvent('silicon-studio:open-model-picker'))
+                break
+            case 'library':
+                // Toggle prompt library panel via custom event
+                window.dispatchEvent(new CustomEvent('silicon-studio:open-prompt-library'))
+                break
+            case 'export':
+                handleExport('md')
+                break
+            case 'tokens':
+                setShowTokenCounter(prev => {
+                    const next = !prev
+                    localStorage.setItem('silicon-studio-show-tokens', String(next))
+                    return next
+                })
+                break
+        }
+        setInput('')
+        setOverlayVisible(false)
+    }, [t, handleNewConversation, handleExport, setMessages, setAssessments, setMemoryMap, setParamsExpanded])
+
+    // ── Overlay selection handler ──
+    const handleOverlaySelect = useCallback((value: string, type: 'command' | 'file') => {
+        if (type === 'command') {
+            handleSlashCommand(value)
+            return
+        }
+
+        // File mention: replace the @query with @filepath
+        const trigger = detectTrigger(input, cursorPosition)
+        if (trigger && trigger.type === 'file') {
+            const before = input.slice(0, trigger.startIndex)
+            const after = input.slice(cursorPosition)
+            const newInput = `${before}@${value} ${after}`
+            setInput(newInput)
+            // Move cursor after inserted text
+            const newPos = trigger.startIndex + value.length + 2 // @ + value + space
+            setCursorPosition(newPos)
+            setTimeout(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.selectionStart = newPos
+                    textareaRef.current.selectionEnd = newPos
+                    textareaRef.current.focus()
+                }
+            }, 0)
+        }
+        setOverlayVisible(false)
+    }, [input, cursorPosition, handleSlashCommand])
+
+    // ── Paste detection for multi-line text ──
+    const handleTextPaste = useCallback((e: React.ClipboardEvent) => {
+        // Let image paste handler run first for vision models
+        if (activeModel?.is_vision) {
+            const hasImages = Array.from(e.clipboardData.items).some(item => item.type.startsWith('image/'))
+            if (hasImages) return // handled by handleImagePaste
+        }
+
+        const text = e.clipboardData.getData('text/plain')
+        if (text && text.includes('\n')) {
+            // Mark as pasted multi-line to prevent accidental send
+            setPastedMultiline(true)
+            // Auto-clear flag after user makes next edit
+            setTimeout(() => setPastedMultiline(false), 3000)
+        }
+    }, [activeModel?.is_vision])
+
     const handleSend = async (directPrompt?: string, displayContent?: string, actionType?: string) => {
         const text = directPrompt ?? input;
         if ((!text.trim() && pendingImages.length === 0) || !currentModelId || isGenerating || sendingRef.current) return
@@ -904,9 +1034,62 @@ export function ChatInterface() {
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        // Track cursor position for overlay
+        const ta = e.currentTarget
+        setCursorPosition(ta.selectionStart)
+
+        // If overlay is visible, let it handle arrow keys, Tab, Enter, Escape
+        if (overlayVisible) {
+            if (['ArrowUp', 'ArrowDown', 'Tab', 'Escape'].includes(e.key)) return // handled by InputOverlay
+            if (e.key === 'Enter') return // handled by InputOverlay (selects item)
+        }
+
+        // Prompt history navigation (only when cursor at start of input and no overlay)
+        if (e.key === 'ArrowUp' && ta.selectionStart === 0 && !e.shiftKey) {
+            const prev = promptHistory.navigateUp(input)
+            if (prev !== null) {
+                e.preventDefault()
+                setInput(prev)
+            }
+            return
+        }
+        if (e.key === 'ArrowDown' && ta.selectionEnd === input.length && !e.shiftKey) {
+            const next = promptHistory.navigateDown()
+            if (next !== null) {
+                e.preventDefault()
+                setInput(next)
+            }
+            return
+        }
+
+        // Send on Enter (not Shift+Enter)
         if (e.key === 'Enter' && !e.shiftKey) {
+            // If just pasted multi-line text, first Enter clears the flag instead of sending
+            if (pastedMultiline) {
+                setPastedMultiline(false)
+                return // don't send, don't prevent default (allows newline)
+            }
             e.preventDefault()
+            // Check for slash command
+            const trigger = detectTrigger(input, ta.selectionStart)
+            if (trigger?.type === 'command' && input.trim().startsWith('/')) {
+                const cmd = SLASH_COMMANDS.find(c => c.name === input.trim() || c.name === '/' + trigger.query)
+                if (cmd) {
+                    handleSlashCommand(cmd.action)
+                    return
+                }
+            }
+            // Save to history and send
+            promptHistory.push(input)
             handleSend()
+        }
+
+        // Reset history navigation on any typing
+        if (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Delete') {
+            promptHistory.reset()
+            if (pastedMultiline && (e.key === 'Backspace' || e.key === 'Delete')) {
+                setPastedMultiline(false)
+            }
         }
     }
 
@@ -1945,13 +2128,27 @@ Return exactly this JSON structure (no other text):
                                 onChange={(e) => { if (e.target.files) addImages(e.target.files); e.target.value = '' }}
                             />
                             {/* Input field */}
-                            <div className="relative bg-white/[0.03] border border-white/10 rounded-xl focus-within:border-white/20 transition-colors">
+                            <div ref={inputWrapperRef} className="relative bg-white/[0.03] border border-white/10 rounded-xl focus-within:border-white/20 transition-colors">
+                                {/* Autocomplete overlay */}
+                                <InputOverlay
+                                    input={input}
+                                    cursorPosition={cursorPosition}
+                                    visible={overlayVisible}
+                                    onSelect={handleOverlaySelect}
+                                    onClose={() => setOverlayVisible(false)}
+                                    files={workspaceFiles}
+                                    anchorRef={inputWrapperRef}
+                                />
                                 <textarea
                                     ref={textareaRef}
                                     value={input}
-                                    onChange={(e) => setInput(e.target.value)}
+                                    onChange={(e) => {
+                                        setInput(e.target.value)
+                                        setCursorPosition(e.target.selectionStart)
+                                    }}
                                     onKeyDown={handleKeyDown}
-                                    onPaste={handleImagePaste}
+                                    onPaste={(e) => { handleTextPaste(e); handleImagePaste(e) }}
+                                    onClick={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
                                     placeholder={activeModel?.is_vision ? t('chat.sendPlaceholderVision') : t('chat.sendPlaceholder')}
                                     className={`w-full bg-transparent px-4 py-3 ${activeModel?.is_vision ? 'pr-24' : 'pr-14'} text-sm text-gray-200 placeholder-gray-500 outline-none resize-none min-h-[44px] max-h-[200px]`}
                                     rows={1}
@@ -1993,12 +2190,28 @@ Return exactly this JSON structure (no other text):
                                 </div>
                             </div>
                             <div className="flex items-center justify-between mt-1.5 mx-1">
-                                {!currentModelId && !isGenerating && messages.length > 0 ? (
-                                    <p className="text-[10px] text-gray-600">
-                                        {t('chat.noModelSuggestion')}
-                                    </p>
-                                ) : <span />}
+                                <div className="flex items-center gap-3 text-[10px] text-gray-600">
+                                    {!currentModelId && !isGenerating && messages.length > 0 ? (
+                                        <p>{t('chat.noModelSuggestion')}</p>
+                                    ) : null}
+                                    {/* Token counter */}
+                                    {showTokenCounter && tokenEstimate > 0 && (
+                                        <span className="flex items-center gap-1 text-gray-500" title={t('chatInput.tokenEstimateHint')}>
+                                            <Hash className="w-3 h-3" />
+                                            ~{tokenEstimate} tok
+                                        </span>
+                                    )}
+                                    {/* Paste indicator */}
+                                    {pastedMultiline && (
+                                        <span className="text-amber-500/70 animate-pulse">
+                                            {t('chatInput.pastedMultiline')}
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-3 text-[10px] text-gray-600 ml-auto">
+                                    <span><kbd className="text-gray-500">/</kbd> {t('chatInput.commandsHint')}</span>
+                                    <span><kbd className="text-gray-500">@</kbd> {t('chatInput.filesHint')}</span>
+                                    <span><kbd className="text-gray-500">↑</kbd> {t('chatInput.historyHint')}</span>
                                     <span><kbd className="text-gray-500">Enter</kbd> {t('chat.enterSend')}</span>
                                     <span><kbd className="text-gray-500">Shift+Enter</kbd> {t('chat.shiftEnterNewline')}</span>
                                 </div>
