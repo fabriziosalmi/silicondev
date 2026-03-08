@@ -893,6 +893,17 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to save file');
             return res.json();
         },
+        gitInfo: async (directory: string = '.'): Promise<{ git: boolean; branch?: string; modified?: number; staged?: number; untracked?: number; clean?: boolean }> => {
+            try {
+                const res = await fetch(`${API_BASE}/api/workspace/git-info`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ directory })
+                });
+                if (!res.ok) return { git: false };
+                return res.json();
+            } catch { return { git: false }; }
+        },
     },
     terminal: {
         runUrl: (prompt: string, modelId: string, opts?: { maxIterations?: number; temperature?: number; activeFile?: { path: string; content?: string; language?: string }; history?: { role: string; content: string }[]; mode?: string; workspaceDir?: string; enableMoA?: boolean; airGappedMode?: boolean; enablePythonSandbox?: boolean }) => {

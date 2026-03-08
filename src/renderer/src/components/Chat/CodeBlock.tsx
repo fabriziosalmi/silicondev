@@ -25,6 +25,22 @@ export function redactPII(text: string): { text: string; count: number } {
     return { text: result, count };
 }
 
+/** Detect if a code block looks like a diff (explicit diff language or heuristic). */
+function isDiffLike(code: string, language: string): boolean {
+    const lang = language.toLowerCase();
+    if (lang === 'diff' || lang === 'patch' || lang === 'udiff') return true;
+    // Heuristic: if >30% of lines start with + or - (and at least 4 such lines)
+    const lines = code.split('\n');
+    let diffLines = 0;
+    for (const line of lines) {
+        const t = line.trimStart();
+        if ((t.startsWith('+') && !t.startsWith('+++')) || (t.startsWith('-') && !t.startsWith('---')) || t.startsWith('@@')) {
+            diffLines++;
+        }
+    }
+    return diffLines >= 4 && diffLines / lines.length > 0.3;
+}
+
 interface SnippetVersion {
     code: string;
     action: string;
@@ -309,7 +325,31 @@ export const CodeBlock = memo(function CodeBlock({
             </div>
             {/* Code content */}
             <pre className="p-4 overflow-x-auto">
-                <code className={`text-sm font-mono leading-relaxed ${rewriting ? 'text-blue-300/60' : 'text-blue-300'}`}>{displayCode}</code>
+                {isDiffLike(displayCode, language) ? (
+                    <code className="text-sm font-mono leading-relaxed">
+                        {displayCode.split('\n').map((line, i) => {
+                            const trimmed = line.trimStart();
+                            let cls = rewriting ? 'text-blue-300/60' : 'text-blue-300';
+                            let bg = '';
+                            if (trimmed.startsWith('+') && !trimmed.startsWith('+++')) {
+                                cls = 'text-green-400';
+                                bg = 'bg-green-500/10';
+                            } else if (trimmed.startsWith('-') && !trimmed.startsWith('---')) {
+                                cls = 'text-red-400';
+                                bg = 'bg-red-500/10';
+                            } else if (trimmed.startsWith('@@')) {
+                                cls = 'text-cyan-400/70';
+                            }
+                            return (
+                                <div key={i} className={`${cls} ${bg} ${bg ? 'px-1 -mx-1 rounded-sm' : ''}`}>
+                                    {line}
+                                </div>
+                            );
+                        })}
+                    </code>
+                ) : (
+                    <code className={`text-sm font-mono leading-relaxed ${rewriting ? 'text-blue-300/60' : 'text-blue-300'}`}>{displayCode}</code>
+                )}
             </pre>
             {/* Version action label */}
             {!rewriting && versionIndex >= 0 && versions[versionIndex] && versions[versionIndex].action !== 'original' && (

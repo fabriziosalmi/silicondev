@@ -269,6 +269,12 @@ export function AgentTerminal() {
           sessionId={sessionId}
           onDiffDecided={noopDiff}
           onEscalationResponded={noopEscalation}
+          onFixError={(errorText, command) => {
+            const prompt = command
+              ? `The command \`${command}\` failed with this error:\n\n\`\`\`\n${errorText.slice(0, 2000)}\n\`\`\`\n\nAnalyze the error and fix it.`
+              : `Fix this error:\n\n\`\`\`\n${errorText.slice(0, 2000)}\n\`\`\``;
+            handleSubmit(prompt);
+          }}
         />
         <InputBar
           onSubmit={handleSubmit}

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { apiClient, cleanModelName } from '../api/client'
 import type { SelfAssessment, ConversationMemory, ContentPart, ModelEntry } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
-import { Settings2, Cpu, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, User, Baby, FlaskConical, Feather, Plus, Download, Loader2, Brain, Database, Search, X, ChevronUp, ChevronDown, ImagePlus, RefreshCcw, Trash2, Pencil, Hash } from 'lucide-react'
+import { Settings2, Cpu, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, User, Baby, FlaskConical, Feather, Plus, Download, Loader2, Brain, Database, Search, X, ChevronUp, ChevronDown, ImagePlus, RefreshCcw, Trash2, Pencil, Hash, GitBranch, Eye, Globe, BookOpen } from 'lucide-react'
 import { InputOverlay, detectTrigger, SLASH_COMMANDS, type FileEntry } from './Chat/InputOverlay'
 import { usePromptHistory } from '../hooks/usePromptHistory'
 import { useTokenEstimate } from '../hooks/useTokenEstimate'
@@ -116,6 +116,7 @@ export function ChatInterface() {
     const [cursorPosition, setCursorPosition] = useState(0)
     const [pastedMultiline, setPastedMultiline] = useState(false)
     const [workspaceFiles, setWorkspaceFiles] = useState<FileEntry[]>([])
+    const [gitBranch, setGitBranch] = useState<{ branch: string; clean: boolean } | null>(null)
     const inputWrapperRef = useRef<HTMLDivElement>(null)
 
     // Abort any in-flight streaming fetch on unmount
@@ -686,6 +687,23 @@ export function ChatInterface() {
         return () => { cancelled = true }
     }, [])
 
+    // ── Git branch info ──
+    useEffect(() => {
+        let cancelled = false
+        const fetchGit = async () => {
+            try {
+                const info = await apiClient.workspace.gitInfo('.')
+                if (!cancelled && info.git && info.branch) {
+                    setGitBranch({ branch: info.branch, clean: info.clean ?? true })
+                }
+            } catch { /* no git */ }
+        }
+        fetchGit()
+        // Refresh every 30s
+        const timer = setInterval(fetchGit, 30_000)
+        return () => { cancelled = true; clearInterval(timer) }
+    }, [])
+
     // ── Detect overlay triggers on input change ──
     useEffect(() => {
         const trigger = detectTrigger(input, cursorPosition)
@@ -1030,6 +1048,16 @@ export function ChatInterface() {
         // Remove the error message
         setMessages(prev => prev.filter((_, i) => i !== errorMsgIndex));
         // Resend
+        handleSend(userMsg.content);
+    };
+
+    const handleRegenerate = (assistantMsgIndex: number) => {
+        // Find the user message before this assistant message
+        const userMsg = messages.slice(0, assistantMsgIndex).reverse().find(m => m.role === 'user');
+        if (!userMsg) return;
+        // Remove the assistant message (keep user message)
+        setMessages(prev => prev.filter((_, i) => i !== assistantMsgIndex));
+        // Resend the same user prompt
         handleSend(userMsg.content);
     };
 
@@ -2064,6 +2092,7 @@ Return exactly this JSON structure (no other text):
                                                             onSelfCritique={settings.enabledActions?.selfCritique !== false ? () => handleSelfCritique(visibleContent, idx) : undefined}
                                                             selfCritiqueLoading={!!selfCritiqueLoading[idx]}
                                                             disabled={isGenerating}
+                                                            onRegenerate={() => handleRegenerate(idx)}
                                                         />
                                                     )}
                                                 </div>
@@ -2189,7 +2218,42 @@ Return exactly this JSON structure (no other text):
                                     )}
                                 </div>
                             </div>
-                            <div className="flex items-center justify-between mt-1.5 mx-1">
+                            {/* Context transparency strip */}
+                            {(settings.ragEnabled || settings.webSearchEnabled || settings.memoryMapEnabled || gitBranch) && (
+                                <div className="flex items-center gap-2 px-1 py-1 text-[10px] text-gray-600">
+                                    {gitBranch && (
+                                        <span className="flex items-center gap-1" title={t('chatInput.gitBranch')}>
+                                            <GitBranch className="w-3 h-3" />
+                                            <span className={gitBranch.clean ? 'text-gray-500' : 'text-amber-500/70'}>{gitBranch.branch}</span>
+                                        </span>
+                                    )}
+                                    {settings.ragEnabled && settings.ragCollectionId && (
+                                        <span className="flex items-center gap-1 text-blue-500/60" title={t('chatInput.ragActive')}>
+                                            <Database className="w-3 h-3" />
+                                            RAG
+                                        </span>
+                                    )}
+                                    {settings.webSearchEnabled && (
+                                        <span className="flex items-center gap-1 text-green-500/60" title={t('chatInput.webSearchActive')}>
+                                            <Globe className="w-3 h-3" />
+                                            Web
+                                        </span>
+                                    )}
+                                    {settings.memoryMapEnabled && (
+                                        <span className="flex items-center gap-1 text-purple-500/60" title={t('chatInput.memoryActive')}>
+                                            <Brain className="w-3 h-3" />
+                                            Memory
+                                        </span>
+                                    )}
+                                    {settings.systemPrompt && settings.systemPrompt !== getDefaultSettings().systemPrompt && (
+                                        <span className="flex items-center gap-1 text-gray-500" title={settings.systemPrompt.slice(0, 100)}>
+                                            <Eye className="w-3 h-3" />
+                                            {t('chatInput.customSystem')}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                            <div className="flex items-center justify-between mt-0.5 mx-1">
                                 <div className="flex items-center gap-3 text-[10px] text-gray-600">
                                     {!currentModelId && !isGenerating && messages.length > 0 ? (
                                         <p>{t('chat.noModelSuggestion')}</p>

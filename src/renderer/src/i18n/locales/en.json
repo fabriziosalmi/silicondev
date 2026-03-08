@@ -662,6 +662,13 @@
   "chatInput.atMentionHint": "Type **@filename** to reference files in your workspace.",
   "chatInput.tokenEstimateHint": "Approximate token count for this input",
   "chatInput.pastedMultiline": "Multi-line paste — press Enter again to send",
+  "chatInput.gitBranch": "Current git branch",
+  "chatInput.ragActive": "RAG knowledge base active",
+  "chatInput.webSearchActive": "Web search enabled",
+  "chatInput.memoryActive": "Memory map active",
+  "chatInput.customSystem": "Custom system prompt",
+
+  "actions.regenerate": "Regenerate response",
 
   "common.save": "Save",
   "common.cancel": "Cancel",

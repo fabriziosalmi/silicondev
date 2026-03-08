@@ -271,6 +271,12 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
             onDiffDecided={handleDiffDecided}
             onEscalationResponded={handleEscalationResponded}
             onPlanDecision={handlePlanDecision}
+            onFixError={(errorText, command) => {
+              const prompt = command
+                ? `The command \`${command}\` failed with this error:\n\n\`\`\`\n${errorText.slice(0, 2000)}\n\`\`\`\n\nAnalyze the error and fix it.`
+                : `Fix this error:\n\n\`\`\`\n${errorText.slice(0, 2000)}\n\`\`\``;
+              handleSubmit(prompt);
+            }}
           />
           {checkpoints.length > 0 && (
             <div className="border-l border-white/[0.04]">

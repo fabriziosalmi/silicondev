@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, memo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { User, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, RefreshCw, XCircle, CheckCircle2, ChevronRight, Brain, FileEdit } from 'lucide-react'
+import { User, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, RefreshCw, XCircle, CheckCircle2, ChevronRight, Brain, FileEdit, Wrench } from 'lucide-react'
 import { StreamingMarkdown } from './StreamingMarkdown'
 import { HolographicDiff } from './HolographicDiff'
 import { PlanCard } from './PlanCard'
@@ -32,6 +32,7 @@ interface MessageFeedProps {
   onDiffDecided: (callId: string, approved: boolean, reason?: string) => void
   onEscalationResponded: (escalationId: string, userMessage: string) => void
   onPlanDecision?: (sessionId: string, approved: boolean) => void
+  onFixError?: (errorText: string, command?: string) => void
 }
 
 /**
@@ -112,7 +113,7 @@ const EscalationCard = memo(function EscalationCard({
  * Collapsible tool output block — collapsed by default, shows command preview.
  * Inspired by Companion's ToolBlock pattern.
  */
-function CollapsibleToolOutput({ item }: { item: FeedItem }) {
+function CollapsibleToolOutput({ item, onFixError }: { item: FeedItem; onFixError?: (errorText: string, command?: string) => void }) {
   const command = item.toolMeta?.command || ''
   const lines = item.content.split(/\r?\n/)
   const hasMore = lines.length > 20
@@ -176,6 +177,18 @@ function CollapsibleToolOutput({ item }: { item: FeedItem }) {
               {rendered}
             </pre>
           </div>
+          {isError && onFixError && (
+            <div className="flex items-center gap-2 px-3 py-1.5 border-t border-white/[0.04]">
+              <button
+                type="button"
+                onClick={() => onFixError(item.content, command)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors"
+              >
+                <Wrench size={11} />
+                Fix this
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -340,6 +353,7 @@ const FeedItemView = memo(function FeedItemView({
   onEscalationResponded,
   onPlanDecision,
   isLastThinking,
+  onFixError,
 }: {
   item: FeedItem
   sessionId: string
@@ -347,6 +361,7 @@ const FeedItemView = memo(function FeedItemView({
   onEscalationResponded: (escalationId: string, userMessage: string) => void
   onPlanDecision?: (sessionId: string, approved: boolean) => void
   isLastThinking?: boolean
+  onFixError?: (errorText: string, command?: string) => void
 }) {
   switch (item.type) {
     case 'user': {
@@ -393,7 +408,7 @@ const FeedItemView = memo(function FeedItemView({
 
     case 'tool_output':
       return (
-        <CollapsibleToolOutput item={item} />
+        <CollapsibleToolOutput item={item} onFixError={onFixError} />
       )
 
     case 'diff_proposal':
@@ -491,9 +506,21 @@ const FeedItemView = memo(function FeedItemView({
 
     case 'error':
       return (
-        <div className="flex items-start gap-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
-          <AlertCircle size={12} className="text-red-400 shrink-0 mt-0.5" />
-          <span className="text-[11px] text-red-300 font-mono select-text">{item.content}</span>
+        <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle size={12} className="text-red-400 shrink-0 mt-0.5" />
+            <span className="text-[11px] text-red-300 font-mono select-text">{item.content}</span>
+          </div>
+          {onFixError && (
+            <button
+              type="button"
+              onClick={() => onFixError(item.content)}
+              className="flex items-center gap-1.5 mt-1.5 ml-5 px-2.5 py-1 rounded-md text-[11px] text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors"
+            >
+              <Wrench size={11} />
+              Fix this
+            </button>
+          )}
         </div>
       )
 
@@ -502,9 +529,12 @@ const FeedItemView = memo(function FeedItemView({
       const isSessionStart = item.content.startsWith('Session started')
       if (isDone) {
         return (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/5 border border-emerald-500/10 rounded-lg">
-            <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
-            <span className="text-[11px] text-emerald-400/80 font-mono">{item.content}</span>
+          <div className="px-3 py-1.5 bg-emerald-500/5 border border-emerald-500/10 rounded-lg space-y-1">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+              <span className="text-[11px] text-emerald-400/80 font-mono">{item.content}</span>
+            </div>
+            {/* Recap is rendered by MessageFeed wrapper — see TaskRecapStrip */}
           </div>
         )
       }
@@ -535,7 +565,28 @@ const FeedItemView = memo(function FeedItemView({
   }
 })
 
-export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationResponded, onPlanDecision }: MessageFeedProps) {
+/** Compact recap of what happened in the session, shown after Done. */
+function TaskRecapStrip({ items }: { items: FeedItem[] }) {
+  const commands = items.filter(i => i.type === 'tool_output' && i.toolMeta?.command).length
+  const errors = items.filter(i => i.type === 'error' || (i.type === 'tool_output' && i.toolMeta?.exitCode && i.toolMeta.exitCode !== 0)).length
+  const diffs = items.filter(i => i.type === 'diff_proposal').length
+  const files = new Set(items.filter(i => i.diffMeta?.filePath).map(i => i.diffMeta!.filePath)).size
+  const steps = items.filter(i => i.type === 'step_label').length
+
+  if (commands === 0 && diffs === 0 && steps === 0) return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 bg-white/[0.02] border border-white/[0.04] rounded-lg text-[10px] font-mono text-gray-500">
+      {steps > 0 && <span>{steps} steps</span>}
+      {commands > 0 && <span>{commands} commands</span>}
+      {diffs > 0 && <span>{diffs} changes</span>}
+      {files > 0 && <span>{files} files</span>}
+      {errors > 0 && <span className="text-red-400/70">{errors} errors</span>}
+    </div>
+  )
+}
+
+export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationResponded, onPlanDecision, onFixError }: MessageFeedProps) {
   const { t } = useTranslation()
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -559,6 +610,12 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
   onPlanDecisionRef.current = onPlanDecision
   const stablePlanDecision = useCallback((sid: string, approved: boolean) => {
     onPlanDecisionRef.current?.(sid, approved)
+  }, [])
+
+  const onFixErrorRef = useRef(onFixError)
+  onFixErrorRef.current = onFixError
+  const stableFixError = useCallback((errorText: string, command?: string) => {
+    onFixErrorRef.current?.(errorText, command)
   }, [])
 
   // Track whether user has scrolled up manually
@@ -627,8 +684,13 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
             onEscalationResponded={stableEscalationResponded}
             onPlanDecision={stablePlanDecision}
             isLastThinking={item.type === 'thinking' && idx === lastThinkingIdx}
+            onFixError={stableFixError}
           />
         ))}
+        {/* Task recap strip after session ends */}
+        {items.length > 0 && items[items.length - 1].type === 'info' && items[items.length - 1].content.startsWith('Done') && (
+          <TaskRecapStrip items={items} />
+        )}
         <div ref={bottomRef} />
       </div>
     </div>

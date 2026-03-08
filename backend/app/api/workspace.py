@@ -1,7 +1,8 @@
-"""API endpoints for the code workspace (file tree, read, save)."""
+"""API endpoints for the code workspace (file tree, read, save, git info)."""
 
 import logging
 import os
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -264,3 +265,58 @@ async def save_file(req: SaveRequest):
         raise HTTPException(status_code=500, detail=f"Cannot save file: {e}")
 
     return {"ok": True, "bytes": written}
+
+
+class GitInfoRequest(BaseModel):
+    directory: str = Field(default=".", max_length=4096)
+
+
+@router.post("/git-info")
+async def git_info(req: GitInfoRequest):
+    """Return basic git info (branch, status) for a directory."""
+    try:
+        root = _validate_path(req.directory)
+        if not root.is_dir():
+            return {"git": False}
+
+        def _git(args: list[str]) -> str:
+            result = subprocess.run(
+                ["git"] + args,
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return result.stdout.strip() if result.returncode == 0 else ""
+
+        branch = _git(["rev-parse", "--abbrev-ref", "HEAD"])
+        if not branch:
+            return {"git": False}
+
+        # Short status: count modified, staged, untracked
+        status_output = _git(["status", "--porcelain"])
+        modified = 0
+        staged = 0
+        untracked = 0
+        for line in status_output.splitlines():
+            if len(line) < 2:
+                continue
+            index_flag = line[0]
+            work_flag = line[1]
+            if index_flag == "?":
+                untracked += 1
+            elif index_flag in ("M", "A", "D", "R"):
+                staged += 1
+            elif work_flag in ("M", "D"):
+                modified += 1
+
+        return {
+            "git": True,
+            "branch": branch,
+            "modified": modified,
+            "staged": staged,
+            "untracked": untracked,
+            "clean": modified == 0 and staged == 0 and untracked == 0,
+        }
+    except Exception:
+        return {"git": False}

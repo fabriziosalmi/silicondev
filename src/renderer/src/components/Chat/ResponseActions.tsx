@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Copy, Check, Wand2, Scale, Eye, GitFork, ShieldCheck, Loader2, RefreshCcw, ChevronRight, Expand, Shrink, Briefcase, MessageCircle, GraduationCap, Languages, User, Baby, FlaskConical, Feather } from 'lucide-react'
+import { Copy, Check, Wand2, Scale, Eye, GitFork, ShieldCheck, Loader2, RefreshCcw, ChevronRight, Expand, Shrink, Briefcase, MessageCircle, GraduationCap, Languages, User, Baby, FlaskConical, Feather, RotateCcw } from 'lucide-react'
 import type { SelfAssessment } from '../../api/client'
 import { AssessmentPopover } from './AssessmentPopover'
 
@@ -47,6 +47,7 @@ export const ResponseActions = memo(function ResponseActions({
     onSelfCritique,
     selfCritiqueLoading,
     disabled,
+    onRegenerate,
 }: {
     content: string;
     idx: number;
@@ -63,6 +64,7 @@ export const ResponseActions = memo(function ResponseActions({
     onSelfCritique?: () => void;
     selfCritiqueLoading?: boolean;
     disabled?: boolean;
+    onRegenerate?: () => void;
 }) {
     const { t } = useTranslation()
     const isOn = (key: string) => enabledActions?.[key] !== false;
@@ -164,6 +166,19 @@ export const ResponseActions = memo(function ResponseActions({
                         title={t('actions.branch')}
                     >
                         <GitFork className="w-3.5 h-3.5" />
+                    </button>
+                )}
+                {/* Regenerate */}
+                {onRegenerate && (
+                    <button
+                        type="button"
+                        onClick={onRegenerate}
+                        disabled={disabled}
+                        className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/5'}`}
+                        aria-label={t('actions.regenerate')}
+                        title={t('actions.regenerate')}
+                    >
+                        <RotateCcw className="w-3.5 h-3.5" />
                     </button>
                 )}
                 <div className="w-px h-3 bg-white/10 mx-0.5" />
