@@ -1,6 +1,7 @@
 import pytest
 import os
 import json
+import numpy as np
 from app.rag.service import RagService
 
 
@@ -194,3 +195,24 @@ def test_delete_collection_cleans_up_files(rag_service, temp_text_files):
 
     rag_service.delete_collection(col["id"])
     assert not chunks_file.exists()
+
+
+def test_unified_embedder_falls_back_to_onnx_when_mlx_fails(monkeypatch):
+    from app.rag import embeddings as embeddings_module
+
+    monkeypatch.setattr(type(embeddings_module._mlx_embedder), "available", property(lambda self: True))
+    monkeypatch.setattr(type(embeddings_module._onnx_embedder), "available", property(lambda self: True))
+    monkeypatch.setattr(
+        embeddings_module._mlx_embedder,
+        "embed",
+        lambda texts, batch_size=32, is_query=False: (_ for _ in ()).throw(RuntimeError("401 unauthorized")),
+    )
+    monkeypatch.setattr(
+        embeddings_module._onnx_embedder,
+        "embed",
+        lambda texts, batch_size=32, is_query=False: np.ones((len(texts), 384), dtype=np.float32),
+    )
+
+    result = embeddings_module.embedder.embed(["hello world"])
+
+    assert result.shape == (1, 384)

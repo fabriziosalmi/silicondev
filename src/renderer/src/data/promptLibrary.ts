@@ -1,4 +1,4 @@
-export type PromptCategory = 'assistant' | 'coding' | 'writing' | 'analysis' | 'education' | 'roleplay'
+export type PromptCategory = 'assistant' | 'coding' | 'writing' | 'analysis' | 'education' | 'roleplay' | 'custom'
 
 export interface PromptTemplate {
     id: string
@@ -7,6 +7,7 @@ export interface PromptTemplate {
     category: PromptCategory
     prompt: string
     tags?: string[]
+    source?: 'built-in' | 'imported'
 }
 
 export const CATEGORY_LABELS: Record<PromptCategory, string> = {
@@ -16,6 +17,7 @@ export const CATEGORY_LABELS: Record<PromptCategory, string> = {
     analysis: 'Analysis',
     education: 'Education',
     roleplay: 'Roleplay',
+    custom: 'Custom',
 }
 
 export const CATEGORY_COLORS: Record<PromptCategory, string> = {
@@ -25,6 +27,7 @@ export const CATEGORY_COLORS: Record<PromptCategory, string> = {
     analysis: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
     education: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
     roleplay: 'text-pink-400 bg-pink-500/10 border-pink-500/20',
+    custom: 'text-amber-300 bg-amber-500/10 border-amber-500/20',
 }
 
 export const PROMPT_LIBRARY: PromptTemplate[] = [

@@ -4,10 +4,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Hide scrollbar utility (Chromium/Electron) */
-.scrollbar-none::-webkit-scrollbar { display: none; }
-.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
-
 :root {
   --sidebar-bg: rgba(40, 40, 40, 0.9);
   --window-bg: rgba(30, 30, 30, 0.5);

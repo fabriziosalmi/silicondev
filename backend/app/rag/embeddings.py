@@ -6,8 +6,8 @@ from typing import List, Optional
 logger = logging.getLogger(__name__)
 
 # Default shared model for MLX embeddings
-MLX_MODEL_REPO = "mlx-community/nomic-embed-text-v1.5-mlx"
-ONNX_MODEL_REPO = "sentence-transformers/all-MiniLM-L6-v2"
+MLX_MODEL_REPO = os.getenv("SILICONDEV_MLX_EMBEDDINGS_REPO", "mlx-community/nomic-embed-text-v1.5-mlx")
+ONNX_MODEL_REPO = os.getenv("SILICONDEV_ONNX_EMBEDDINGS_REPO", "sentence-transformers/all-MiniLM-L6-v2")
 MAX_SEQ_LEN = 512
 
 class MLXEmbedder:
@@ -42,7 +42,7 @@ class MLXEmbedder:
             self._model, self._tokenizer = load(MLX_MODEL_REPO)
             logger.info("MLX Embedding model loaded (Zero-Copy ready).")
         except Exception as e:
-            logger.error("Failed to load MLX embedder: %s. Falling back to CPU.", e)
+            logger.warning("Failed to load MLX embedder from %s: %s. Falling back to ONNX/CPU.", MLX_MODEL_REPO, e)
             self._available = False
             raise
 
@@ -184,8 +184,15 @@ class UnifiedEmbedder:
     
     def embed(self, texts: List[str], batch_size: int = 32, is_query: bool = False) -> np.ndarray:
         if _mlx_embedder.available:
-            return _mlx_embedder.embed(texts, batch_size, is_query)
-        return _onnx_embedder.embed(texts, batch_size, is_query)
+            try:
+                return _mlx_embedder.embed(texts, batch_size, is_query)
+            except Exception as exc:
+                logger.warning("MLX embedding path unavailable, retrying with ONNX fallback: %s", exc)
+
+        if _onnx_embedder.available:
+            return _onnx_embedder.embed(texts, batch_size, is_query)
+
+        raise RuntimeError("No embedding backend available")
 
     def similarity(self, query_emb: np.ndarray, chunk_embs: np.ndarray) -> np.ndarray:
         if _mlx_embedder.available:

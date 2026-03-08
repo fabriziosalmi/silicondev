@@ -144,11 +144,11 @@ export function ParametersPanel({
                                 <button
                                     type="button"
                                     onClick={() => setShowLibrary(true)}
-                                    title="Prompt Library"
+                                    title={t('promptLibrary.title')}
                                     className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-400 transition-colors"
                                 >
                                     <BookOpen size={11} />
-                                    Library
+                                    {t('promptLibrary.button')}
                                 </button>
                             </div>
                             <textarea

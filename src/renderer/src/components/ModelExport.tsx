@@ -84,8 +84,8 @@ export function ModelExport() {
             ) : adapters.length === 0 ? (
                 <Card className="p-8 text-center">
                     <Package size={32} className="mx-auto text-gray-600 mb-3" />
-                    <p className="text-sm text-gray-400">No fine-tuned models found.</p>
-                    <p className="text-xs text-gray-600 mt-1">Train a model in the Fine-Tuning Engine first, then come back here to export it.</p>
+                    <p className="text-sm text-gray-400">{t('export.noModels')}</p>
+                    <p className="text-xs text-gray-600 mt-1">{t('export.noModelsHint')}</p>
                 </Card>
             ) : (
                 <>

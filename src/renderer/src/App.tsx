@@ -419,17 +419,17 @@ function App() {
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
-                  label={t('sidebar.export')}
-                  active={activeTab === 'export'}
-                  onClick={() => setActiveTab('export')}
-                  icon={<Package size={18} />}
-                  collapsed={sidebarCollapsed}
-                />
-                <SidebarItem
                   label={t('sidebar.evaluations')}
                   active={activeTab === 'evaluations'}
                   onClick={() => setActiveTab('evaluations')}
                   icon={<TestTube size={18} />}
+                  collapsed={sidebarCollapsed}
+                />
+                <SidebarItem
+                  label={t('sidebar.export')}
+                  active={activeTab === 'export'}
+                  onClick={() => setActiveTab('export')}
+                  icon={<Package size={18} />}
                   collapsed={sidebarCollapsed}
                 />
                 <SidebarItem
