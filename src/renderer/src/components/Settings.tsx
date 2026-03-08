@@ -780,6 +780,13 @@ export function Settings() {
                             <option value="yo">Yorùbá</option>
                             <option value="th">ไทย</option>
                             <option value="vi">Tiếng Việt</option>
+                            <option value="ru">Русский</option>
+                            <option value="ko">한국어</option>
+                            <option value="tr">Türkçe</option>
+                            <option value="uk">Українська</option>
+                            <option value="bn">বাংলা</option>
+                            <option value="fa">فارسی</option>
+                            <option value="sw">Kiswahili</option>
                         </select>
                         <span className="text-[10px] text-gray-600">{t('settings.general.languageHint')}</span>
                     </div>

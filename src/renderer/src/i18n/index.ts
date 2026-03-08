@@ -16,6 +16,13 @@ import id from './locales/id.json'
 import yo from './locales/yo.json'
 import th from './locales/th.json'
 import vi from './locales/vi.json'
+import ru from './locales/ru.json'
+import ko from './locales/ko.json'
+import tr from './locales/tr.json'
+import uk from './locales/uk.json'
+import bn from './locales/bn.json'
+import fa from './locales/fa.json'
+import sw from './locales/sw.json'
 
 const LANG_KEY = 'silicon-studio-language'
 
@@ -37,6 +44,13 @@ i18n.use(initReactI18next).init({
         yo: { translation: yo },
         th: { translation: th },
         vi: { translation: vi },
+        ru: { translation: ru },
+        ko: { translation: ko },
+        tr: { translation: tr },
+        uk: { translation: uk },
+        bn: { translation: bn },
+        fa: { translation: fa },
+        sw: { translation: sw },
     },
     lng: localStorage.getItem(LANG_KEY) || 'en',
     fallbackLng: 'en',
