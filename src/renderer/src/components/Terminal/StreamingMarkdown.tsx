@@ -146,49 +146,68 @@ const MemoizedMarkdown = memo(function MemoizedMarkdown({ content }: { content: 
 })
 
 /**
-* Renders markdown with a smooth "Liquid Flow" effect.
-* Instead of jumping, it trickles characters from the buffer at a constant rate.
+* Renders markdown with a smooth trickle effect.
+* Batches characters via requestAnimationFrame and only re-parses markdown
+* at most every RENDER_INTERVAL_MS to avoid hammering ReactMarkdown.
 */
+const RENDER_INTERVAL_MS = 80 // ~12fps for markdown re-parse (plenty smooth)
+const CHARS_PER_TICK = 8
+
 export function StreamingMarkdown({ content }: { content: string }) {
   const [displayedText, setDisplayedText] = useState(content)
   const bufferRef = useRef(content)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const rafRef = useRef<number | null>(null)
+  const lastRenderRef = useRef(0)
 
-  // Update buffer when content changes
   useEffect(() => {
     bufferRef.current = content
 
-    // If we are already caught up and new content arrives, start the trickle
-    if (!intervalRef.current) {
-      intervalRef.current = setInterval(() => {
-        setDisplayedText((prev) => {
-          if (prev.length < bufferRef.current.length) {
-            // Add 1-3 chars for a more natural flow
-            const sliceSize = Math.min(3, bufferRef.current.length - prev.length)
-            return prev + bufferRef.current.slice(prev.length, prev.length + sliceSize)
-          } else {
-            // Already caught up
-            if (intervalRef.current) {
-              clearInterval(intervalRef.current)
-              intervalRef.current = null
-            }
-            return prev
-          }
-        })
-      }, 25) // Smooth 40fps trickle
+    if (rafRef.current !== null) return // already ticking
+
+    const tick = () => {
+      const now = performance.now()
+      if (now - lastRenderRef.current < RENDER_INTERVAL_MS) {
+        rafRef.current = requestAnimationFrame(tick)
+        return
+      }
+
+      setDisplayedText((prev) => {
+        const target = bufferRef.current
+        if (prev.length >= target.length) {
+          // caught up — stop the loop
+          rafRef.current = null
+          return prev
+        }
+        const sliceSize = Math.min(CHARS_PER_TICK, target.length - prev.length)
+        return prev + target.slice(prev.length, prev.length + sliceSize)
+      })
+
+      lastRenderRef.current = now
+
+      // schedule next only if we haven't stopped inside setState
+      if (rafRef.current !== null) {
+        rafRef.current = requestAnimationFrame(tick)
+      }
     }
 
+    rafRef.current = requestAnimationFrame(tick)
+
+    // always clean up: cancel raf when content changes or component unmounts
     return () => {
-      if (content.length === bufferRef.current.length && displayedText.length === content.length) {
-        // wait for next update
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
       }
     }
   }, [content])
 
-  // Cleanup on unmount
+  // On unmount, flush to final content to avoid stale display
   useEffect(() => {
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
     }
   }, [])
 

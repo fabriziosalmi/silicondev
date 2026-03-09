@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, memo, useCallback } from 'react'
+import { useState, useRef, useEffect, useMemo, memo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { User, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, RefreshCw, XCircle, CheckCircle2, ChevronRight, Brain, FileEdit, Wrench } from 'lucide-react'
 import { StreamingMarkdown } from './StreamingMarkdown'
@@ -121,14 +121,17 @@ function CollapsibleToolOutput({ item, onFixError }: { item: FeedItem; onFixErro
   const rendered = showFull || !hasMore ? item.content : lines.slice(-20).join('\n')
   const isError = item.toolMeta?.exitCode !== undefined && item.toolMeta.exitCode !== 0
   const [open, setOpen] = useState(true)
+  const errorDispatchedRef = useRef(false)
 
+  // Only dispatch error event once per tool output (not on every streaming chunk)
   useEffect(() => {
-    if (isError && command) {
+    if (isError && command && !errorDispatchedRef.current) {
+      errorDispatchedRef.current = true
       window.dispatchEvent(new CustomEvent('nanocore-terminal-error', {
         detail: { command, output: item.content, exitCode: item.toolMeta?.exitCode }
       }))
     }
-  }, [isError, command, item.content])
+  }, [isError, command])
 
   return (
     <div className="rounded-[10px] overflow-hidden border border-white/[0.06] bg-white/[0.02]">
@@ -566,25 +569,32 @@ const FeedItemView = memo(function FeedItemView({
 })
 
 /** Compact recap of what happened in the session, shown after Done. */
-function TaskRecapStrip({ items }: { items: FeedItem[] }) {
-  const commands = items.filter(i => i.type === 'tool_output' && i.toolMeta?.command).length
-  const errors = items.filter(i => i.type === 'error' || (i.type === 'tool_output' && i.toolMeta?.exitCode && i.toolMeta.exitCode !== 0)).length
-  const diffs = items.filter(i => i.type === 'diff_proposal').length
-  const files = new Set(items.filter(i => i.diffMeta?.filePath).map(i => i.diffMeta!.filePath)).size
-  const steps = items.filter(i => i.type === 'step_label').length
+const TaskRecapStrip = memo(function TaskRecapStrip({ items }: { items: FeedItem[] }) {
+  const stats = useMemo(() => {
+    let commands = 0, errors = 0, diffs = 0, steps = 0
+    const fileSet = new Set<string>()
+    for (const i of items) {
+      if (i.type === 'tool_output' && i.toolMeta?.command) commands++
+      if (i.type === 'error' || (i.type === 'tool_output' && i.toolMeta?.exitCode && i.toolMeta.exitCode !== 0)) errors++
+      if (i.type === 'diff_proposal') diffs++
+      if (i.type === 'step_label') steps++
+      if (i.diffMeta?.filePath) fileSet.add(i.diffMeta.filePath)
+    }
+    return { commands, errors, diffs, steps, files: fileSet.size }
+  }, [items])
 
-  if (commands === 0 && diffs === 0 && steps === 0) return null
+  if (stats.commands === 0 && stats.diffs === 0 && stats.steps === 0) return null
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 bg-white/[0.02] border border-white/[0.04] rounded-lg text-[10px] font-mono text-gray-500">
-      {steps > 0 && <span>{steps} steps</span>}
-      {commands > 0 && <span>{commands} commands</span>}
-      {diffs > 0 && <span>{diffs} changes</span>}
-      {files > 0 && <span>{files} files</span>}
-      {errors > 0 && <span className="text-red-400/70">{errors} errors</span>}
+      {stats.steps > 0 && <span>{stats.steps} steps</span>}
+      {stats.commands > 0 && <span>{stats.commands} commands</span>}
+      {stats.diffs > 0 && <span>{stats.diffs} changes</span>}
+      {stats.files > 0 && <span>{stats.files} files</span>}
+      {stats.errors > 0 && <span className="text-red-400/70">{stats.errors} errors</span>}
     </div>
   )
-}
+})
 
 export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationResponded, onPlanDecision, onFixError }: MessageFeedProps) {
   const { t } = useTranslation()

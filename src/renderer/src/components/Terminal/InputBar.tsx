@@ -10,11 +10,23 @@ interface InputBarProps {
   isRunning: boolean
 }
 
+const HISTORY_KEY = 'nanocore-terminal-history'
+const MAX_HISTORY = 50
+
+function loadHistory(): string[] {
+  try {
+    const raw = sessionStorage.getItem(HISTORY_KEY)
+    return raw ? (JSON.parse(raw) as string[]).slice(-MAX_HISTORY) : []
+  } catch {
+    return []
+  }
+}
+
 export function InputBar({ onSubmit, onStop, isRunning }: InputBarProps) {
   const { t } = useTranslation()
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const historyRef = useRef<string[]>([])
+  const historyRef = useRef<string[]>(loadHistory())
   const historyIndexRef = useRef(-1)
   const savedInputRef = useRef('')
 
@@ -29,9 +41,11 @@ export function InputBar({ onSubmit, onStop, isRunning }: InputBarProps) {
   const handleSubmit = useCallback(() => {
     const trimmed = value.trim()
     if (!trimmed || isRunning) return
-    // Add to history (avoid duplicating the last entry)
+    // Add to history (avoid duplicating the last entry), persist to sessionStorage
     if (historyRef.current[historyRef.current.length - 1] !== trimmed) {
       historyRef.current.push(trimmed)
+      if (historyRef.current.length > MAX_HISTORY) historyRef.current = historyRef.current.slice(-MAX_HISTORY)
+      try { sessionStorage.setItem(HISTORY_KEY, JSON.stringify(historyRef.current)) } catch { /* ignore */ }
     }
     historyIndexRef.current = -1
     savedInputRef.current = ''

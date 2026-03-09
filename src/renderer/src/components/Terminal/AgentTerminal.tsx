@@ -7,15 +7,30 @@ import { InputBar } from './InputBar'
 import type { FeedItem, SSEEvent } from './types'
 
 const STORAGE_KEY_FEED = 'nanocore-terminal-feed'
+const MAX_PERSISTED_ITEMS = 200
 
 function loadPersistedFeed(): FeedItem[] {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY_FEED)
     if (!raw) return []
-    return JSON.parse(raw) as FeedItem[]
+    const items = JSON.parse(raw) as FeedItem[]
+    return items.slice(-MAX_PERSISTED_ITEMS)
   } catch {
     return []
   }
+}
+
+function persistFeed(items: FeedItem[]) {
+  try {
+    // Trim old items + truncate large tool outputs before saving
+    const toSave = items.slice(-MAX_PERSISTED_ITEMS).map((item) => {
+      if (item.type === 'tool_output' && item.content.length > 4000) {
+        return { ...item, content: item.content.slice(-4000) }
+      }
+      return item
+    })
+    sessionStorage.setItem(STORAGE_KEY_FEED, JSON.stringify(toSave))
+  } catch { /* quota exceeded — silently skip */ }
 }
 
 export function AgentTerminal() {
@@ -28,30 +43,36 @@ export function AgentTerminal() {
   const toolOutputIdRef = useRef<string | null>(null)
   const lastCommandRef = useRef<string>('')
   const abortRef = useRef<AbortController | null>(null)
+  const mountedRef = useRef(true)
 
-  // Check backend connectivity on mount
+  // Check backend connectivity on mount + periodic health check every 30s
   useEffect(() => {
-    let cancelled = false
+    let timer: ReturnType<typeof setInterval>
     const check = async () => {
       try {
         const res = await apiClient.apiFetch(`${apiClient.API_BASE}/api/monitor/stats`, { signal: AbortSignal.timeout(5000) })
-        if (!cancelled) setBackendStatus(res.ok ? 'ok' : 'error')
+        if (mountedRef.current) setBackendStatus(res.ok ? 'ok' : 'error')
       } catch {
-        if (!cancelled) setBackendStatus('error')
+        if (mountedRef.current) setBackendStatus('error')
       }
     }
     check()
-    return () => { cancelled = true }
+    timer = setInterval(check, 30_000)
+    return () => clearInterval(timer)
   }, [])
 
-  // Abort stream on unmount
+  // Track mount state + abort stream on unmount
   useEffect(() => {
-    return () => { abortRef.current?.abort() }
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      abortRef.current?.abort()
+    }
   }, [])
 
-  // Persist feed
+  // Persist feed (trimmed + truncated)
   useEffect(() => {
-    try { sessionStorage.setItem(STORAGE_KEY_FEED, JSON.stringify(feedItems)) } catch { /* quota */ }
+    persistFeed(feedItems)
   }, [feedItems])
 
   const clearHistory = useCallback(() => {
@@ -64,7 +85,18 @@ export function AgentTerminal() {
   }, [])
 
   const updateFeedItem = useCallback((id: string, updater: (item: FeedItem) => FeedItem) => {
-    setFeedItems((prev) => prev.map((it) => (it.id === id ? updater(it) : it)))
+    setFeedItems((prev) => {
+      // Fast path: the item to update is almost always the last one
+      const last = prev[prev.length - 1]
+      if (last && last.id === id) {
+        const updated = updater(last)
+        if (updated === last) return prev
+        const next = prev.slice(0, -1)
+        next.push(updated)
+        return next
+      }
+      return prev.map((it) => (it.id === id ? updater(it) : it))
+    })
   }, [])
 
   // SSE stream consumer (bash only)
@@ -196,7 +228,7 @@ export function AgentTerminal() {
     const { url, body } = apiClient.terminal.execUrl(input)
     await consumeSSE(url, body)
 
-    setIsRunning(false)
+    if (mountedRef.current) setIsRunning(false)
     toolOutputIdRef.current = null
   }, [isRunning, addFeedItem, consumeSSE])
 
