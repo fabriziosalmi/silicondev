@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'SiliconDev',
-  description: 'Local AI development environment for Apple M Series chips',
+  description: 'Local LLM development environment for Apple Silicon',
   base: '/silicondev/',
 
   head: [
@@ -18,7 +18,7 @@ export default defineConfig({
       { text: 'API', link: '/api/overview' },
       { text: 'Development', link: '/development/setup' },
       {
-        text: 'v0.9.4',
+        text: 'v0.10.0',
         items: [
           { text: 'Changelog', link: '/changelog' },
           { text: 'GitHub', link: 'https://github.com/fabriziosalmi/silicondev' },
@@ -112,7 +112,7 @@ export default defineConfig({
 
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Based on Silicon-Studio by Riley Cleavenger. Made with ❤️ by Fabrizio Salmi.',
+      copyright: 'Based on Silicon-Studio by Riley Cleavenger.',
     },
   },
 })
