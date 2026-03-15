@@ -1,5 +1,43 @@
 # Changelog
 
+## v0.10.0
+
+### Knowledge Graph
+- SQLite-backed graph storing nodes (facts, decisions, files) and edges (relationships) extracted from conversations
+- `KnowledgeExtractor` processes conversation turns and writes to graph via LLM-based fact extraction
+- Knowledge Map panel (`Alt+Shift+K`) with force-directed graph visualization using `react-force-graph-2d`
+- API endpoints: `/api/memory/nodes`, `/api/memory/edges`
+
+### Scout Agent
+- Background worker monitors Knowledge Graph for high-activity files (>5 cross-conversation mentions)
+- Flags refactoring candidates as `recommendation` nodes in the graph
+- Non-blocking `start()` via `asyncio.create_task`, async `stop()` with task cancellation
+- Integrated into terminal SSE stream via event callback
+
+### Training Orchestrator
+- Triggers local fine-tuning via `mlx-lm` subprocess
+- Configurable: base model, dataset path, output adapter directory, epochs, batch size, learning rate
+- API endpoints: `/api/training/start`, `/api/training/status`
+
+### Command Palette
+- Keyboard-driven action launcher (`Alt+Shift+P`)
+- Tab navigation, Knowledge Map toggle, training trigger
+
+### TopBar
+- GPU utilization and VRAM usage display (Apple Silicon)
+- Scout Agent risk count indicator
+
+### Bug Fixes
+- `SupervisorAgent.__init__`: added `engine_service` parameter (was `AttributeError` on test)
+- `ScoutAgent.start()`: changed from blocking loop to background task
+- `ScoutAgent.stop()`: made async to match `await` in terminal cleanup
+- `useRef` initializers added for strict TypeScript build (`KnowledgeMap`, `useTokenEstimate`)
+- Removed unused `BookOpen` import (`ChatInterface`) and `anchorRef` parameter (`InputOverlay`)
+
+### Testing
+- 242 backend tests passing (0 failures)
+- Production build verified (DMG + ZIP)
+
 ## v0.9.4
 
 ### Coder Agent
