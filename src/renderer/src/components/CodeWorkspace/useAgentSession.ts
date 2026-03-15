@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useGlobalState } from '../../context/GlobalState'
-import { apiClient } from '../../api/client'
+import { apiClient, getAuthHeaders } from '../../api/client'
 import type { FeedItem, TelemetryData, SSEEvent, ScoutAlertMetadata, PlanStep } from '../Terminal/types'
 
 const EMPTY_TELEMETRY: TelemetryData = {
@@ -161,7 +161,7 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
     try {
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(body),
         signal: controller.signal,
       })

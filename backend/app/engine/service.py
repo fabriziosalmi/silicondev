@@ -117,6 +117,7 @@ class MLXEngineService:
         self.active_is_vision = False
         self.active_kv_cache = None        # Persistent KV Cache for prefix hits
         self.active_kv_cache_id = None     # Hash/Slug of the current prefix in cache
+        self.active_kv_bits: int | None = None  # KV quantization bits (4 or 8)
         self.loaded_models = {}
         self.stop_event = threading.Event()
         self.generation_lock = asyncio.Lock()
@@ -475,7 +476,7 @@ class MLXEngineService:
         async with self.generation_lock:
             await self._load_model_impl(model_id, **kwargs)
 
-    async def _load_model_impl(self, model_id: str):
+    async def _load_model_impl(self, model_id: str, **kwargs):
         """Internal model loading without lock (caller must hold the lock)."""
         if self.active_model_id == model_id and self.active_model and (self.active_tokenizer or self.active_processor):
             logger.info(f"Model {model_id} is already active.")
@@ -491,6 +492,7 @@ class MLXEngineService:
             self.active_model_id = None
             self.active_kv_cache = None
             self.active_kv_cache_id = None
+            self.active_kv_bits = None
             gc.collect()
             mx.metal.clear_cache()
             logger.info("VRAM cache cleared.")
@@ -602,14 +604,15 @@ class MLXEngineService:
                 self.active_is_vision = True
             else:
                 # Support KV Quantization for memory efficiency
-                load_kwargs = {}
                 if kv_quant_bits in (4, 8):
-                    logger.info(f"Enabling KV Cache Quantization: {kv_quant_bits}-bit")
-                    load_kwargs["kv_cache_quantization"] = {"bits": kv_quant_bits}
+                    logger.info(f"KV Cache Quantization enabled: {kv_quant_bits}-bit (applied at generation time)")
+                    self.active_kv_bits = kv_quant_bits
+                else:
+                    self.active_kv_bits = None
 
                 model, tokenizer = await loop.run_in_executor(
-                    None, 
-                    lambda: load(path_to_load, **load_kwargs)
+                    None,
+                    lambda: load(path_to_load)
                 )
                 self.active_model = model
                 self.active_tokenizer = tokenizer
@@ -706,6 +709,7 @@ class MLXEngineService:
                 self.active_model_id = None
                 self.active_kv_cache = None
                 self.active_kv_cache_id = None
+                self.active_kv_bits = None
                 gc.collect()
                 mx.metal.clear_cache()
                 logger.info("Model unloaded and VRAM cache cleared.")
@@ -1260,10 +1264,10 @@ class MLXEngineService:
                         # Let's try to match a reasonable prefix (e.g. first 2048 tokens or first few messages)
                         # Simpler: persistent cache across turns if the start matches.
                         
-                        from mlx_lm.utils import make_kv_cache
-                        
+                        from mlx_lm.models.cache import make_prompt_cache, trim_prompt_cache
+
                         if not self.active_kv_cache:
-                            self.active_kv_cache = make_kv_cache(model)
+                            self.active_kv_cache = make_prompt_cache(model)
                             self.active_kv_cache_id = []
 
                         # Find common prefix length
@@ -1273,24 +1277,30 @@ class MLXEngineService:
                                 common_len += 1
                             else:
                                 break
-                        
+
                         # Rewind cache to common prefix
                         if common_len < len(self.active_kv_cache_id):
-                            logger.info(f"Prefix mismatch. Rewinding cache from {len(self.active_kv_cache_id)} to {common_len}")
-                            self.active_kv_cache.offset = common_len
+                            tokens_to_trim = len(self.active_kv_cache_id) - common_len
+                            logger.info(f"Prefix mismatch. Trimming {tokens_to_trim} tokens from cache (target: {common_len})")
+                            trim_prompt_cache(self.active_kv_cache, tokens_to_trim)
                             self.active_kv_cache_id = prompt_tokens[:common_len]
                         
                         if common_len > 0:
                             logger.info(f"Prefix hit! Reusing {common_len} tokens from KV Cache.")
 
+                        gen_kwargs = {}
+                        if self.active_kv_bits in (4, 8):
+                            gen_kwargs["kv_bits"] = self.active_kv_bits
+
                         for response in stream_generate(
                             model,
                             tokenizer,
-                            prompt=prompt_tokens, # Pass tokens for offset management
+                            prompt=prompt_tokens,
                             max_tokens=max_tokens,
                             sampler=sampler,
                             logits_processors=logits_processors,
-                            kv_cache=self.active_kv_cache
+                            prompt_cache=self.active_kv_cache,
+                            **gen_kwargs
                         ):
                             if self.stop_event.is_set():
                                 break
