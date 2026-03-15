@@ -24,6 +24,8 @@ import { useConversations } from './context/ConversationContext'
 import { useNotes } from './context/NotesContext'
 // apiClient imported in GlobalState — App uses backendReady from context
 import { CodeWorkspace } from './components/CodeWorkspace/CodeWorkspace'
+import { CommandPalette } from './components/CommandPalette'
+import KnowledgeMap from './components/KnowledgeMap'
 import { Database, Cpu, MessageSquare, BarChart2, TestTube, Brain, Rocket, FileText, ChevronsLeft, ChevronsRight, Plus, ChevronDown, ChevronRight, Settings as SettingsIcon, Package, TerminalSquare, Code, BookOpen, Search, Server, Workflow } from 'lucide-react'
 
 function App() {
@@ -32,6 +34,8 @@ function App() {
   const [historyExpanded, setHistoryExpanded] = useState(false)
   const [chatSearchOpen, setChatSearchOpen] = useState(false)
   const [notesExpanded, setNotesExpanded] = useState(false)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [knowledgeMapOpen, setKnowledgeMapOpen] = useState(false)
   const { t } = useTranslation()
   const { backendReady, pendingChatInput } = useGlobalState()
   const conversations = useConversations()
@@ -77,11 +81,13 @@ function App() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // Only handle Cmd (Mac) shortcuts, ignore when typing in inputs
-      if (!e.metaKey) return;
+      const isMod = e.metaKey || e.ctrlKey;
+      const isAlt = e.altKey;
+      if (!isMod && !isAlt) return;
       const tag = (e.target as HTMLElement).tagName;
       const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable;
 
-      switch (e.key) {
+      switch (e.key.toLowerCase()) {
         case 'k': // Cmd+K — quick switch: jump to chat
           if (!isInput) {
             e.preventDefault();
@@ -111,6 +117,18 @@ function App() {
           if (!isInput) {
             e.preventDefault();
             setActiveTab('settings');
+          }
+          break;
+        case 'k': // Alt+Shift+K — knowledge map
+          if (e.altKey && e.shiftKey) {
+            e.preventDefault();
+            setKnowledgeMapOpen(true);
+          }
+          break;
+        case 'p': // Alt+Shift+P — command palette
+          if (e.altKey && e.shiftKey) {
+            e.preventDefault();
+            setCommandPaletteOpen(true);
           }
           break;
       }
@@ -529,8 +547,17 @@ function App() {
             )}
           </div>
         </div>
-
       </div>
+
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onOpenKnowledgeMap={() => setKnowledgeMapOpen(true)}
+      />
+      <KnowledgeMap
+        isOpen={knowledgeMapOpen}
+        onClose={() => setKnowledgeMapOpen(false)}
+      />
     </div>
   )
 }

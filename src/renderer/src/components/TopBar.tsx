@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useGlobalState } from '../context/GlobalState';
 import { apiClient, cleanModelName } from '../api/client';
 import type { ModelEntry } from '../api/client';
-import { DatabaseZap, LogOut, ChevronDown, Loader2, Zap, HardDrive, Search, Cpu, MemoryStick } from 'lucide-react';
+import { DatabaseZap, LogOut, ChevronDown, Loader2, Zap, HardDrive, Search, Cpu, MemoryStick, Brain } from 'lucide-react';
 
 const TOPBAR_SETTINGS_KEY = 'silicon-studio-topbar-settings';
 
@@ -146,6 +146,12 @@ export function TopBar() {
                         <span className="text-[9px] font-medium text-amber-400">{t('topbar.starting')}</span>
                     </div>
                 )}
+                {backendReady && systemStats && (systemStats.scout_recommendations || 0) > 0 && (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/15">
+                        <Brain size={9} className="text-amber-400" />
+                        <span className="text-[9px] font-medium text-amber-400">Scout: {systemStats.scout_recommendations} Risks</span>
+                    </div>
+                )}
             </div>
 
             {/* Right: Model + System stats */}
@@ -262,6 +268,14 @@ export function TopBar() {
                             thresholds={thresholds}
                             detail={`CPU: ${systemStats.cpu.percent.toFixed(0)}% (${systemStats.cpu.cores} cores)`}
                         />
+                        {systemStats.gpu && systemStats.gpu.available && (
+                            <StatGroup
+                                icon={<Zap size={10} className="text-amber-400" />}
+                                percent={systemStats.gpu.utilization || 0}
+                                thresholds={thresholds}
+                                detail={`GPU: ${systemStats.gpu.utilization}% - VRAM: ${((systemStats.gpu.memory_in_use || 0) / (1024 * 1024 * 1024)).toFixed(1)}GB`}
+                            />
+                        )}
                         <StatGroup
                             icon={<MemoryStick size={10} className="text-gray-600" />}
                             percent={systemStats.memory.percent}

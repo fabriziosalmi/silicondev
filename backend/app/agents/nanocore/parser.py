@@ -9,11 +9,13 @@ class ParsedToolCall:
     name: str
     args: dict = field(default_factory=dict)
     raw: str = ""
+    sandbox_level: int = 0
+    dry_run: bool = False
 
 
-# Match a complete <tool name="...">...</tool> block
+# Match a complete <tool name="...">...</tool> block with optional attributes
 _TOOL_RE = re.compile(
-    r'<tool\s+name="([^"]+)">(.*?)</tool>',
+    r'<tool\s+name="([^"]+)"(?:\s+sandbox="(\d+)")?(?:\s+dry_run="(true|false)")?>(.*?)</tool>',
     re.DOTALL,
 )
 
@@ -87,13 +89,33 @@ def extract_tool_calls(text: str) -> list[ParsedToolCall]:
     results = []
     for match in _TOOL_RE.finditer(text):
         tool_name = match.group(1)
-        body = match.group(2)
+        
+        # Extract attributes
+        sandbox_lvl = 0
+        if match.group(2):
+            try:
+                sandbox_lvl = int(match.group(2))
+            except ValueError:
+                pass
+        
+        is_dry_run = False
+        if match.group(3) == "true":
+            is_dry_run = True
+            
+        body = match.group(4)
         args = {}
         for arg_match in _ARG_RE.finditer(body):
             arg_name = arg_match.group(1)
             arg_value = _unescape_arg(arg_match.group(2).strip())
             args[arg_name] = arg_value
-        results.append(ParsedToolCall(name=tool_name, args=args, raw=match.group(0)))
+            
+        results.append(ParsedToolCall(
+            name=tool_name, 
+            args=args, 
+            raw=match.group(0),
+            sandbox_level=sandbox_lvl,
+            dry_run=is_dry_run
+        ))
     return results
 
 

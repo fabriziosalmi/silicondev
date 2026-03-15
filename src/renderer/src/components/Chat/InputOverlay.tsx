@@ -102,7 +102,7 @@ export function detectTrigger(input: string, cursorPos: number): OverlayTrigger 
 
 // ── Component ──
 
-export function InputOverlay({ input, cursorPosition, visible, onSelect, onClose, files, anchorRef }: InputOverlayProps) {
+export function InputOverlay({ input, cursorPosition, visible, onSelect, onClose, files }: InputOverlayProps) {
     const { t } = useTranslation()
     const [selectedIndex, setSelectedIndex] = useState(0)
     const listRef = useRef<HTMLDivElement>(null)

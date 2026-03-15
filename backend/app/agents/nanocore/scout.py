@@ -1,114 +1,85 @@
-"""Scout Agent — background task for ongoing codebase health monitoring."""
-
 import asyncio
 import logging
 import time
-from pathlib import Path
 from typing import List, Dict, Any
-
-from .tools import check_broken_imports
-from .validators import run_lint_check, scan_security
+from app.memory.service import memory_graph
 
 logger = logging.getLogger(__name__)
 
 class ScoutAgent:
-    """Background agent that periodically scans the workspace for issues."""
+    """Background worker that proactively monitors the Knowledge Graph for project risks and opportunities."""
     
-    def __init__(self, workspace_dir: str = None):
-        self.workspace_dir = Path(workspace_dir or ".").resolve()
-        self.active = False
-        self._task = None
-        self._last_scan = 0
-        self._interval = 60  # seconds between background scans
-        self._results = []
+    def __init__(self, workspace_path: str):
+        self.workspace_path = workspace_path
+        self._stop_event = asyncio.Event()
+        self.interval = 300  # Scan every 5 minutes
 
-    async def start(self, emitter):
-        """Start the background scout task."""
-        if self.active:
-            return
-        self.active = True
-        self._task = asyncio.create_task(self._run_loop(emitter))
-        logger.info(f"Scout Agent started for {self.workspace_dir}")
+    async def start(self, on_event=None):
+        """Starts the background monitoring loop in a background task."""
+        self.on_event = on_event
+        self._task = asyncio.create_task(self._run_loop())
+        logger.info("Scout Agent active: Monitoring project health...")
+
+    async def _run_loop(self):
+        while not self._stop_event.is_set():
+            try:
+                await self.perform_reconnaissance()
+            except Exception as e:
+                logger.error(f"Scout Agent error during reconnaissance: {e}")
+            
+            try:
+                # Use wait for stop event or timeout
+                await asyncio.wait_for(self._stop_event.wait(), timeout=self.interval)
+            except asyncio.TimeoutError:
+                continue
 
     async def stop(self):
-        """Stop the background scout task."""
-        self.active = False
-        if self._task:
+        self._stop_event.set()
+        if hasattr(self, '_task') and self._task:
             self._task.cancel()
             try:
                 await self._task
-            except asyncio.CancelledError:
+            except (asyncio.CancelledError, Exception):
                 pass
-        logger.info("Scout Agent stopped")
 
-    async def _run_loop(self, emitter):
-        """Periodic scan loop."""
-        while self.active:
-            try:
-                # 1. Wait for interval (start with a delay so we don't spike on session start)
-                await asyncio.sleep(self._interval)
-                if not self.active: break
+    async def perform_reconnaissance(self):
+        """Analyzes the graph to find 'Hot-Spots' or 'Code Smells'."""
+        nodes = memory_graph.get_all_nodes()
+        edges = memory_graph.get_all_edges()
 
-                logger.info("Scout Agent performing background scan...")
-                start_time = time.time()
-                
-                # 2. Efficient file discovery (prefer git if target is a repo)
-                all_files = []
-                try:
-                    proc = await asyncio.create_subprocess_exec(
-                        "git", "ls-files", cwd=str(self.workspace_dir),
-                        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-                    )
-                    stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
-                    if proc.returncode == 0:
-                        all_files = [self.workspace_dir / f for f in stdout.decode().splitlines() if f.endswith(".py")]
-                except Exception:
-                    pass
+        # 1. Identify "Hot-Spots": Files modified across many conversations
+        file_activity = {}
+        for edge in edges:
+            if edge["relation"] == "contains":
+                # Find the target node (which should be a file/node extracted from conversation)
+                target_id = edge["target"]
+                file_activity[target_id] = file_activity.get(target_id, 0) + 1
 
-                if not all_files:
-                    # Fallback to limited glob if not a git repo
-                    def _discover_files():
-                        try:
-                            return list(self.workspace_dir.glob("*.py")) + list((self.workspace_dir / "app").glob("**/*.py"))
-                        except Exception:
-                            return []
-                    all_files = await asyncio.to_thread(_discover_files)
-                
-                # 3. Sample files to avoid CPU bomb (max 20 files per scan)
-                if all_files:
-                    import random
-                    target_files = random.sample(all_files, min(len(all_files), 20))
-                else:
-                    target_files = []
-                
-                issues = []
-                for fpath in target_files:
-                    if not fpath.exists(): continue
-                    # Broken imports / Syntax check
-                    err = await check_broken_imports(str(fpath))
-                    if err:
-                        issues.append({
-                            "file": str(fpath.relative_to(self.workspace_dir)),
-                            "type": "error",
-                            "message": err
-                        })
-                
-                # 4. Emit alerts if issues found
-                if issues:
-                    logger.info(f"Scout found {len(issues)} issues")
-                    await emitter({
-                        "event": "scout_alert",
+        # 2. Flag nodes with high activity (e.g., > 5 mentions in different contexts)
+        for node_id, count in file_activity.items():
+            if count > 5:
+                # Add a "Risk/Recommendation" node to the graph
+                recommendation = f"File '{node_id}' is a high-activity hotspot (>5 mentions). Suggest refactoring to decouple logic."
+                memory_graph.add_node(
+                    node_id=f"scout_rec_{int(time.time())}_{node_id}",
+                    node_type="recommendation",
+                    label="Refactoring Opportunity",
+                    content=recommendation,
+                    metadata={"target_node": node_id, "activity_count": count}
+                )
+                if self.on_event:
+                    await self.on_event({
+                        "event": "scout_recommendation",
                         "data": {
-                            "timestamp": time.time(),
-                            "issues": issues
+                            "type": "hotspot",
+                            "target": node_id,
+                            "message": recommendation
                         }
                     })
-                
-                self._last_scan = time.time()
-                logger.debug(f"Scout scan complete in {self._last_scan - start_time:.1f}s")
-                
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Scout Agent loop error: {e}")
-                await asyncio.sleep(60)
+                logger.info(f"Scout Agent: Flagged {node_id} as refactoring candidate.")
+
+        # 3. Handle specific project rules or known bug patterns
+        # (This can be expanded with real AST scanning in the future)
+        pass
+
+# The ScoutAgent is typically started by the main engine service or supervisor

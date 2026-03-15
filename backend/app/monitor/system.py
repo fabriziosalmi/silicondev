@@ -22,7 +22,15 @@ class SystemMonitor:
         cpu_percent = psutil.cpu_percent(interval=None)
 
         gpu = SystemMonitor._get_gpu_stats()
-
+        
+        # Phase 5: Scout recommendations count
+        try:
+            from app.memory.service import memory_graph
+            nodes = memory_graph.get_all_nodes()
+            rec_count = len([n for n in nodes if n["type"] == "recommendation"])
+        except Exception:
+            rec_count = 0
+            
         return {
             "memory": {
                 "total": mem.total,
@@ -41,6 +49,7 @@ class SystemMonitor:
                 "cores": psutil.cpu_count(logical=True),
             },
             "gpu": gpu,
+            "scout_recommendations": rec_count,
             "platform": {
                 "system": platform.system(),
                 "processor": platform.processor(),

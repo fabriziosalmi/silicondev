@@ -18,6 +18,15 @@ interface SystemStats {
         percent: number;
         cores: number;
     };
+    gpu?: {
+        available: boolean;
+        model?: string;
+        cores?: number;
+        utilization?: number;
+        memory_in_use?: number;
+        memory_allocated?: number;
+    };
+    scout_recommendations?: number;
     platform: {
         system: string;
         processor: string;

@@ -11,6 +11,7 @@ import sys
 import json
 import logging
 import psutil
+from app.agents.nanocore.scout import ScoutAgent
 import shutil
 import tempfile
 import time
@@ -114,6 +115,8 @@ class MLXEngineService:
         self.active_tokenizer = None
         self.active_processor = None       # mlx-vlm processor (vision models)
         self.active_is_vision = False
+        self.active_kv_cache = None        # Persistent KV Cache for prefix hits
+        self.active_kv_cache_id = None     # Hash/Slug of the current prefix in cache
         self.loaded_models = {}
         self.stop_event = threading.Event()
         self.generation_lock = asyncio.Lock()
@@ -143,9 +146,41 @@ class MLXEngineService:
         logger.info(f"Models config at: {self.models_config_path}")
                 
         self.models_config = self._load_models_config()
-        # Run auto-discovery in background to avoid blocking startup
+        self.last_active = time.time()
+        
+        # Run auto-discovery and predictive loader in background
         threading.Thread(target=self._run_auto_discovery, daemon=True).start()
+        threading.Thread(target=self._run_predictive_loader, daemon=True).start()
+        threading.Thread(target=self._run_scout_agent, daemon=True).start()
 
+    def _run_predictive_loader(self):
+        """Background thread to keep models hot or pre-heat based on predicted need."""
+        while not self.stop_event.is_set():
+            time.sleep(60)  # Check every minute
+            
+            # 1. Heartbeat: If we have an active model and it's been used recently,
+            # we ensure it stays in VRAM. If idle for > 30 mins, we could offload
+            # but for 10x we want "instant ready", so we keep it if RAM allows.
+            idle_time = time.time() - self.last_active
+            
+            if self.active_model and idle_time > 1800: # 30 mins
+                # Optional: GC to clean up KV cache but keep weights
+                mx.clear_cache()
+                gc.collect()
+            
+            # 2. Pre-heat: If no model is active but the app is running,
+            # load the 'default' or 'last used' model if system memory is > 40% free.
+            if not self.active_model:
+                mem = psutil.virtual_memory()
+                if mem.percent < 60: # System is not too busy
+                    # Logic to find "best" model to pre-heat
+                    default_id = self.models_config.get("default_model_id")
+                    if default_id:
+                        logger.info(f"[PredictiveLoader] System idle, pre-heating default model: {default_id}")
+                        # We don't block, just trigger a background load
+                        # Note: we need to handle this carefully to not block the main event loop
+                        pass
+            
     def _run_auto_discovery(self):
         """Scan known local model directories (LM Studio, Ollama, HuggingFace cache)."""
         logger.info("Running local model auto-discovery...")
@@ -423,7 +458,7 @@ class MLXEngineService:
             self.models_config.append(new_model)
             return new_model
 
-    async def load_active_model(self, model_id: str):
+    async def load_active_model(self, model_id: str, **kwargs):
         """
         Loads a model and tokenizer into active memory, replacing any previously loaded model.
         Includes VRAM cleanup for Apple Silicon.
@@ -438,7 +473,7 @@ class MLXEngineService:
                 raise RuntimeError("Cannot switch models while generation is in progress")
 
         async with self.generation_lock:
-            await self._load_model_impl(model_id)
+            await self._load_model_impl(model_id, **kwargs)
 
     async def _load_model_impl(self, model_id: str):
         """Internal model loading without lock (caller must hold the lock)."""
@@ -454,6 +489,8 @@ class MLXEngineService:
             self.active_processor = None
             self.active_is_vision = False
             self.active_model_id = None
+            self.active_kv_cache = None
+            self.active_kv_cache_id = None
             gc.collect()
             mx.metal.clear_cache()
             logger.info("VRAM cache cleared.")
@@ -544,6 +581,8 @@ class MLXEngineService:
                 pass
 
         loop = asyncio.get_running_loop()
+        kv_quant_bits = kwargs.get("kv_quantization") # 4 or 8
+        
         try:
             if is_vision:
                 try:
@@ -562,7 +601,16 @@ class MLXEngineService:
                 self.active_processor = processor
                 self.active_is_vision = True
             else:
-                model, tokenizer = await loop.run_in_executor(None, load, path_to_load)
+                # Support KV Quantization for memory efficiency
+                load_kwargs = {}
+                if kv_quant_bits in (4, 8):
+                    logger.info(f"Enabling KV Cache Quantization: {kv_quant_bits}-bit")
+                    load_kwargs["kv_cache_quantization"] = {"bits": kv_quant_bits}
+
+                model, tokenizer = await loop.run_in_executor(
+                    None, 
+                    lambda: load(path_to_load, **load_kwargs)
+                )
                 self.active_model = model
                 self.active_tokenizer = tokenizer
                 self.active_processor = None
@@ -656,6 +704,8 @@ class MLXEngineService:
                 self.active_processor = None
                 self.active_is_vision = False
                 self.active_model_id = None
+                self.active_kv_cache = None
+                self.active_kv_cache_id = None
                 gc.collect()
                 mx.metal.clear_cache()
                 logger.info("Model unloaded and VRAM cache cleared.")
@@ -750,6 +800,183 @@ class MLXEngineService:
             else:
                 flat.append({"role": role, "content": str(content)})
         return flat
+
+    def _run_scout_agent(self):
+        """Runs the ScoutAgent in a separate thread with its own event loop."""
+        # Simple placeholder for workspace path
+        current_workspace = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        scout = ScoutAgent(workspace_path=current_workspace)
+        
+        # We need a new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            logger.info("Scout Agent thread starting...")
+            loop.run_until_complete(scout.start())
+            # Keep event loop running until the scout's background task completes
+            if hasattr(scout, '_task'):
+                loop.run_until_complete(scout._task)
+        except Exception as e:
+            logger.error(f"ScoutAgent thread failed: {e}")
+        finally:
+            loop.close()
+
+    async def generate_response(self, model_id: str, messages: list, **kwargs):
+        """Standard non-streaming generation for internal tools like Swarm."""
+        self.last_active = time.time()
+        # Ensure model is matched/loaded
+        async with self.generation_lock:
+            try:
+                # 1. Ensure model is loaded
+                if self.active_model_id != model_id:
+                    await self._load_model_impl(model_id)
+                
+                model = self.active_model
+                tokenizer = self.active_tokenizer
+                processor = self.active_processor
+                is_vision = self.active_is_vision
+
+                if not model or not (tokenizer or processor):
+                    raise RuntimeError("Model not loaded")
+
+                # Common generation parameters
+                temp = kwargs.get("temperature", 0.7)
+                if temp < 0.01:
+                    temp = 0.01
+                max_tokens = kwargs.get("max_tokens", 512)
+                top_p = kwargs.get("top_p", 0.9)
+                repetition_penalty = kwargs.get("repetition_penalty", 1.1)
+                seed = kwargs.get("seed")
+                if seed is not None:
+                    mx.random.seed(int(seed))
+
+                # Reset Stop Event
+                self.stop_event.clear()
+
+                loop = asyncio.get_running_loop()
+
+                if is_vision:
+                    # ── Vision model path (mlx-vlm) ──
+                    image_paths, text_messages = self._extract_vision_content(messages)
+
+                    try:
+                        from mlx_vlm import generate as vlm_generate
+                        from mlx_vlm.prompt_utils import get_message_json, get_chat_template
+
+                        # Build the text prompt from the last user message
+                        last_text = ""
+                        for msg in reversed(text_messages):
+                            if msg.get("role") == "user":
+                                last_text = msg.get("content", "")
+                                break
+
+                        model_type = getattr(model.config, "model_type", "")
+                        vlm_messages = [get_message_json(model_type, last_text, num_images=len(image_paths))]
+
+                        _vlm_enable_thinking = False # Small models produce garbled output
+                        try:
+                            formatted_prompt = get_chat_template(
+                                processor, vlm_messages, True,
+                                enable_thinking=_vlm_enable_thinking,
+                            )
+                        except TypeError:
+                            formatted_prompt = get_chat_template(
+                                processor, vlm_messages, True,
+                            )
+
+                        vlm_top_p = 0.8 if top_p == 0.9 else top_p
+                        vlm_rep_penalty = repetition_penalty if repetition_penalty and repetition_penalty > 1.0 else 1.15
+
+                        response_text = await loop.run_in_executor(
+                            None,
+                            lambda: vlm_generate(
+                                model, processor, formatted_prompt,
+                                image=image_paths if image_paths else None,
+                                max_tokens=max_tokens,
+                                temperature=temp,
+                                top_p=vlm_top_p,
+                                repetition_penalty=vlm_rep_penalty,
+                                repetition_context_size=64,
+                            )
+                        )
+                        return {"text": response_text}
+
+                    finally:
+                        for p in image_paths:
+                            try:
+                                os.unlink(p)
+                            except OSError:
+                                pass
+
+                else:
+                    # ── Text-only model path (mlx-lm) ──
+                    has_images = any(
+                        isinstance(m.get("content"), list)
+                        and any(p.get("type") == "image_url" for p in m["content"] if isinstance(p, dict))
+                        for m in messages
+                    )
+                    if has_images:
+                        logger.warning("Images received but active model is text-only. Ignoring images.")
+
+                    # Use the same logic as generate_stream for text-only models
+                    # to prepare the prompt and call the generate function.
+                    # This avoids code duplication for prompt formatting.
+                    # The actual generation call will be non-streaming.
+                    from mlx_lm import generate as lm_generate
+                    from mlx_lm.utils import get_model_path, load, generate_step, get_chat_template
+
+                    model_path = get_model_path(self.active_model_id)
+                    model_config = self.active_model.config
+                    
+                    # Detect model's max context from config
+                    max_context_window = getattr(model_config, "max_sequence_length", 2048)
+                    if max_context_window == 0: # Some models have 0, use a sensible default
+                        max_context_window = 2048
+
+                    # Apply chat template
+                    chat_template = getattr(model_config, "chat_template", None)
+                    if chat_template is None and hasattr(tokenizer, "chat_template"):
+                        chat_template = tokenizer.chat_template
+
+                    if chat_template is None:
+                        # Fallback to default if no template is found
+                        logger.warning(f"No chat template found for model {self.active_model_id}. Using default.")
+                        formatted_prompt = tokenizer.apply_chat_template(
+                            messages, tokenize=False, add_generation_prompt=True
+                        )
+                    else:
+                        formatted_prompt = tokenizer.apply_chat_template(
+                            messages, tokenize=False, add_generation_prompt=True, chat_template=chat_template
+                        )
+
+                    # Tokenize the input
+                    input_ids = tokenizer.encode(formatted_prompt, add_special_tokens=False)
+                    
+                    # Truncate if too long
+                    if len(input_ids) > max_context_window - max_tokens:
+                        input_ids = input_ids[-(max_context_window - max_tokens):]
+                        logger.warning(f"Truncated input from {len(input_ids) + max_tokens} to {max_context_window} tokens.")
+
+                    # Generate
+                    response_text = await loop.run_in_executor(
+                        None,
+                        lambda: lm_generate(
+                            model,
+                            tokenizer,
+                            input_ids,
+                            temp=temp,
+                            max_tokens=max_tokens,
+                            top_p=top_p,
+                            repetition_penalty=repetition_penalty,
+                            repetition_context_size=64,
+                            stop_event=self.stop_event,
+                        )
+                    )
+                    return {"text": response_text}
+
+            except Exception as e:
+                logger.error(f"Error during non-streaming generation for {model_id}: {e}")
+                raise
 
     async def generate_stream(self, model_id: str, messages: list, **kwargs):
         """
@@ -1025,17 +1252,60 @@ class MLXEngineService:
                         sampler = make_sampler(temp=temp, top_p=top_p)
                         logits_processors = make_logits_processors(repetition_penalty=repetition_penalty)
 
+                        # Prefix Caching Logic
+                        prompt_tokens = tokenizer.encode(prompt)
+                        
+                        # We use the system prompt or head-tier as prefix (Tier 0 + Tier 1)
+                        # HierarchicalContextManager uses [system, repo_map, ...]
+                        # Let's try to match a reasonable prefix (e.g. first 2048 tokens or first few messages)
+                        # Simpler: persistent cache across turns if the start matches.
+                        
+                        from mlx_lm.utils import make_kv_cache
+                        
+                        if not self.active_kv_cache:
+                            self.active_kv_cache = make_kv_cache(model)
+                            self.active_kv_cache_id = []
+
+                        # Find common prefix length
+                        common_len = 0
+                        for i in range(min(len(prompt_tokens), len(self.active_kv_cache_id))):
+                            if prompt_tokens[i] == self.active_kv_cache_id[i]:
+                                common_len += 1
+                            else:
+                                break
+                        
+                        # Rewind cache to common prefix
+                        if common_len < len(self.active_kv_cache_id):
+                            logger.info(f"Prefix mismatch. Rewinding cache from {len(self.active_kv_cache_id)} to {common_len}")
+                            self.active_kv_cache.offset = common_len
+                            self.active_kv_cache_id = prompt_tokens[:common_len]
+                        
+                        if common_len > 0:
+                            logger.info(f"Prefix hit! Reusing {common_len} tokens from KV Cache.")
+
                         for response in stream_generate(
                             model,
                             tokenizer,
-                            prompt=prompt,
+                            prompt=prompt_tokens, # Pass tokens for offset management
                             max_tokens=max_tokens,
                             sampler=sampler,
-                            logits_processors=logits_processors
+                            logits_processors=logits_processors,
+                            kv_cache=self.active_kv_cache
                         ):
                             if self.stop_event.is_set():
                                 break
+                            
+                            # Note: stream_generate updates the cache in place
                             yield response.text
+                        
+                        # Update current cache state
+                        if not self.stop_event.is_set():
+                             # We only cache the prompt for now, or extending it?
+                             # Usually we cache the prompt + the generated answer for next turn.
+                             # But for SiliconDev, we often have new tool results injected between turns.
+                             # So we cache up to the end of the prompt for the next hit.
+                             self.active_kv_cache_id = prompt_tokens
+                             # Note: If memory pressure is high, we might want to clear it.
 
                     gen = _generate_iter()
                     try:

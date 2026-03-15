@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from 'react'
  */
 export function useTokenEstimate(text: string, debounceMs = 150) {
     const [tokens, setTokens] = useState(0)
-    const timerRef = useRef<ReturnType<typeof setTimeout>>()
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     useEffect(() => {
         if (timerRef.current) clearTimeout(timerRef.current)

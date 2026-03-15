@@ -135,14 +135,15 @@ async def scan_models(request: ScanRequest):
 
 class LoadModelRequest(BaseModel):
     model_id: str = Field(min_length=1, max_length=255)
+    kv_quantization: Optional[int] = Field(default=None, ge=4, le=8)
 
 @router.post("/models/load")
 async def load_model(request: LoadModelRequest):
     """Load a model into active memory (Apple Silicon unified memory)."""
     try:
         t0 = time.time()
-        logger.info(f"Model load started: {request.model_id}")
-        await service.load_active_model(request.model_id)
+        logger.info(f"Model load started: {request.model_id} (KV Quant: {request.kv_quantization})")
+        await service.load_active_model(request.model_id, kv_quantization=request.kv_quantization)
         metadata = service.get_active_model_metadata()
         logger.info(f"Model loaded in {time.time() - t0:.1f}s: {request.model_id}")
         return {"status": "loaded", "model_id": request.model_id, **metadata}

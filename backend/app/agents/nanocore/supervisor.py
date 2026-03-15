@@ -1,6 +1,7 @@
 """Supervisor agent — orchestrates the tool-use loop and yields SSE events."""
 
 import asyncio
+import sqlite3
 import logging
 import os
 import re
@@ -21,9 +22,12 @@ from .tools import (
     check_broken_imports, generate_codemap
 )
 from .swarm import MapReduceSwarm
+from app.memory.extractor import KnowledgeExtractor
+from app.memory.service import memory_graph
 from .validators import validate_content, detect_lazy_edit, run_lint_check, scan_security, scan_performance
+from .dataset_engine import dataset_engine
 from .guardrails import LoopGuardrails
-from .context import ContextManager, count_tokens
+from .context import HierarchicalContextManager, count_tokens
 from .repomap import RepoMapCache
 from .process_manager import ProcessManager
 
@@ -117,6 +121,7 @@ class SupervisorAgent:
         enable_moa: bool = True,
         air_gapped_mode: bool = False,
         enable_python_sandbox: bool = False,
+        engine_service = None,
     ):
         self.session_id = session_id
         self.model_id = model_id
@@ -135,6 +140,8 @@ class SupervisorAgent:
         self._pending_escalations: dict[str, dict] = {}  # esc_id -> {event, user_message}
         self._trajectory: list[TrajectoryEntry] = []
         self._total_tokens = 0
+        self.engine_service = engine_service
+        self.extractor = KnowledgeExtractor(engine_service=self.engine_service)
         self._start_time = 0.0
 
         # Edit history for undo/rollback (list of {file_path, old_content, new_content, timestamp, tool})
@@ -149,7 +156,7 @@ class SupervisorAgent:
         # Fix 2: guardrails
         self.guardrails = LoopGuardrails(max_total_tokens=max_total_tokens)
         # Context manager — scale to model's context window (default 16K)
-        self._context_mgr = ContextManager(max_context_tokens=16000)
+        self._context_mgr = HierarchicalContextManager(max_context_tokens=16000)
         # Fix 3: process manager
         self.process_manager = ProcessManager()
 
@@ -421,6 +428,30 @@ class SupervisorAgent:
         repo_map = repo_map_cache.get()
         base_prompt = REVIEW_MODE_PROMPT if effective_mode == "review" else SYSTEM_PROMPT
         
+        # --- Commandment 21: Semantic Memory Lookup ---
+        memory_context = ""
+        try:
+            # Simple keyword extraction for graph query
+            keywords = [w for w in prompt.lower().split() if len(re.sub(r'[^a-zA-Z0-9]', '', w)) > 4][:5]
+            related_info = []
+            for kw in keywords:
+                with sqlite3.connect(memory_graph.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    # Query nodes by label or content match
+                    cursor.execute(
+                        "SELECT type, label, content FROM nodes WHERE label LIKE ? OR content LIKE ? LIMIT 2",
+                        (f"%{kw}%", f"%{kw}%")
+                    )
+                    for row in cursor.fetchall():
+                        related_info.append(f"- [{row['type'].upper()}] {row['label']}: {row['content'][:300]}")
+            
+            if related_info:
+                memory_context = "\n## Global Semantic Memory (Historical Context)\n" + "\n".join(set(related_info))
+                logger.info(f"Memory lookup found {len(related_info)} entries for keywords: {keywords}")
+        except Exception as e:
+            logger.debug(f"Memory lookup skip: {e}")
+
         # --- Commandment 14: Linter Injection ---
         linter_addition = ""
         if active_file_path and os.path.exists(active_file_path):
@@ -775,21 +806,45 @@ class SupervisorAgent:
                             yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
                             tool_results.append(f"[bash background] Failed: {e}")
                     else:
-                        yield _sse("tool_start", {"tool": "run_bash", "args": {"command": command}, "call_id": call_id})
+                        # Handle dry-run mode (Level 1 Isolation)
+                        if tc.dry_run:
+                            yield _sse("info", {"content": "Dry-run mode: simulating command execution..."})
+                            yield _sse("tool_start", {"tool": "run_bash", "args": {"command": command, "dry_run": True}, "call_id": call_id})
+                            yield _sse("tool_log", {"call_id": call_id, "stream": "stdout", "text": f"[Dry-Run] Command: {command}\nStatus: Scaled to read-only simulation."})
+                            yield _sse("tool_done", {"call_id": call_id, "exit_code": 0})
+                            tool_results.append(f"[bash dry-run] Dry-run successful for: {command}")
+                            # Skip further processing for dry-run
+                            continue
+                        else:
+                            # Level 2 or Level 0 execution
+                            yield _sse("tool_start", {"tool": "run_bash", "args": {"command": command}, "call_id": call_id})
 
-                        output_lines = []
-                        exit_code = 0
-                        async for stream, text in run_bash(command):
-                            if stream == "exit_code":
-                                exit_code = int(text)
-                                continue
-                            yield _sse("tool_log", {"call_id": call_id, "stream": stream, "text": text})
-                            output_lines.append(text)
+                            output_lines = []
+                            exit_code = 0
+                            async for stream, text in run_bash(
+                                command,
+                                sandbox_level=tc.sandbox_level
+                            ):
+                                if stream == "exit_code":
+                                    exit_code = int(text)
+                                    continue
+                                yield _sse("tool_log", {"call_id": call_id, "stream": stream, "text": text})
+                                output_lines.append(text)
 
-                        yield _sse("tool_done", {"call_id": call_id, "exit_code": exit_code})
+                            yield _sse("tool_done", {"call_id": call_id, "exit_code": exit_code})
 
-                        raw_output = "".join(output_lines)
-                        tool_results.append(f"[bash output]\n{_truncate(raw_output)}")
+                            raw_output = "".join(output_lines)
+                            tool_results.append(f"[bash output]\n{_truncate(raw_output)}")
+
+                            # --- Dataset Engine Integration (SiliconDev Moat) ---
+                            if exit_code == 0:
+                                # Capture winning interaction: user turn + assistant thought + tool result
+                                win_messages = [
+                                    {"role": "user", "content": prompt},
+                                    {"role": "assistant", "content": cleaned},
+                                    {"role": "user", "content": f"Tool output: {raw_output[:1000]}"}
+                                ]
+                                dataset_engine.log_interaction(win_messages, metadata={"tool": "bash", "iteration": iteration})
 
                         # --- Self-Healing Loop ---
                         if exit_code != 0:
@@ -810,6 +865,17 @@ class SupervisorAgent:
                                     f"Analyze the error output above, fix the source code that caused the failure, "
                                     f"then re-run the same command to verify your fix."
                                 )
+                                
+                                # --- Intelligent Router Enhancement ---
+                                if attempt == MAX_AUTO_RETRIES:
+                                    yield _sse("info", {"content": "🔥 Intelligent Router: persistent failure detected. Escalating to MoA Swarm Experts..."})
+                                    try:
+                                        swarm = MapReduceSwarm(self.model_id)
+                                        topic = f"Fixing persistent failure for command: {command}\nError: {raw_output[-500:]}"
+                                        swarm_result = await swarm.run_swarm(topic=topic, context=f"Context: {command}")
+                                        tool_results.append(f"\n[INTELLIGENT ROUTER] Swarm Expert Consensus:\n{swarm_result}")
+                                    except Exception as e:
+                                        logger.warning(f"Swarm escalation failed: {e}")
                             else:
                                 yield _sse("auto_retry", {
                                     "attempt": attempt,
@@ -820,6 +886,11 @@ class SupervisorAgent:
                                 tool_results.append(
                                     f"[SELF-HEAL] Failed {attempt} times. Stop retrying. "
                                     f"Summarize the root cause and what you tried."
+                                )
+                                # Log for DPO: User Prompt + Fails
+                                dataset_engine.log_rejected_interaction(
+                                    messages=[{"role": "user", "content": prompt}, {"role": "assistant", "content": cleaned}],
+                                    reason=f"Bash command failed after {attempt} attempts: {command}"
                                 )
 
                             # Fix 2: also feed into guardrails error tracking
@@ -1369,6 +1440,15 @@ class SupervisorAgent:
                 "role": "user",
                 "content": "Tool results:\n" + tool_output_text,
             })
+
+            # Phase 4: Knowledge Extraction (Non-blocking background task)
+            try:
+                import asyncio
+                asyncio.create_task(self.extractor.process_interaction(
+                    self.session_id, user_prompt, cleaned
+                ))
+            except Exception as e:
+                logger.error(f"Failed to trigger extraction: {e}")
 
         # --- Done ---
         # Fix 3: clean up background processes
