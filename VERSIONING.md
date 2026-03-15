@@ -23,6 +23,7 @@ Version must be synchronized in:
 
 - `package.json` (`version`)
 - `backend/pyproject.toml` (`[project].version`)
+- `backend/app/version.py` (`__version__`)
 - `README.md` version badge
 
 ## Required Workflow

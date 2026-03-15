@@ -73,14 +73,23 @@ Create document collections with chunk-based retrieval. Toggle per-conversation 
 Add stdio-transport MCP servers. Discover and test tools. Generate fine-tuning data from tool schemas.
 
 ### Agent Terminal
-Dual-mode: direct bash and NanoCore AI agent. Streaming output, diff proposals with human approval, and programmatic sandboxing.
-- **Mixture of Agents (MoA)**: Parallel swarm of 3 specialized experts (Security, Performance, Syntax) for high-reasoning tasks.
-- **Self-Healing Loop**: Automatically reads command failures, fixes code, and retries.
-- **Air-Gapped Protection**: Security toggle to block internet access (curl/wget/requests) for 100% offline agency.
-- **Python Sandbox**: Isolated script execution for complex computations and data parsing.
+Dual-mode: direct bash and NanoCore agent. Streaming output, diff proposals with human approval, programmatic sandboxing.
+- **Mixture of Agents (MoA)**: Parallel execution of 3 specialized sub-agents (Security, Performance, Syntax).
+- **Self-Healing Loop**: Reads command failures, patches code, retries automatically.
+- **Air-Gapped Mode**: Blocks outbound network calls (curl/wget/requests) when enabled.
+- **Python Sandbox**: Isolated subprocess execution for scripts and data processing.
+
+### Knowledge Graph
+SQLite-backed graph of nodes and edges extracted from conversations. Stores facts, decisions, and file references. Browsable via the Knowledge Map panel (`Alt+Shift+K`). Scout Agent runs in the background and flags high-activity files as refactoring candidates.
+
+### Training Orchestrator
+Triggers local fine-tuning jobs via `mlx-lm` subprocess. Configurable base model, dataset path, adapter output directory, epochs, batch size, and learning rate. Status and output accessible through the `/api/training` endpoints.
 
 ### Notes
 Markdown editor with live preview, multi-note management, send to chat.
+
+### Command Palette
+Keyboard-driven action launcher (`Alt+Shift+P`). Provides quick access to tab navigation, Knowledge Map, and training actions.
 
 ## Development Status
 
@@ -99,9 +108,11 @@ If you run into bugs or rough edges, please [open an issue](https://github.com/f
 ## Tech Stack
 
 - **Frontend**: Electron, React 19, TypeScript, Vite, TailwindCSS
-- **Backend**: Python, FastAPI, Uvicorn
-- **AI Engine**: Apple MLX, MLX-LM, MLX-VLM
+- **Backend**: Python 3.10+, FastAPI, Uvicorn
+- **Inference**: Apple MLX, MLX-LM, MLX-VLM
 - **Data**: Pandas, Presidio, MCP SDK
+- **Memory**: SQLite (Knowledge Graph), BM25 + HNSW (search/RAG)
+- **Monitoring**: psutil, platform-native GPU stats
 
 ## Contributing
 

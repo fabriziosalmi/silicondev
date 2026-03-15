@@ -16,21 +16,29 @@ The frontend talks to the backend over HTTP (`localhost:<port>`). The backend ru
 
 ```
 src/
-  main/          Electron main process (main.ts, preload.ts)
+  main/            Electron main process (main.ts, preload.ts)
   renderer/
     src/
-      api/       API client (client.ts — all backend calls)
-      components/ React components (one file per tab/feature)
-      context/   Global state (GlobalState.tsx)
+      api/         API client (client.ts — all backend calls)
+      components/  React components (one file per tab/feature)
+      context/     Global state (GlobalState.tsx)
+      hooks/       Custom React hooks
 backend/
   app/
-    api/         FastAPI route handlers
-    engine/      MLX model loading, inference, fine-tuning
-    preparation/ Dataset conversion, PII redaction
-    rag/         Document collections, chunk retrieval
-    agents/      Agent workflows, NanoCore supervisor
-    mcp/         MCP server management
-  tests/         Pytest tests
+    api/           FastAPI route handlers
+    engine/        MLX model loading, inference, training orchestrator
+    agents/        NanoCore supervisor, scout agent, planner
+    memory/        Knowledge graph (SQLite), fact extractor
+    preparation/   Dataset conversion, PII redaction
+    rag/           Document collections, chunk retrieval
+    mcp/           MCP server management
+    conversations/ Conversation persistence
+    monitor/       System stats (CPU, RAM, GPU)
+    search/        Full-text and semantic search
+    sandbox/       Isolated script execution
+    codebase/      Workspace file operations
+    notes/         Markdown notes storage
+  tests/           Pytest tests
 ```
 
 ## Setup
