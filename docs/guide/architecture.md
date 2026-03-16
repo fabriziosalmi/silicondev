@@ -81,7 +81,7 @@ All routers are registered in `backend/main.py`:
 | `/api/mcp`           | `mcp.py`           | MCP servers and tools             |
 | `/api/indexer`       | `indexer.py`       | Codebase vector index             |
 | `/api/terminal`      | `terminal.py`      | Agent terminal and bash execution |
-| `/api/codebase`      | `codebase.py`      | Codebase search queries           |
+| `/api/codebase`      | [Codebase](/api/codebase) | Codebase search queries           |
 | `/api/workspace`     | `workspace.py`     | File tree, read, save, git info   |
 | `/api/memory`        | `memory.py`        | Knowledge graph nodes and edges   |
 | `/api/training`      | `training.py`      | Fine-tuning orchestrator          |

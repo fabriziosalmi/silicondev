@@ -46,7 +46,7 @@ If `SILICON_AUTH_TOKEN` is not set (standalone/dev mode), auth is skipped.
 | `/api/search`        | [Search](/api/search)               | Web search                               |
 | `/api/terminal`      | [Terminal](/api/terminal)           | Agent terminal and bash execution        |
 | `/api/indexer`       | [Indexer](/api/indexer)             | Codebase vector index                    |
-| `/api/codebase`      | `codebase.py`                       | Codebase search queries                  |
+| `/api/codebase`      | [Codebase](/api/codebase)           | Codebase search queries                  |
 | `/api/workspace`     | `workspace.py`                      | File tree, read, save, git info          |
 | `/api/memory`        | `memory.py`                         | Knowledge graph nodes and edges          |
 | `/api/training`      | `training.py`                       | Fine-tuning orchestrator                 |
