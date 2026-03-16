@@ -31,6 +31,21 @@ The agent uses the loaded model to:
 
 The agent requires a model to be loaded. It communicates through the same NanoCore agent infrastructure used by the Terminal.
 
+## Backend API
+
+The Code Workspace frontend communicates with two backend routers:
+
+| Prefix | Purpose |
+|--------|---------|
+| `/api/workspace` | File tree (`POST /tree`), read (`POST /read`), save (`POST /save`), create (`POST /create`), rename (`POST /rename`), delete (`POST /delete`), git info (`POST /git-info`) |
+| `/api/terminal` | NanoCore agent SSE stream for agent panel |
+
+All file operations enforce path containment — paths outside the selected workspace root are rejected. macOS system paths are also blocked.
+
+## Authentication
+
+All backend requests require a Bearer token when `SILICON_AUTH_TOKEN` is set in the environment (normal packaged operation). The `EventSource`-based SSE stream (agent panel) passes the token as a `?token=` query parameter since the browser `EventSource` API does not support custom headers.
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |

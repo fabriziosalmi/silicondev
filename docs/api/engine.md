@@ -64,6 +64,14 @@ POST /api/engine/models/scan
 
 Auto-discovers and registers all valid MLX models in the directory.
 
+### Get Active Model
+
+```
+GET /api/engine/models/active
+```
+
+Returns the currently loaded model with `id`, `name`, `size`, `path`, `architecture`, `context_window`, and `is_vision`. Returns `{ "model": null }` if no model is loaded.
+
 ### Load Model
 
 ```
@@ -71,10 +79,12 @@ POST /api/engine/models/load
 ```
 
 ```json
-{ "model_id": "model-uuid" }
+{ "model_id": "model-uuid", "kv_quantization": 4 }
 ```
 
 Loads model into MLX memory. Returns `context_window` and `architecture` if available. Only one model can be loaded at a time.
+
+`kv_quantization`: optional, 4 or 8. Enables KV-cache quantization during generation. Omit for no quantization.
 
 ### Unload Model
 
@@ -106,7 +116,74 @@ POST /api/engine/models/export
 }
 ```
 
-`q_bits`: 0 = full precision, 4 = 4-bit, 8 = 8-bit. Range: 0-16.
+`q_bits`: valid values are `0, 2, 3, 4, 6, 8`. 0 = full precision.
+
+### Get Model Format
+
+```
+GET /api/engine/models/{model_id}/format
+```
+
+Returns `model_type`, `has_chat_template`, `eos_token`, `bos_token`, `pad_token`, and other tokenizer metadata. Useful for determining the chat template format before training.
+
+## Chat
+
+### Generate (SSE)
+
+```
+POST /api/engine/chat
+```
+
+```json
+{
+  "model_id": "model-uuid",
+  "messages": [
+    { "role": "user", "content": "Hello" }
+  ],
+  "temperature": 0.7,
+  "max_tokens": 512,
+  "top_p": 0.9,
+  "repetition_penalty": 1.1,
+  "seed": null
+}
+```
+
+Returns a streaming SSE response. Each event is a JSON object with a `text` field. The engine uses `mlx_lm.stream_generate` with a persistent KV cache (`make_prompt_cache` / `trim_prompt_cache`) across turns. Common token prefixes are reused automatically.
+
+`messages[].content` can be a string or an array of content parts (for vision models):
+
+```json
+[
+  { "type": "text", "text": "Describe this image" },
+  { "type": "image_url", "image_url": { "url": "data:image/png;base64,..." } }
+]
+```
+
+Images must be under 20 MB.
+
+### Stop Generation
+
+```
+POST /api/engine/chat/stop
+```
+
+Signals the active generation to stop. Returns `{ "status": "stopped" }`.
+
+### Predict Completion
+
+```
+POST /api/engine/predict
+```
+
+```json
+{
+  "model_id": "model-uuid",
+  "prompt": "def hello(",
+  "max_tokens": 50
+}
+```
+
+Non-streaming single-pass completion for inline code suggestions (ghost text). Returns `{ "text": "..." }`.
 
 ## Fine-Tuning
 

@@ -18,7 +18,7 @@ Electron Main Process
             +-- File storage (~/.silicon-studio/)
 ```
 
-The frontend communicates with the backend exclusively via REST API over `localhost:8000`. There is no IPC bridge for data — Electron IPC is only used for native OS features (file dialogs, window controls).
+The frontend communicates with the backend exclusively via REST API over `localhost`. The backend binds to port 8000 by default; if that port is busy it scans 8001–8099 and signals the chosen port to Electron via stdout (`SILICON_PORT=<port>`). The frontend resolves `API_BASE` dynamically at startup from this signal. Electron IPC is used only for native OS features (file dialogs, window controls, auth token retrieval).
 
 ## Frontend
 
@@ -79,7 +79,12 @@ All routers are registered in `backend/main.py`:
 | `/api/notes`         | `notes.py`         | Note storage                      |
 | `/api/search`        | `search.py`        | Web search                        |
 | `/api/mcp`           | `mcp.py`           | MCP servers and tools             |
+| `/api/indexer`       | `indexer.py`       | Codebase vector index             |
 | `/api/terminal`      | `terminal.py`      | Agent terminal and bash execution |
+| `/api/codebase`      | `codebase.py`      | Codebase search queries           |
+| `/api/workspace`     | `workspace.py`     | File tree, read, save, git info   |
+| `/api/memory`        | `memory.py`        | Knowledge graph nodes and edges   |
+| `/api/training`      | `training.py`      | Fine-tuning orchestrator          |
 
 ### Model Lifecycle
 

@@ -34,7 +34,7 @@ This runs concurrently:
 1. `dev:renderer` — Vite dev server on port 5173
 2. `dev:electron` — waits for Vite, compiles TypeScript, launches Electron
 
-The backend is started as a subprocess by the Electron main process. It binds to `127.0.0.1:8000`.
+The backend is started as a subprocess by the Electron main process. It binds to `127.0.0.1` on port 8000 by default; if 8000 is busy it scans 8001–8099 for a free port and signals the chosen port to Electron via stdout (`SILICON_PORT=<port>`).
 
 ## Build
 

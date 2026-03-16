@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.10.1
+
+### Engine
+
+- Prompt cache uses `mlx_lm.models.cache.make_prompt_cache` and `trim_prompt_cache` (mlx-lm 0.30.7 API)
+- Generation uses `stream_generate` with `prompt_cache=` kwarg; KV quantization passed as `kv_bits=` (4 or 8)
+- `kv_quantization` field on load-model request accepts 4 or 8 (optional; omit for no KV quantization)
+
+### Auth
+
+- `SILICON_AUTH_TOKEN` env var: Bearer token required on all non-public API endpoints when set
+- SSE endpoints that cannot send headers (e.g. `EventSource`) pass the token as `?token=` query parameter
+- Public paths exempt from auth: `/health`, `/docs`, `/openapi.json`
+
+### API Routers
+
+- Added `/api/indexer`, `/api/codebase`, `/api/workspace`, `/api/memory`, `/api/training` to backend
+- Architecture doc updated to reflect all registered routers
+
+### Bug Fixes
+
+- `q_bits` on export validated against `{0, 2, 3, 4, 6, 8}` (doc previously stated range 0–16)
+
 ## v0.10.0
 
 ### Knowledge Graph
