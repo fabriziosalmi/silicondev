@@ -1029,6 +1029,21 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to rollback');
             return res.json();
         },
+        datasetStatus: async (): Promise<{ count: number; ready: boolean; threshold: number; path?: string }> => {
+            const res = await apiFetch(`${API_BASE}/api/terminal/dataset/status`);
+            await throwIfNotOk(res, 'Failed to get dataset status');
+            return res.json();
+        },
+        datasetExport: async (): Promise<{ message: string }> => {
+            const res = await apiFetch(`${API_BASE}/api/terminal/dataset/export`, { method: 'POST' });
+            await throwIfNotOk(res, 'Failed to export dataset');
+            return res.json();
+        },
+        datasetPrepare: async (minSamples = 50): Promise<{ ready: boolean; count: number; path: string; command: string }> => {
+            const res = await apiFetch(`${API_BASE}/api/terminal/dataset/prepare?min_samples=${minSamples}`, { method: 'POST' });
+            await throwIfNotOk(res, 'Failed to prepare dataset');
+            return res.json();
+        },
     },
     checkHealth: async (): Promise<boolean> => {
         try {

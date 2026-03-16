@@ -303,3 +303,45 @@ async def decide_plan(decision: PlanDecision):
         raise HTTPException(status_code=400, detail="Failed to resolve plan")
 
     return {"status": "resolved", "approved": decision.approved}
+
+
+# ---------------------------------------------------------------------------
+# DatasetEngine endpoints — autonomous interaction capture for fine-tuning
+# ---------------------------------------------------------------------------
+
+from app.agents.nanocore.dataset_engine import dataset_engine
+
+
+@router.get("/dataset/status")
+async def dataset_status():
+    """Return the current state of the captured interaction dataset."""
+    pkg = dataset_engine.prepare_training_package(min_samples=1)
+    return {
+        "count": pkg.get("count", 0),
+        "ready": pkg.get("ready", False),
+        "threshold": pkg.get("threshold", 50),
+        "path": pkg.get("path"),
+    }
+
+
+@router.post("/dataset/export")
+async def dataset_export():
+    """Consolidate all session JSONL files into dataset_latest.jsonl."""
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(None, dataset_engine.export_for_training)
+    return {"message": result}
+
+
+@router.post("/dataset/prepare")
+async def dataset_prepare(min_samples: int = 50):
+    """Prepare a training-ready package if enough samples exist."""
+    loop = asyncio.get_running_loop()
+    pkg = await loop.run_in_executor(
+        None, lambda: dataset_engine.prepare_training_package(min_samples)
+    )
+    if not pkg.get("ready"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Not enough samples: {pkg.get('count', 0)} / {pkg.get('threshold', min_samples)} required",
+        )
+    return pkg

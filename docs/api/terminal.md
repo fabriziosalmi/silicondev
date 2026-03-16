@@ -183,3 +183,36 @@ Approve, modify, or reject a pending plan.
   "modifications": null
 }
 ```
+
+## Dataset Engine
+
+These endpoints expose the passive interaction log captured by NanoCore sessions for use as fine-tuning data.
+
+### `GET /api/terminal/dataset/status`
+
+Returns the current sample count.
+
+```json
+{ "count": 142, "ready": true, "threshold": 50, "path": "/path/to/mlx_train_ready" }
+```
+
+### `POST /api/terminal/dataset/export`
+
+Merges all session JSONL files into a single `dataset_latest.jsonl`.
+
+```json
+{ "message": "Exported 142 samples to /path/to/dataset_latest.jsonl" }
+```
+
+### `POST /api/terminal/dataset/prepare?min_samples=50`
+
+Prepares a training-ready directory (with `train.jsonl` / `valid.jsonl`). Returns 422 if sample count is below `min_samples`.
+
+```json
+{
+  "ready": true,
+  "count": 142,
+  "path": "/path/to/mlx_train_ready",
+  "command": "python -m mlx_lm.tuner.train --data /path/to/mlx_train_ready ..."
+}
+```

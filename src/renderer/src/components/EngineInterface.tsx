@@ -51,6 +51,26 @@ export function EngineInterface() {
     const [exporting, setExporting] = useState(false)
     const [exportPath] = useState('~/Documents/Silicon-Studio/Exports')
     const [modelFormat, setModelFormat] = useState<ModelFormatInfo | null>(null)
+    const [capturedCount, setCapturedCount] = useState(0)
+    const [capturedLoading, setCapturedLoading] = useState(false)
+
+    useEffect(() => {
+        apiClient.terminal.datasetStatus().then(s => setCapturedCount(s.count)).catch(() => {})
+    }, [])
+
+    const useCapturedDataset = async () => {
+        setCapturedLoading(true)
+        try {
+            const pkg = await apiClient.terminal.datasetPrepare(10)
+            setDatasetPath(pkg.path + '/train.jsonl')
+            toast(`Dataset ready: ${pkg.count} samples`, 'success')
+            setCapturedCount(pkg.count)
+        } catch (err: any) {
+            toast(err.message || 'Not enough captured samples', 'warning')
+        } finally {
+            setCapturedLoading(false)
+        }
+    }
 
     useEffect(() => {
         apiClient.engine.getModels().then((data) => {
@@ -242,7 +262,20 @@ export function EngineInterface() {
 
                                 {/* Dataset Path */}
                                 <div className="space-y-3">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">{t('engine.dataset')}</label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">{t('engine.dataset')}</label>
+                                        {capturedCount > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={useCapturedDataset}
+                                                disabled={capturedLoading}
+                                                className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-colors disabled:opacity-50"
+                                            >
+                                                {capturedLoading ? <Loader2 size={10} className="animate-spin" /> : <Activity size={10} />}
+                                                Use {capturedCount} captured samples
+                                            </button>
+                                        )}
+                                    </div>
                                     <div className="flex gap-2">
                                         <div className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[13px] text-blue-100/70 truncate flex items-center gap-2">
                                             <FileText className="w-4 h-4 text-blue-400" />

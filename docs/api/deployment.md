@@ -38,12 +38,11 @@ GET /api/deployment/status
 {
   "running": true,
   "pid": 12345,
-  "model_path": "/path/to/model",
-  "host": "127.0.0.1",
-  "port": 8080,
-  "uptime": 3600
+  "uptime_seconds": 3600
 }
 ```
+
+`pid` and `uptime_seconds` are `null` when the server is not running.
 
 ## Get Logs
 

@@ -148,7 +148,8 @@ class MLXEngineService:
                 
         self.models_config = self._load_models_config()
         self.last_active = time.time()
-        
+        self._main_loop: asyncio.AbstractEventLoop | None = None
+
         # Run auto-discovery and predictive loader in background
         threading.Thread(target=self._run_auto_discovery, daemon=True).start()
         threading.Thread(target=self._run_predictive_loader, daemon=True).start()
@@ -176,11 +177,15 @@ class MLXEngineService:
                 if mem.percent < 60: # System is not too busy
                     # Logic to find "best" model to pre-heat
                     default_id = self.models_config.get("default_model_id")
-                    if default_id:
+                    if default_id and self._main_loop is not None:
                         logger.info(f"[PredictiveLoader] System idle, pre-heating default model: {default_id}")
-                        # We don't block, just trigger a background load
-                        # Note: we need to handle this carefully to not block the main event loop
-                        pass
+                        future = asyncio.run_coroutine_threadsafe(
+                            self.load_active_model(default_id), self._main_loop
+                        )
+                        try:
+                            future.result(timeout=120)
+                        except Exception as e:
+                            logger.warning(f"[PredictiveLoader] Pre-heat failed: {e}")
             
     def _run_auto_discovery(self):
         """Scan known local model directories (LM Studio, Ollama, HuggingFace cache)."""
@@ -464,6 +469,7 @@ class MLXEngineService:
         Loads a model and tokenizer into active memory, replacing any previously loaded model.
         Includes VRAM cleanup for Apple Silicon.
         """
+        self._main_loop = asyncio.get_running_loop()
         if self.generation_lock.locked():
             # A generation may be running — signal it to stop and wait briefly
             self.stop_event.set()
@@ -1548,7 +1554,10 @@ class MLXEngineService:
                             self.active_jobs[job_id]["progress"] = prog
 
                 def on_val_loss_report(self_, val_info):
-                    pass
+                    val_loss = val_info.get("val_loss", val_info.get("loss"))
+                    if val_loss is not None:
+                        with self._jobs_lock:
+                            self.active_jobs[job_id]["val_loss"] = round(float(val_loss), 6)
 
             progress_callback = ProgressCallback()
 

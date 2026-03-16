@@ -18,7 +18,7 @@ export default defineConfig({
       { text: 'API', link: '/api/overview' },
       { text: 'Development', link: '/development/setup' },
       {
-        text: 'v0.10.1',
+        text: 'v0.10.2',
         items: [
           { text: 'Changelog', link: '/changelog' },
           { text: 'GitHub', link: 'https://github.com/fabriziosalmi/silicondev' },

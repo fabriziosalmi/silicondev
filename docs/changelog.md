@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.10.2
+
+### Evaluations
+
+- Expanded each benchmark from 3 hardcoded questions to a pool of 30
+- Sample count configurable (10 / 20 / 30) per run; questions are sampled randomly from the pool
+- History table now shows question count alongside score
+
+### DatasetEngine
+
+- New API endpoints: `GET /api/terminal/dataset/status`, `POST /api/terminal/dataset/export`, `POST /api/terminal/dataset/prepare`
+- Fine-tuning tab shows a "Use N captured samples" button when NanoCore interactions have been logged
+
+### Engine
+
+- Validation loss (`val_loss`) now stored in job status during fine-tuning
+- Predictive pre-loader now calls `load_active_model` via `asyncio.run_coroutine_threadsafe` when the event loop is available
+
+### Sandbox / Debugger
+
+- Registered three missing routes: `POST /debug/start`, `POST /debug/{id}/command`, `GET /debug/{id}/events`
+
+### Bug Fixes
+
+- `CommandPalette` actions now navigate to real tabs and call `unloadModel` (previously all stubs)
+- `useAgentSession` SSE fetch now sends `Authorization` header
+- Dead `backend/app/api/training.py` and `backend/app/engine/training.py` modules removed
+- Deployment `/status` docs corrected: returns `running`, `pid`, `uptime_seconds` (not model_path/host/port)
+
 ## v0.10.1
 
 ### Engine

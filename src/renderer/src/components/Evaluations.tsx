@@ -13,7 +13,147 @@ interface EvalResult {
     model: string;
     bench: string;
     score: number;
+    total: number;
     status: string;
+}
+
+type TestCase = { prompt: string; check: (response: string) => boolean };
+
+const ALL_TEST_CASES: Record<string, TestCase[]> = {
+    mmlu: [
+        { prompt: "What is the capital of France? Answer with just the city name.", check: r => /paris/i.test(r) },
+        { prompt: "Which planet is closest to the sun? Answer with just the planet name.", check: r => /mercury/i.test(r) },
+        { prompt: "What gas do plants absorb during photosynthesis? Answer in one or two words.", check: r => /carbon\s*dioxide|co2/i.test(r) },
+        { prompt: "How many sides does a hexagon have? Answer with just the number.", check: r => /\b6\b|six/i.test(r) },
+        { prompt: "What is the chemical symbol for water? Answer with just the formula.", check: r => /h2o/i.test(r) },
+        { prompt: "Who wrote Romeo and Juliet? Answer with just the author's name.", check: r => /shakespeare/i.test(r) },
+        { prompt: "What is the speed of light in a vacuum, approximately? Answer in km/s.", check: r => /300[,.]?000|3\s*[×x]\s*10\^?8/i.test(r) },
+        { prompt: "What is the largest ocean on Earth? Answer with just the name.", check: r => /pacific/i.test(r) },
+        { prompt: "In what year did World War II end? Answer with just the year.", check: r => /1945/.test(r) },
+        { prompt: "What is the smallest prime number? Answer with just the number.", check: r => /\b2\b/.test(r) },
+        { prompt: "What element has atomic number 1? Answer with just the element name.", check: r => /hydrogen/i.test(r) },
+        { prompt: "How many bones are in the adult human body? Answer with just the number.", check: r => /206/.test(r) },
+        { prompt: "What is the capital of Japan? Answer with just the city name.", check: r => /tokyo/i.test(r) },
+        { prompt: "What is 15 squared? Answer with just the number.", check: r => /225/.test(r) },
+        { prompt: "Which continent is Egypt in? Answer with just the continent name.", check: r => /africa/i.test(r) },
+        { prompt: "What is the boiling point of water at sea level in Celsius? Answer with just the number.", check: r => /100/.test(r) },
+        { prompt: "What is the currency of the United Kingdom? Answer with just the name.", check: r => /pound|sterling/i.test(r) },
+        { prompt: "How many degrees are in a right angle? Answer with just the number.", check: r => /90/.test(r) },
+        { prompt: "What is the tallest mountain on Earth? Answer with just the name.", check: r => /everest/i.test(r) },
+        { prompt: "What organ pumps blood through the human body? Answer with just the organ name.", check: r => /heart/i.test(r) },
+        { prompt: "What is the square root of 144? Answer with just the number.", check: r => /\b12\b/.test(r) },
+        { prompt: "What language is spoken in Brazil? Answer with just the language name.", check: r => /portuguese/i.test(r) },
+        { prompt: "What is the powerhouse of the cell? Answer with just the organelle name.", check: r => /mitochondri/i.test(r) },
+        { prompt: "How many planets are in our solar system? Answer with just the number.", check: r => /\b8\b|eight/i.test(r) },
+        { prompt: "What is the chemical symbol for gold? Answer with just the symbol.", check: r => /\bau\b/i.test(r) },
+        { prompt: "In which country is the Amazon rainforest primarily located? Answer with just the country name.", check: r => /brazil/i.test(r) },
+        { prompt: "What is the hardest natural substance on Earth? Answer with just the name.", check: r => /diamond/i.test(r) },
+        { prompt: "How many letters are in the English alphabet? Answer with just the number.", check: r => /26/.test(r) },
+        { prompt: "What is the longest river in the world? Answer with just the name.", check: r => /nile/i.test(r) },
+        { prompt: "What force pulls objects toward the Earth? Answer with just one word.", check: r => /gravity/i.test(r) },
+    ],
+    hellaswag: [
+        { prompt: "Complete naturally (1-2 sentences): 'She opened the oven and the smell of fresh bread'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'He put on his running shoes and headed out'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The children laughed as the puppy'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'She typed the last line of code and pressed run,'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The train pulled into the station and'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'After the storm passed, the streets were'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'He reached into his pocket and realized he had forgotten his'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The chef tasted the soup and immediately reached for the'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'When the alarm went off at 6 AM,'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The scientist looked through the microscope and saw'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'She planted the seeds in the garden and'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The car slid on the icy road,'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'He opened the letter and read the first line,'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The cat jumped onto the windowsill and stared'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'After years of practice, she finally'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The lights went out during the storm and everyone'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'He handed her the flowers and she'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The meeting was going well until'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'She closed the book and sat quietly,'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The baby took its first steps and'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'He finished his coffee and looked at his watch,'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The old door creaked as she pushed it open and'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The students fell silent when the teacher walked in'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'He looked out the window at the rain and decided to'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The music stopped and everyone turned to look'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'She wrapped the gift carefully and placed it'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The fire crackled and the room filled with'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'He stepped off the plane and felt the warm air'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'The dog barked and wagged its tail when it heard'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+        { prompt: "Complete naturally (1-2 sentences): 'She glanced at the map and realized they were'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
+    ],
+    humaneval: [
+        { prompt: "Write a Python function called factorial(n) that returns the factorial of n.", check: r => /def\s+factorial/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called is_palindrome(s) that returns True if s is a palindrome.", check: r => /def\s+is_palindrome/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called find_max(lst) that returns the maximum element.", check: r => /def\s+find_max/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called reverse_string(s) that returns the reversed string.", check: r => /def\s+reverse_string/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called is_even(n) that returns True if n is even.", check: r => /def\s+is_even/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called sum_list(lst) that returns the sum of a list.", check: r => /def\s+sum_list/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called count_vowels(s) that counts the vowels in a string.", check: r => /def\s+count_vowels/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called flatten(lst) that flattens one level of a nested list.", check: r => /def\s+flatten/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called fibonacci(n) that returns the nth Fibonacci number.", check: r => /def\s+fibonacci/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called gcd(a, b) that returns the greatest common divisor.", check: r => /def\s+gcd/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called is_prime(n) that returns True if n is prime.", check: r => /def\s+is_prime/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called remove_duplicates(lst) that removes duplicates while preserving order.", check: r => /def\s+remove_duplicates/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called word_count(text) that returns a dict of word frequencies.", check: r => /def\s+word_count/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called celsius_to_fahrenheit(c) that converts Celsius to Fahrenheit.", check: r => /def\s+celsius_to_fahrenheit/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called is_sorted(lst) that returns True if the list is sorted.", check: r => /def\s+is_sorted/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called binary_search(arr, target) that returns the index or -1.", check: r => /def\s+binary_search/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called longest_word(sentence) that returns the longest word.", check: r => /def\s+longest_word/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called chunk(lst, n) that splits a list into chunks of size n.", check: r => /def\s+chunk/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called capitalize_words(s) that capitalizes each word.", check: r => /def\s+capitalize_words/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called matrix_transpose(m) that transposes a 2D list.", check: r => /def\s+matrix_transpose/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called merge_sorted(a, b) that merges two sorted lists.", check: r => /def\s+merge_sorted/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called count_occurrences(lst, val) that counts how many times val appears.", check: r => /def\s+count_occurrences/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called safe_divide(a, b) that returns a/b or None if b is zero.", check: r => /def\s+safe_divide/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called truncate(s, max_len) that truncates a string with '...' if too long.", check: r => /def\s+truncate/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called zip_dicts(d1, d2) that merges two dicts, preferring d2's values.", check: r => /def\s+zip_dicts/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called running_average(lst) that returns a list of running averages.", check: r => /def\s+running_average/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called is_anagram(s1, s2) that returns True if they are anagrams.", check: r => /def\s+is_anagram/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called rotate_list(lst, k) that rotates the list k positions to the right.", check: r => /def\s+rotate_list/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called deep_flatten(lst) that flattens a deeply nested list.", check: r => /def\s+deep_flatten/.test(r) && /return/.test(r) },
+        { prompt: "Write a Python function called clamp(val, lo, hi) that clamps val between lo and hi.", check: r => /def\s+clamp/.test(r) && /return/.test(r) },
+    ],
+    truthfulqa: [
+        { prompt: "Can humans breathe underwater without equipment? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Is the Earth flat? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Do vaccines cause autism? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Is the Great Wall of China visible from space with the naked eye? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Did humans and dinosaurs coexist? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Does the sun revolve around the Earth? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Can you catch a cold from going outside without a coat in cold weather? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Is lightning made of electricity? Answer yes or no.", check: r => /\byes\b/i.test(r) },
+        { prompt: "Does water boil faster with the lid on? Answer yes or no.", check: r => /\byes\b/i.test(r) },
+        { prompt: "Is the moon a planet? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Can humans survive without any sleep for a full month? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Is photosynthesis the process by which plants make food using sunlight? Answer yes or no.", check: r => /\byes\b/i.test(r) },
+        { prompt: "Is gold denser than iron? Answer yes or no.", check: r => /\byes\b/i.test(r) },
+        { prompt: "Does the human body have more bacteria cells than human cells? Answer yes or no.", check: r => /\byes\b/i.test(r) },
+        { prompt: "Is Einstein the inventor of the telephone? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Did Neil Armstrong walk on the moon in 1969? Answer yes or no.", check: r => /\byes\b/i.test(r) },
+        { prompt: "Is the Pacific Ocean larger than all of Earth's land combined? Answer yes or no.", check: r => /\byes\b/i.test(r) },
+        { prompt: "Does blood turn blue inside your veins? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Is Mt. Everest the tallest mountain measured from sea level? Answer yes or no.", check: r => /\byes\b/i.test(r) },
+        { prompt: "Can the same fingerprint appear on two different people? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Is sugar a cause of hyperactivity in children according to scientific evidence? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Is it true that we only use 10% of our brains? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Does shaving hair make it grow back thicker? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Is the speed of light faster than the speed of sound? Answer yes or no.", check: r => /\byes\b/i.test(r) },
+        { prompt: "Do crabs have more than two claws? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Is the Sun a star? Answer yes or no.", check: r => /\byes\b/i.test(r) },
+        { prompt: "Is the Amazon river the longest river in the world? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Is oxygen the most abundant gas in Earth's atmosphere? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+        { prompt: "Is diamond a form of carbon? Answer yes or no.", check: r => /\byes\b/i.test(r) },
+        { prompt: "Is zero a positive number? Answer yes or no.", check: r => /\bno\b/i.test(r) },
+    ],
+};
+
+function sampleCases(cases: TestCase[], n: number): TestCase[] {
+    if (n >= cases.length) return cases;
+    const shuffled = [...cases].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, n);
 }
 
 export function Evaluations() {
@@ -22,6 +162,7 @@ export function Evaluations() {
     const { activeModel } = useGlobalState()
     const [runningEval, setRunningEval] = useState<string | null>(null)
     const [progress, setProgress] = useState(0)
+    const [sampleCount, setSampleCount] = useState(30)
     const [history, setHistory] = useState<EvalResult[]>(() => {
         try {
             const saved = localStorage.getItem(EVAL_HISTORY_KEY);
@@ -32,10 +173,10 @@ export function Evaluations() {
     })
 
     const benchmarks = [
-        { id: 'mmlu', name: 'General Knowledge', type: 'Multiple Choice', shots: '3 questions', time: '~30 sec' },
-        { id: 'hellaswag', name: 'Common Sense', type: 'Sentence Completion', shots: '3 questions', time: '~30 sec' },
-        { id: 'humaneval', name: 'Code Generation', type: 'Python Functions', shots: '3 questions', time: '~30 sec' },
-        { id: 'truthfulqa', name: 'Factuality', type: 'Yes/No + Reasoning', shots: '3 questions', time: '~30 sec' },
+        { id: 'mmlu', name: 'General Knowledge', type: 'Multiple Choice' },
+        { id: 'hellaswag', name: 'Common Sense', type: 'Sentence Completion' },
+        { id: 'humaneval', name: 'Code Generation', type: 'Python Functions' },
+        { id: 'truthfulqa', name: 'Factuality', type: 'Yes/No' },
     ]
 
     useEffect(() => {
@@ -50,36 +191,9 @@ export function Evaluations() {
         setRunningEval(benchId);
         setProgress(0);
 
-        // Smoke test: send sample prompts and check for correct answers
         try {
             const bench = benchmarks.find(b => b.id === benchId);
-
-            // Each prompt has a checker function that validates the response
-            type TestCase = { prompt: string; check: (response: string) => boolean };
-            const testCases: Record<string, TestCase[]> = {
-                mmlu: [
-                    { prompt: "What is the capital of France? Answer with just the letter: A) London B) Paris C) Berlin D) Madrid", check: r => /\bB\b/.test(r) || /\bparis\b/i.test(r) },
-                    { prompt: "Which planet is closest to the sun? Answer with just the letter: A) Venus B) Earth C) Mercury D) Mars", check: r => /\bC\b/.test(r) || /\bmercury\b/i.test(r) },
-                    { prompt: "What gas do plants absorb during photosynthesis? Answer in one word.", check: r => /carbon\s*dioxide|co2/i.test(r) },
-                ],
-                hellaswag: [
-                    { prompt: "Complete this naturally: 'A person is making a sandwich. They put bread on the counter and then they'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
-                    { prompt: "Complete this naturally: 'The dog was running in the park when suddenly it'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
-                    { prompt: "Complete this naturally: 'After finishing dinner, she decided to'", check: r => r.trim().length > 10 && !/error|sorry|cannot/i.test(r) },
-                ],
-                humaneval: [
-                    { prompt: "Write a Python function called factorial(n) that returns the factorial of n.", check: r => /def\s+factorial/.test(r) && /return/.test(r) },
-                    { prompt: "Write a Python function called is_palindrome(s) that returns True if s is a palindrome.", check: r => /def\s+is_palindrome/.test(r) && /return/.test(r) },
-                    { prompt: "Write a Python function called find_max(lst) that returns the maximum element.", check: r => /def\s+find_max/.test(r) && /return/.test(r) },
-                ],
-                truthfulqa: [
-                    { prompt: "Can humans breathe underwater without equipment? Answer yes or no and explain briefly.", check: r => /\bno\b/i.test(r) },
-                    { prompt: "Is the Earth flat? Answer yes or no and explain briefly.", check: r => /\bno\b/i.test(r) },
-                    { prompt: "Do vaccines cause autism? Answer yes or no and explain briefly.", check: r => /\bno\b/i.test(r) },
-                ],
-            };
-
-            const cases = testCases[benchId] || testCases.mmlu;
+            const cases = sampleCases(ALL_TEST_CASES[benchId] ?? ALL_TEST_CASES.mmlu, sampleCount);
             let score = 0;
 
             for (let i = 0; i < cases.length; i++) {
@@ -131,6 +245,7 @@ export function Evaluations() {
                 model: cleanModelName(activeModel.name),
                 bench: bench?.name.split(' ')[0] || benchId,
                 score: parseFloat(finalScore.toFixed(1)),
+                total: cases.length,
                 status: 'completed'
             };
 
@@ -165,6 +280,20 @@ export function Evaluations() {
                             </div>
                         )}
                     </div>
+                    <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-500 uppercase tracking-wide">Questions</label>
+                        <select
+                            title="Number of questions per benchmark"
+                            value={sampleCount}
+                            onChange={e => setSampleCount(Number(e.target.value))}
+                            disabled={runningEval !== null}
+                            className="bg-white/5 text-gray-300 border border-white/10 text-xs rounded px-2 py-1 outline-none disabled:opacity-50"
+                        >
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={30}>30 (all)</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-6">
@@ -189,9 +318,8 @@ export function Evaluations() {
                                         <tr key={b.id} className="hover:bg-white/[0.02] transition-colors">
                                             <td className="px-5 py-4">
                                                 <div className="font-semibold text-gray-200">{b.name}</div>
-                                                <div className="text-xs text-gray-500 mt-1 flex gap-2">
-                                                    <span className="bg-white/5 px-1.5 py-0.5 rounded border border-white/10">{b.shots}</span>
-                                                    <span>Est: {b.time}</span>
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    <span className="bg-white/5 px-1.5 py-0.5 rounded border border-white/10">{sampleCount} of 30 questions</span>
                                                 </div>
                                             </td>
                                             <td className="px-5 py-4 text-gray-400">{b.type}</td>
@@ -208,6 +336,7 @@ export function Evaluations() {
                                                     </div>
                                                 ) : (
                                                     <button
+                                                        type="button"
                                                         onClick={() => handleRunEval(b.id)}
                                                         disabled={runningEval !== null}
                                                         className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0 ml-auto"
@@ -233,6 +362,7 @@ export function Evaluations() {
                             </div>
                             {history.length > 0 && (
                                 <button
+                                    type="button"
                                     onClick={() => { setHistory([]); localStorage.removeItem(EVAL_HISTORY_KEY); }}
                                     className="text-xs text-gray-500 hover:text-red-400 transition-colors"
                                 >
@@ -260,7 +390,8 @@ export function Evaluations() {
                                                 <span className="bg-blue-500/10 text-blue-300 border border-blue-500/20 px-2 py-0.5 rounded text-xs">{h.bench}</span>
                                             </td>
                                             <td className="px-5 py-4 text-right">
-                                                <div className="text-lg font-bold font-mono text-white">{h.score.toFixed(1)}</div>
+                                                <div className="text-lg font-bold font-mono text-white">{h.score.toFixed(1)}<span className="text-xs text-gray-500 ml-1">%</span></div>
+                                                {h.total && <div className="text-[10px] text-gray-600">{h.total} questions</div>}
                                             </td>
                                         </tr>
                                     ))}

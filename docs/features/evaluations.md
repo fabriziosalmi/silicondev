@@ -4,31 +4,35 @@ Source: `src/renderer/src/components/Evaluations.tsx`
 
 ## Overview
 
-Run standard benchmarks against loaded models to measure quality. Results are displayed with scores and stored for comparison.
+Run benchmarks against the currently loaded model. Each benchmark has 30 questions; results are scored and stored in `localStorage` for comparison across sessions.
 
 ## Available Benchmarks
 
-| Benchmark | Measures |
-|-----------|----------|
-| MMLU | Multitask language understanding across 57 subjects |
-| HellaSwag | Common-sense natural language inference |
-| HumanEval | Python code generation correctness |
-| TruthfulQA | Tendency to generate truthful answers |
+| Benchmark | Measures | Pool |
+|-----------|----------|------|
+| MMLU | General knowledge (multiple choice) | 30 |
+| HellaSwag | Common-sense sentence completion | 30 |
+| HumanEval | Python function generation | 30 |
+| TruthfulQA | Factual yes/no answers | 30 |
+
+## Sample Count
+
+The default is 30 questions (all). You can reduce it to 10 or 20 using the selector in the banner. Questions are sampled randomly from the full pool each run, so repeated runs with fewer samples test different subsets.
 
 ## Workflow
 
-1. Select a benchmark from the list.
-2. Configure sample count (how many questions to evaluate).
-3. Click "Run Evaluation".
-4. Progress is displayed as each sample is processed.
-5. Results show the score (percentage correct) and per-sample details.
+1. Load a model from the Models tab.
+2. Optionally change the sample count in the banner (default: 30).
+3. Click "Run" next to the benchmark you want to evaluate.
+4. Progress is shown as each question is answered.
+5. The final score (% correct) appears in the history table.
 
 ## Evaluation History
 
-Past evaluation results are stored and displayed in a history table, allowing comparison across models and fine-tuning iterations.
+Past results are stored in `localStorage` under `silicon-studio-eval-history` and displayed in a history table with model name, date, benchmark, score, and question count. Use the "Clear" button to reset.
 
 ## Limitations
 
-- Evaluations run on the currently loaded model only.
-- Large benchmarks with many samples can be slow on smaller machines.
-- Benchmark implementations may not match reference implementations exactly.
+- Requires a model to be loaded in memory.
+- All benchmarks are locally implemented; they are not identical to official reference implementations.
+- Results are stored locally only; no server persistence.
