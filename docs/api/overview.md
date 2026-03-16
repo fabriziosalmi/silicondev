@@ -8,13 +8,26 @@ The backend exposes a REST API on `http://127.0.0.1:8000`. All endpoints accept 
 http://127.0.0.1:8000
 ```
 
+The backend binds to `127.0.0.1` only. On startup it scans ports 8000–8099 for the first free port and signals the chosen port to the Electron process via stdout (`SILICON_PORT=<port>`). The frontend resolves `API_BASE` dynamically from that signal.
+
 ## Health Check
 
 ```
 GET /health
 ```
 
-Returns `{"status": "ok"}` when the backend is running. The frontend polls this on startup.
+Returns `{"status": "ok", "service": "silicondev-engine"}` when the backend is running. The frontend polls this on startup.
+
+## Authentication
+
+When the `SILICON_AUTH_TOKEN` environment variable is set, the middleware requires a valid token on every non-public endpoint.
+
+- REST requests: `Authorization: Bearer <token>` header
+- SSE/EventSource requests (cannot set headers): `?token=<token>` query parameter
+
+Public paths exempt from auth: `/health`, `/docs`, `/openapi.json`.
+
+If `SILICON_AUTH_TOKEN` is not set (standalone/dev mode), auth is skipped.
 
 ## Router Map
 
@@ -32,7 +45,11 @@ Returns `{"status": "ok"}` when the backend is running. The frontend polls this 
 | `/api/sandbox`       | [Sandbox](/api/sandbox)             | Code execution                           |
 | `/api/search`        | [Search](/api/search)               | Web search                               |
 | `/api/terminal`      | [Terminal](/api/terminal)           | Agent terminal and bash execution        |
-| `/api/indexer`       | [Indexer](/api/indexer)             | Background web crawler                   |
+| `/api/indexer`       | [Indexer](/api/indexer)             | Codebase vector index                    |
+| `/api/codebase`      | `codebase.py`                       | Codebase search queries                  |
+| `/api/workspace`     | `workspace.py`                      | File tree, read, save, git info          |
+| `/api/memory`        | `memory.py`                         | Knowledge graph nodes and edges          |
+| `/api/training`      | `training.py`                       | Fine-tuning orchestrator                 |
 
 ## CORS
 
@@ -43,25 +60,34 @@ The backend allows requests from:
 
 ## Error Format
 
-All errors return:
+HTTP errors return:
+
+```json
+{ "detail": "Error message here" }
+```
+
+Pydantic validation errors (422) return an expanded form:
 
 ```json
 {
-  "detail": "Error message here"
+  "detail": "Validation error",
+  "errors": ["field_name: error description", ...]
 }
 ```
 
-With appropriate HTTP status codes (400, 404, 500).
+Status codes used: 400 (bad request), 403 (unauthorized), 404 (not found), 409 (conflict), 422 (validation), 500 (server error).
 
 ## Streaming
 
-The chat endpoint (`POST /api/engine/chat`) returns Server-Sent Events (SSE). Each event is a JSON object:
+The chat endpoint (`POST /api/engine/chat`) returns Server-Sent Events (SSE). Each event is a JSON object on a `data:` line:
 
 ```
-data: {"token": "Hello", "done": false}
-data: {"token": " world", "done": false}
-data: {"token": "", "done": true, "stats": {"tokens_per_second": 42.5, ...}}
+data: {"text": "Hello", "done": false}
+data: {"text": " world", "done": false}
+data: {"text": "", "done": true}
 ```
+
+A `warning` field may appear on non-done events (e.g. high memory pressure, image sent to text-only model).
 
 ## Frontend Client
 

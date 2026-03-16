@@ -2,7 +2,7 @@
 
 **Local LLM fine-tuning and chat for Apple Silicon.**
 
-![Version](https://img.shields.io/badge/version-0.10.0-blue)
+![Version](https://img.shields.io/badge/version-0.10.1-blue)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Platform: macOS](https://img.shields.io/badge/Platform-macOS_(Apple_Silicon)-black)
 ![Engine: MLX](https://img.shields.io/badge/Engine-MLX-blue)
@@ -74,12 +74,17 @@ Create document collections with chunk-based retrieval. Toggle per-conversation 
 ### MCP Integration
 Add stdio-transport MCP servers. Discover and test tools. Generate fine-tuning data from tool schemas.
 
-### Agent Terminal
-Dual-mode: direct bash and NanoCore agent. Streaming output, diff proposals with human approval, programmatic sandboxing.
-- **Mixture of Agents (MoA)**: Parallel execution of 3 specialized sub-agents (Security, Performance, Syntax).
-- **Self-Healing Loop**: Reads command failures, patches code, retries automatically.
-- **Air-Gapped Mode**: Blocks outbound network calls (curl/wget/requests) when enabled.
-- **Python Sandbox**: Isolated subprocess execution for scripts and data processing.
+### Code Workspace
+Monaco-based editor with an agentic panel powered by the NanoCore supervisor agent. Open a folder, ask it to edit or create files, and review diffs before they are applied.
+- **NanoCore Agent**: Tools: `read_file`, `edit_file`, `patch_file`, `run_bash`. Generates diffs, waits for approval before writing.
+- **Mixture of Agents (MoA)**: Optional parallel sub-agents (Security, Performance, Syntax) that review the proposed changes.
+- **Self-Healing**: Detects bash failures and retries up to 3 times; escalates to the user if stuck.
+- **Air-Gapped Mode**: Blocks outbound network calls during agent runs.
+- **Python Sandbox**: Isolated subprocess execution for scripts.
+- **Plan Mode**: `/plan <task>` for multi-file structured edits with a review step.
+
+### Terminal
+Direct bash execution with streaming output. Runs shell commands via a PTY and streams stdout/stderr as SSE.
 
 ### Knowledge Graph
 SQLite-backed graph of nodes and edges extracted from conversations. Stores facts, decisions, and file references. Browsable via the Knowledge Map panel (`Alt+Shift+K`). Scout Agent runs in the background and flags high-activity files as refactoring candidates.
@@ -110,7 +115,7 @@ If you run into bugs or rough edges, please [open an issue](https://github.com/f
 ## Tech Stack
 
 - **Frontend**: Electron, React 19, TypeScript, Vite, TailwindCSS
-- **Backend**: Python 3.10+, FastAPI, Uvicorn
+- **Backend**: Python 3.12+, FastAPI, Uvicorn
 - **Inference**: Apple MLX, MLX-LM, MLX-VLM
 - **Data**: Pandas, Presidio, MCP SDK
 - **Memory**: SQLite (Knowledge Graph), BM25 + HNSW (search/RAG)

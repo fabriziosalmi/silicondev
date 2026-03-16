@@ -56,8 +56,30 @@ silicondev/
         sandbox.py           # Code execution endpoints
         search.py            # Web search endpoint
         monitor.py           # System stats endpoint
+        terminal.py          # NanoCore agent terminal endpoints
+        indexer.py           # Codebase vector index endpoints
+        codebase.py          # Codebase search query endpoints
+        workspace.py         # File tree, read, save, git info endpoints
+        memory.py            # Knowledge graph node/edge endpoints
+        training.py          # Fine-tuning orchestrator endpoints
       engine/
         service.py           # MLX model loading, inference, fine-tuning
+      agents/
+        nanocore/
+          supervisor.py      # Agent loop, tool dispatch, self-healing
+          tools.py           # Tool implementations (run_bash, read_file, apply_patch_content, etc.)
+          planner.py         # PlannerEditor for multi-step plan sessions
+          prelayer.py        # Intent classifier (prompt analysis)
+          prompts.py         # System prompts for supervisor and inspector
+          parser.py          # XML tool call parser
+          scout.py           # Background Scout agent
+          swarm.py           # Mixture-of-Agents (MoA) map-reduce
+          types.py           # Shared types (TerminalRequest, etc.)
+          validators.py      # Post-edit validators (lint, security, performance)
+          guardrails.py      # Loop guardrails (token budget, iteration limit)
+          context.py         # Hierarchical context manager
+          repomap.py         # Repository map cache
+          process_manager.py # Background process cleanup
       rag/
         service.py           # Collection CRUD, ingestion, querying
       conversations/

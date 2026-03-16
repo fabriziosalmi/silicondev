@@ -199,17 +199,18 @@ POST /api/engine/finetune
   "dataset_path": "/path/to/data.jsonl",
   "job_name": "my-finetune",
   "epochs": 3,
-  "learning_rate": 2e-5,
-  "batch_size": 4,
+  "learning_rate": 1e-4,
+  "batch_size": 1,
   "lora_rank": 8,
-  "lora_alpha": 16,
-  "lora_dropout": 0.05,
-  "warmup_steps": 50,
-  "weight_decay": 0.01,
-  "max_seq_length": 2048,
-  "gradient_checkpointing": false
+  "lora_alpha": 16.0,
+  "lora_dropout": 0.0,
+  "lora_layers": 8,
+  "max_seq_length": 512,
+  "seed": null
 }
 ```
+
+Field ranges: `epochs` 1–100, `batch_size` 1–64, `lora_rank` 1–256, `lora_layers` 1–128, `max_seq_length` 64–32768.
 
 Returns `{ "job_id": "...", "status": "running" }`.
 

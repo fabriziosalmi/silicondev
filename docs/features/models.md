@@ -11,9 +11,10 @@ Browse, download, and manage LLM models. Models are stored locally in `~/.silico
 The Models page lists models from multiple sources:
 
 1. **Hugging Face** — Browse and download MLX-compatible models. Filtered to `mlx-community` and similar repos.
-2. **LM Studio** — Auto-discovers models in `~/.cache/lm-studio/models/`.
+2. **LM Studio** — Auto-discovers models in `~/.lmstudio/models/`.
 3. **Ollama** — Auto-discovers models in `~/.ollama/models/`.
-4. **Custom** — Register any local model by path.
+4. **HuggingFace cache** — Auto-discovers models in `~/.cache/huggingface/hub/`.
+5. **Custom** — Register any local model by path.
 
 ## Model Registry
 
@@ -57,7 +58,7 @@ Only one model can be loaded in memory at a time. Load a model by:
 
 The top bar shows the currently loaded model name with an Eject button. Loading a new model automatically unloads the previous one.
 
-Backend implementation: `backend/app/engine/service.py` — calls `mlx_lm.load()` to load the model and tokenizer into MLX memory.
+Backend implementation: `backend/app/engine/service.py` — calls `mlx_lm.load()` to load the model and tokenizer into MLX memory. KV-cache quantization (4-bit or 8-bit) can optionally be enabled at load time; it is applied during generation via the `kv_bits=` parameter to `stream_generate`, not during the `load()` call itself.
 
 ## Model Card
 

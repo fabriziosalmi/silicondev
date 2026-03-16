@@ -24,7 +24,7 @@ The frontend communicates with the backend exclusively via REST API over `localh
 
 | Layer      | Technology           | Location                         |
 | ---------- | -------------------- | -------------------------------- |
-| Shell      | Electron 29          | `src/main/main.ts`               |
+| Shell      | Electron 35          | `src/main/main.ts`               |
 | UI         | React 19, TypeScript | `src/renderer/src/`              |
 | Build      | Vite                 | `src/renderer/vite.config.ts`    |
 | Styling    | TailwindCSS          | `src/renderer/src/index.css`     |

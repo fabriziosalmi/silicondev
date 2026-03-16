@@ -22,23 +22,22 @@ All parameters can be overridden manually.
 
 ### Training
 
-| Parameter | Range | Description |
-|-----------|-------|-------------|
-| Epochs | 1-50 | Number of passes over the dataset |
-| Learning Rate | 1e-6 to 1e-3 | Step size for weight updates |
-| Batch Size | 1-32 | Samples per training step |
-| Warmup Steps | 0-1000 | Linear warmup before full learning rate |
-| Weight Decay | 0-0.5 | L2 regularization strength |
-| Gradient Checkpointing | on/off | Trade compute for memory |
-| Max Sequence Length | 128-8192 | Maximum token length per sample |
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| Epochs | 1–100 | 3 | Number of passes over the dataset |
+| Learning Rate | >0 to 1.0 | 1e-4 | Step size for weight updates |
+| Batch Size | 1–64 | 1 | Samples per training step |
+| Max Sequence Length | 64–32768 | 512 | Maximum token length per sample |
+| Seed | integer or null | null | Random seed for reproducibility |
 
 ### LoRA
 
-| Parameter | Range | Description |
-|-----------|-------|-------------|
-| Rank | 2-64 | LoRA rank (lower = fewer parameters) |
-| Alpha | 1-128 | Scaling factor for LoRA updates |
-| Dropout | 0-0.5 | Dropout probability in LoRA layers |
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| Rank | 1–256 | 8 | LoRA rank (lower = fewer parameters) |
+| Alpha | >0 | 16.0 | Scaling factor for LoRA updates |
+| Dropout | 0–1.0 | 0.0 | Dropout probability in LoRA layers |
+| Layers | 1–128 | 8 | Number of layers to apply LoRA to |
 
 ## Dataset
 

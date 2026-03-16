@@ -18,34 +18,45 @@ POST /api/engine/chat
     { "role": "user", "content": "Hello" }
   ],
   "temperature": 0.7,
-  "max_tokens": 2048,
+  "max_tokens": 512,
   "top_p": 0.9,
   "repetition_penalty": 1.1,
-  "stream": true
+  "seed": null
 }
 ```
 
-Returns Server-Sent Events:
+`max_tokens` range: 1–32768. `temperature` range: 0.0–2.0. `seed` is optional.
+
+Returns Server-Sent Events. Each event is a JSON object on a `data:` line:
 
 ```
-data: {"token": "Hello", "done": false}
-data: {"token": " there", "done": false}
-data: {"token": "", "done": true, "stats": {"tokens_per_second": 42.5, "time_to_first_token": 0.15, "total_tokens": 23}}
+data: {"text": "Hello", "done": false}
+data: {"text": " there", "done": false}
+data: {"text": "", "done": true}
 ```
 
-The final event has `done: true` and includes generation statistics.
+A `warning` field may appear on non-done events (e.g. high memory usage, image sent to text-only model).
 
-### Context Building
+The engine uses `mlx_lm.stream_generate` with a persistent KV cache (`make_prompt_cache` / `trim_prompt_cache` from `mlx_lm.models.cache`) that carries over across turns. Common token prefixes are reused automatically.
 
-Before sending to MLX, the backend may augment the message array:
+KV-cache quantization (4 or 8 bit) is applied during generation if it was set at model load time (`kv_bits=` kwarg to `stream_generate`).
 
-1. **RAG context**: If the frontend sends `rag_collection_id`, the backend queries the collection and prepends matching chunks to the system message.
-2. **Web search**: If the frontend sends `web_search: true`, the backend runs a DuckDuckGo search and prepends results.
-3. **Reasoning mode**: If set, a reasoning instruction is appended to the system prompt.
+### Vision Models
+
+`messages[].content` can be a string or an array of content parts for vision models:
+
+```json
+[
+  { "type": "text", "text": "Describe this image" },
+  { "type": "image_url", "image_url": { "url": "data:image/png;base64,..." } }
+]
+```
+
+Images must be under 20 MB. Vision models use `mlx_vlm.stream_generate` instead of `mlx_lm`.
 
 ### Message Format
 
-Messages follow the OpenAI format:
+Messages follow the OpenAI chat format:
 
 ```json
 [
@@ -54,6 +65,8 @@ Messages follow the OpenAI format:
   { "role": "assistant", "content": "..." }
 ]
 ```
+
+The frontend (`ChatInterface.tsx`) optionally prepends RAG chunks, web search results, and reasoning instructions to the message array before sending. These augmentations happen client-side; the `/api/engine/chat` endpoint itself does not accept RAG or search parameters.
 
 ## Stop Generation
 

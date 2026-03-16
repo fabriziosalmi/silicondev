@@ -44,13 +44,12 @@ Known gaps and improvement opportunities:
 
 | Area | Current State | Improvement |
 |------|--------------|-------------|
-| RAG search | Keyword overlap | Vector embeddings with ONNX or MLX |
-| Agent execution | Mocked | Real LLM inference and MCP tool binding |
+| RAG search | BM25 + keyword hybrid | Deeper vector embedding integration |
 | MCP in chat | Not integrated | Allow model to call MCP tools during inference |
 | Toast notifications | Uses `alert()` | In-app toast component |
-| SSE parsing | Duplicated 8 times | Shared utility function |
-| Type safety | 9 `useState<any>` | Replace with proper types |
-| Tests | Minimal | Expand backend test coverage |
+| SSE parsing | Duplicated across components | Shared utility function |
+| Type safety | Some `any` usages | Replace with proper types |
+| Tests | Backend unit tests; no E2E currently | Expand test coverage |
 
 ## License
 

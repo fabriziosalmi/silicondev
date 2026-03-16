@@ -4,7 +4,9 @@
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `8000` | Backend server port |
+| `PORT` | `8000` | Preferred starting port for the backend. If busy, scans 8001–8099. |
+| `SILICON_AUTH_TOKEN` | (unset) | Shared secret between Electron and backend. When set, all non-public API endpoints require `Authorization: Bearer <token>` (or `?token=` for SSE). Unset = no auth (dev mode). |
+| `SILICON_PARENT_PID` | (unset) | PID of the Electron parent. Backend polls every 5 s and exits if the parent is gone. Set automatically when launched by Electron. |
 
 The backend binds to `127.0.0.1` only. No external network access.
 
@@ -94,7 +96,7 @@ Build config is in the root `package.json` under the `"build"` key. Key settings
 
 | Field | Value |
 |-------|-------|
-| `appId` | `com.siliconstudio.app` |
+| `appId` | `com.silicondev.app` |
 | `mac.target` | `["dmg", "zip"]` |
 | `mac.hardenedRuntime` | `true` |
 | `mac.icon` | `resources/icon.icns` |

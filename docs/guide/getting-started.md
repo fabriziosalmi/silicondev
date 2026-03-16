@@ -30,7 +30,7 @@ cd ..
 npm run dev
 ```
 
-This starts both the Vite dev server (port 5173) and the Electron shell. The backend FastAPI server starts automatically on port 8000.
+This starts both the Vite dev server (port 5173) and the Electron shell. The backend FastAPI server starts automatically, binding to `127.0.0.1`. It tries port 8000 first and scans up to 8099 if 8000 is busy. The chosen port is signalled to Electron via stdout (`SILICON_PORT=<port>`).
 
 ## Build for Distribution
 
@@ -51,8 +51,8 @@ Produces a `.dmg` and `.zip` in the `release/` directory. The backend is bundled
 
 All user data is stored in `~/.silicon-studio/`:
 
-| Directory | Contents |
-|-----------|----------|
+| Path | Contents |
+|------|----------|
 | `models.json` | Model registry (names, paths, status) |
 | `models/` | Downloaded model files |
 | `adapters/` | Fine-tuned LoRA adapters |
@@ -61,5 +61,6 @@ All user data is stored in `~/.silicon-studio/`:
 | `agents/agents.json` | Agent workflow definitions |
 | `rag/` | RAG collections and chunks |
 | `mcp_servers.json` | MCP server configurations |
+| `logs/app.log` | Backend rotating log (5 MB, 3 files) |
 
 No data is sent to external servers. Everything stays on disk.

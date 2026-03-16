@@ -29,7 +29,20 @@ The agent uses the loaded model to:
 - Generate code modifications based on your instructions
 - Present changes as visual diffs for review
 
-The agent requires a model to be loaded. It communicates through the same NanoCore agent infrastructure used by the Terminal.
+The agent requires a model to be loaded. It runs through the NanoCore `SupervisorAgent` and `PlannerEditor` — the same infrastructure exposed by the `/api/terminal` backend endpoints.
+
+### NanoCore Features Available in the Agent Panel
+
+- **Diff proposals**: File edits are shown as diffs; you approve or reject before the file is written
+- **Undo / Rollback**: Undo the last edit, or roll back to any checkpoint in the edit history
+- **Self-healing**: Up to 3 automatic retries on tool failures before escalating to you
+- **Human escalation**: When the agent is stuck, it pauses and asks for guidance
+- **Mixture of Agents (MoA)**: Parallel Security, Performance, and Syntax expert sub-agents
+- **Air-gapped mode**: Blocks outbound network calls in tool executions
+- **Python sandbox**: Isolated subprocess for script execution
+- **Context health**: Token budget and context usage indicator
+- **Scout Agent**: Background monitor flags high-activity files as refactoring candidates
+- **Planner mode**: Generate a multi-step plan and approve it before execution begins
 
 ## Backend API
 
@@ -44,7 +57,7 @@ All file operations enforce path containment — paths outside the selected work
 
 ## Authentication
 
-All backend requests require a Bearer token when `SILICON_AUTH_TOKEN` is set in the environment (normal packaged operation). The `EventSource`-based SSE stream (agent panel) passes the token as a `?token=` query parameter since the browser `EventSource` API does not support custom headers.
+All backend requests include the `Authorization: Bearer <token>` header when `SILICON_AUTH_TOKEN` is set. The agent SSE stream uses `fetch` (not `EventSource`), so it can include the authorization header directly rather than needing a `?token=` query parameter.
 
 ## Keyboard Shortcuts
 
