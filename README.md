@@ -15,7 +15,7 @@ SiliconDev is a desktop app for running, fine-tuning, and chatting with LLMs on 
   <img src="resources/icon.png" alt="SiliconDev" width="128" />
 </p>
 
-[!screenshot](screenshot.png)
+![screenshot](screenshot.png)
 
 ## Why SiliconDev?
 
