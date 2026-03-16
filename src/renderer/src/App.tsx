@@ -553,6 +553,7 @@ function App() {
         isOpen={commandPaletteOpen}
         onClose={() => setCommandPaletteOpen(false)}
         onOpenKnowledgeMap={() => setKnowledgeMapOpen(true)}
+        onNavigateTo={(tab) => setActiveTab(tab)}
       />
       <KnowledgeMap
         isOpen={knowledgeMapOpen}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Zap, ShieldCheck, Brain, Database, X, Command } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
+import { apiClient } from '../api/client';
 
 interface CommandItem {
   id: string;
@@ -11,10 +12,11 @@ interface CommandItem {
   category: string;
 }
 
-export function CommandPalette({ isOpen, onClose, onOpenKnowledgeMap }: { 
-  isOpen: boolean; 
+export function CommandPalette({ isOpen, onClose, onOpenKnowledgeMap, onNavigateTo }: {
+  isOpen: boolean;
   onClose: () => void;
   onOpenKnowledgeMap?: () => void;
+  onNavigateTo?: (tab: string) => void;
 }) {
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -26,18 +28,18 @@ export function CommandPalette({ isOpen, onClose, onOpenKnowledgeMap }: {
     {
       id: 'swarm',
       label: 'Trigger Swarm Consensus',
-      description: 'Analyze current problem with 3 expert agents',
+      description: 'Open Code Workspace with MoA swarm mode active',
       icon: <Brain size={16} className="text-purple-400" />,
       category: 'Agentic Tools',
-      action: () => { console.log('Swarm triggered'); onClose(); }
+      action: () => { onNavigateTo?.('code'); onClose(); }
     },
     {
       id: 'sanitizer',
       label: 'Security Audit',
-      description: 'Run AST-based shell sanitizer check',
+      description: 'Open Code Workspace and run a security review',
       icon: <ShieldCheck size={16} className="text-emerald-400" />,
       category: 'Security',
-      action: () => { console.log('Sanitizer audit'); onClose(); }
+      action: () => { onNavigateTo?.('code'); onClose(); }
     },
     {
       id: 'knowledge',
@@ -50,18 +52,21 @@ export function CommandPalette({ isOpen, onClose, onOpenKnowledgeMap }: {
     {
       id: 'training',
       label: 'Local Fine-Tuning (MLX)',
-      description: 'Start autonomous training job on local dataset',
+      description: 'Open Fine-Tuning tab to start a training job',
       icon: <Database size={16} className="text-blue-400" />,
-      category: 'Phase 5',
-      action: () => { console.log('Fine-tuning started'); onClose(); }
+      category: 'Training',
+      action: () => { onNavigateTo?.('engine'); onClose(); }
     },
     {
       id: 'vram',
       label: 'Purge VRAM/KV Cache',
-      description: 'Instant memory cleanup for heavy tasks',
+      description: 'Unload active model and free memory',
       icon: <Zap size={16} className="text-amber-400" />,
       category: 'Performance',
-      action: () => { console.log('VRAM purge'); onClose(); }
+      action: async () => {
+        try { await apiClient.engine.unloadModel(); } catch { /* ignore if no model loaded */ }
+        onClose();
+      }
     }
   ];
 

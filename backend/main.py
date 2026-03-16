@@ -73,8 +73,6 @@ try:
     logger.info("Imported workspace router")
     from app.api.memory import router as memory_router
     logger.info("Imported memory router")
-    from app.api.training import router as training_router
-    logger.info("Imported training router")
 
 except Exception as e:
     logger.critical(f"Import error: {e}", exc_info=True)
@@ -214,7 +212,6 @@ app.include_router(terminal_router, prefix="/api/terminal", tags=["terminal"])
 app.include_router(codebase_router, prefix="/api/codebase", tags=["codebase"])
 app.include_router(workspace_router, prefix="/api/workspace", tags=["workspace"])
 app.include_router(memory_router, prefix="/api/memory", tags=["memory"])
-app.include_router(training_router, prefix="/api/training", tags=["training"])
 
 
 @app.get("/health")
