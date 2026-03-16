@@ -15,6 +15,8 @@ SiliconDev is a desktop app for running, fine-tuning, and chatting with LLMs on 
   <img src="resources/icon.png" alt="SiliconDev" width="128" />
 </p>
 
+[!screenshot](screenshot.png)
+
 ## Why SiliconDev?
 
 - **Runs entirely on your Mac.** No cloud accounts, no API keys, zero telemetry. Your data stays local.
