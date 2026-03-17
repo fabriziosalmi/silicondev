@@ -221,7 +221,14 @@ async def health_check():
 if __name__ == "__main__":
     import multiprocessing
     import socket
+    import sys
+    
     multiprocessing.freeze_support()
+
+    if "--mlx-lm-server" in sys.argv:
+        from mlx_lm.server import main as mlx_lm_server_main
+        sys.argv.remove("--mlx-lm-server")
+        sys.exit(mlx_lm_server_main())
 
     try:
         preferred = int(os.getenv("PORT", "8000"))

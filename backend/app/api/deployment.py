@@ -51,12 +51,22 @@ async def start_server(req: StartRequest):
         if server_process is not None and server_process.poll() is None:
             raise HTTPException(status_code=400, detail="Server is already running.")
 
-        cmd = [
-            "python", "-m", "mlx_lm.server",
-            "--model", req.model_path,
-            "--host", req.host,
-            "--port", str(req.port)
-        ]
+        import sys
+        if getattr(sys, 'frozen', False):
+            cmd = [
+                sys.executable,
+                "--mlx-lm-server",
+                "--model", req.model_path,
+                "--host", req.host,
+                "--port", str(req.port)
+            ]
+        else:
+            cmd = [
+                sys.executable, "-m", "mlx_lm.server",
+                "--model", req.model_path,
+                "--host", req.host,
+                "--port", str(req.port)
+            ]
 
         try:
             server_logs.clear()
