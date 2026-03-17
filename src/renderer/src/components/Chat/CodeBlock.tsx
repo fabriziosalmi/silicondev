@@ -212,9 +212,9 @@ export const CodeBlock = memo(function CodeBlock({
     const hasOutput = result && (result.stdout || result.stderr);
 
     return (
-        <div className="rounded-lg border border-white/5 bg-black/30 overflow-hidden my-3 group/code">
+        <div className="rounded-lg border border-white/5 bg-black/30 my-3 group/code relative">
             {/* Header bar */}
-            <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.03] border-b border-white/5">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.03] border-b border-white/5 rounded-t-lg">
                 <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-mono text-gray-500">{language || 'code'}</span>
                     {checking && <Loader2 className="w-3 h-3 animate-spin text-gray-500" />}
@@ -361,7 +361,7 @@ export const CodeBlock = memo(function CodeBlock({
             )}
             {/* Syntax errors — hidden when syntax check is toggled off */}
             {syntaxCheck && checkResult && !checkResult.valid && !checkResult.skipped && (
-                <div className="border-t border-red-500/10 bg-red-500/[0.03] px-3 py-2">
+                <div className="border-t border-red-500/10 bg-red-500/[0.03] px-3 py-2 rounded-b-lg">
                     <div className="flex items-center justify-between">
                         <span className="text-[10px] font-medium text-red-400">{t('codeblock.syntaxError')}</span>
                         {autoFixSyntax && (

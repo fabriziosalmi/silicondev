@@ -1992,7 +1992,7 @@ Return exactly this JSON structure (no other text):
                                     return (
                                         <div key={idx} id={`msg-${idx}`} className={`mb-6 group rounded-lg transition-colors ${isActiveHitAst ? 'bg-yellow-500/10 ring-1 ring-yellow-500/30' : isSearchHitAst ? 'bg-white/[0.02]' : ''}`}>
                                             <div className="flex items-start gap-3">
-                                                <img src="/icon.svg" alt="" className="w-6 h-6 rounded-md shrink-0 mt-1" />
+                                                <img src="./icon.svg" alt="" className="w-6 h-6 rounded-md shrink-0 mt-1" />
                                                 <div className="min-w-0 flex-1">
                                                     {/* Reasoning trace */}
                                                     {thinkingContent && (

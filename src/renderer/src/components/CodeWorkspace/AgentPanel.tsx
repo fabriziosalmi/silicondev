@@ -162,7 +162,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
         <div className="flex items-center justify-between px-3 py-1.5 gap-2">
           {/* Left: icon + dynamic status */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <img src="/icon.svg" alt="" className={`w-3.5 h-3.5 rounded-sm ${isRunning ? 'animate-pulse' : 'opacity-60'}`} />
+            <img src="./icon.svg" alt="" className={`w-3.5 h-3.5 rounded-sm ${isRunning ? 'animate-pulse' : 'opacity-60'}`} />
             <span
               className={`text-[11px] font-mono truncate transition-colors duration-300 ${statusInfo.color}`}
               title={activeModel?.name ?? undefined}

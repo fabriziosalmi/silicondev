@@ -663,7 +663,7 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-3">
-          <img src="/icon.svg" alt="" className="w-10 h-10 rounded-xl mx-auto" />
+          <img src="./icon.svg" alt="" className="w-10 h-10 rounded-xl mx-auto" />
           <div className="space-y-1">
             <p className="text-xs text-gray-400 font-medium">{t('terminal.emptyState')}</p>
             <p className="text-[10px] text-gray-600">{t('terminal.emptyHint')}</p>
