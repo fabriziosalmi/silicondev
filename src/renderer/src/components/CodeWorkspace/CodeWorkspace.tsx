@@ -586,7 +586,7 @@ export function CodeWorkspace() {
                 />
 
                 {activeDiff && (
-                  <div className="absolute top-10 right-10 z-50 flex items-center gap-2 p-1.5 bg-[#1a1a1a]/90 border border-amber-500/30 rounded-lg shadow-2xl backdrop-blur-md">
+                  <div className="absolute bottom-6 right-6 z-50 flex items-center gap-2 p-1.5 bg-[#1a1a1a]/90 border border-amber-500/30 rounded-lg shadow-2xl backdrop-blur-md">
                     <div className="px-2 py-0.5 bg-amber-500/10 rounded text-[10px] font-bold text-amber-500 uppercase tracking-tighter">
                       Proposed Change
                     </div>
