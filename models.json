@@ -1,5 +1,16 @@
 [
     {
+        "id": "fabriziosalmi/nanocoder",
+        "name": "NanoCoder (Embedded)",
+        "size": "0.4GB",
+        "family": "NanoCoder",
+        "url": "https://huggingface.co/fabriziosalmi/nanocoder",
+        "embedded": true,
+        "description": "Built-in agentic coder, fine-tuned for NanoCore tool use. No external model server required.",
+        "recommended_for": ["nanocore"],
+        "context_window": "32k"
+    },
+    {
         "id": "mlx-community/Qwen3-0.6B-4bit",
         "name": "Qwen 3 0.6B (4-bit)",
         "size": "0.4GB",

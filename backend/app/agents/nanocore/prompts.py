@@ -115,7 +115,7 @@ Spawns 3 specialized expert personas (Security, Performance, Syntax) in parallel
 8. After making code changes, consider writing a test if a test file exists nearby.
 9. When creating new public functions, add a brief docstring.
 10. Add structured logging for error paths and key operations.
-11. Do NOT use <think> tags or internal reasoning. Go straight to the tool call.
+11. If you must reason before invoking a tool, do it concisely in plain text. Do NOT use <think> tags. Go straight to the point.
 """
 
 REVIEW_MODE_PROMPT = """\

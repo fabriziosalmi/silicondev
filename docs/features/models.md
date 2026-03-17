@@ -10,11 +10,12 @@ Browse, download, and manage LLM models. Models are stored locally in `~/.silico
 
 The Models page lists models from multiple sources:
 
-1. **Hugging Face** — Browse and download MLX-compatible models. Filtered to `mlx-community` and similar repos.
-2. **LM Studio** — Auto-discovers models in `~/.lmstudio/models/`.
-3. **Ollama** — Auto-discovers models in `~/.ollama/models/`.
-4. **HuggingFace cache** — Auto-discovers models in `~/.cache/huggingface/hub/`.
-5. **Custom** — Register any local model by path.
+1. **Embedded / Recommended** — Specific native models shipped via configuration (es. `fabriziosalmi/nanocoder`). NanoCoder is an embedded tool-calling agent fine-tuned so that it does **not** rely on `<think>` xml tags when reasoning, outputting everything purely as plain inline-text. Automatically pulled on system launch if missing!
+2. **Hugging Face** — Browse and download MLX-compatible models. Filtered to `mlx-community` and similar repos.
+3. **LM Studio** — Auto-discovers models in `~/.lmstudio/models/`.
+4. **Ollama** — Auto-discovers models in `~/.ollama/models/`.
+5. **HuggingFace cache** — Auto-discovers models in `~/.cache/huggingface/hub/`.
+6. **Custom** — Register any local model by path.
 
 ## Model Registry
 

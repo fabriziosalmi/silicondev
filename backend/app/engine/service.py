@@ -151,9 +151,36 @@ class MLXEngineService:
         self._main_loop: asyncio.AbstractEventLoop | None = None
 
         # Run auto-discovery and predictive loader in background
+        threading.Thread(target=self._ensure_embedded_models, daemon=True).start()
         threading.Thread(target=self._run_auto_discovery, daemon=True).start()
         threading.Thread(target=self._run_predictive_loader, daemon=True).start()
         threading.Thread(target=self._run_scout_agent, daemon=True).start()
+
+    def _is_model_downloaded_check(self, model_id: str) -> bool:
+        if Path(model_id).is_absolute():
+            return Path(model_id).exists()
+        sanitized_name = model_id.replace("/", "--")
+        local_path = self.models_dir / sanitized_name
+        return (local_path / ".completed").exists()
+
+    def _ensure_embedded_models(self):
+        """Ensure all 'embedded' models are downloaded and available at startup."""
+        logger.info("Ensuring embedded models are available...")
+        embedded_models = [m for m in self.models_config if m.get("embedded")]
+        for model in embedded_models:
+            model_id = model["id"]
+            if not self._is_model_downloaded_check(model_id):
+                logger.info(f"Embedded model {model_id} not found locally. Initiating auto-download.")
+                try:
+                    import requests
+                    res = requests.get(f"https://huggingface.co/api/models/{model_id}", timeout=10)
+                    if res.status_code == 200 or res.status_code == 401:
+                        # 401 might mean it's private but user has token configured, let HF hub handle it
+                        self.download_model(model_id)
+                    else:
+                        logger.warning(f"Embedded model {model_id} not reachable on HuggingFace Hub (Status: {res.status_code}). Skipping auto-download.")
+                except Exception as e:
+                    logger.error(f"Failed to auto-download embedded model {model_id}: {e}")
 
     def _run_predictive_loader(self):
         """Background thread to keep models hot or pre-heat based on predicted need."""

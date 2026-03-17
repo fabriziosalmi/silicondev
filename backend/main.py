@@ -120,6 +120,55 @@ async def lifespan(app: FastAPI):
     """
     logger.info("SiliconDev backend starting up")
     _start_parent_watchdog()
+
+    # Auto-load or background-download the embedded NanoCoder model if configured
+    try:
+        from app.api.engine import service as engine_service
+        import threading
+        
+        def _ensure_embedded_model():
+            target_model = "fabriziosalmi/nanocoder"
+            status = engine_service.get_models_status()
+            
+            # Check if it's already downloaded locally
+            model_info = next((m for m in status if m["id"] == target_model), None)
+            
+            if model_info:
+                if not model_info.get("downloaded"):
+                    logger.info(f"Auto-downloading embedded model: {target_model}")
+                    try:
+                        engine_service.download_model(target_model)
+                    except Exception as e:
+                        logger.warning(f"Could not auto-download {target_model}: {e}")
+                
+                # Check again if downloaded (or if it was already local)
+                updated_status = engine_service.get_models_status()
+                updated_info = next((m for m in updated_status if m["id"] == target_model), None)
+                if updated_info and updated_info.get("downloaded"):
+                    logger.info(f"Auto-loading embedded model: {target_model}")
+                    # Offload to async loop or just load synchronously since we are in a thread
+                    import asyncio
+                    try:
+                        # Create a new event loop for this background thread since load_model is async
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        try:
+                            # load_model might be async
+                            if asyncio.iscoroutinefunction(engine_service.load_model):
+                                loop.run_until_complete(engine_service.load_model(target_model))
+                            else:
+                                engine_service.load_model(target_model)
+                            logger.info(f"Successfully auto-loaded {target_model}")
+                        finally:
+                            loop.close()
+                    except Exception as e:
+                        logger.warning(f"Could not auto-load {target_model}: {e}")
+
+        # Start in background thread to not block FastAPI startup
+        threading.Thread(target=_ensure_embedded_model, daemon=True).start()
+    except Exception as e:
+        logger.error(f"Error initiating auto-load for embedded model: {e}")
+
     yield
     logger.info("SiliconDev backend shutting down — cleaning up resources")
 

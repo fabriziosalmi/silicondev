@@ -88,8 +88,11 @@ function App() {
       const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable;
 
       switch (e.key.toLowerCase()) {
-        case 'k': // Cmd+K — quick switch: jump to chat
-          if (!isInput) {
+        case 'k': // Cmd+K — quick switch: jump to chat AND Alt+Shift+K — knowledge map
+          if (e.altKey && e.shiftKey) {
+            e.preventDefault();
+            setKnowledgeMapOpen(true);
+          } else if (!isInput) {
             e.preventDefault();
             setActiveTab('chat');
           }
@@ -117,12 +120,6 @@ function App() {
           if (!isInput) {
             e.preventDefault();
             setActiveTab('settings');
-          }
-          break;
-        case 'k': // Alt+Shift+K — knowledge map
-          if (e.altKey && e.shiftKey) {
-            e.preventDefault();
-            setKnowledgeMapOpen(true);
           }
           break;
         case 'p': // Alt+Shift+P — command palette
