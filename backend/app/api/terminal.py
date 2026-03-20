@@ -28,14 +28,20 @@ _finished_sessions: dict[str, tuple[SupervisorAgent | PlannerEditor, float]] = {
 _sessions_lock = asyncio.Lock()
 
 SESSION_TTL = 600  # 10 minutes
+MAX_FINISHED_SESSIONS = 50
 
 
 async def _cleanup_expired_sessions():
-    """Remove finished sessions older than SESSION_TTL."""
+    """Remove finished sessions older than SESSION_TTL or exceeding cap."""
     now = time.time()
     expired = [sid for sid, (_, t) in _finished_sessions.items() if now - t > SESSION_TTL]
     for sid in expired:
         _finished_sessions.pop(sid, None)
+    # Hard cap: drop oldest if still over limit
+    if len(_finished_sessions) > MAX_FINISHED_SESSIONS:
+        by_age = sorted(_finished_sessions.items(), key=lambda x: x[1][1])
+        for sid, _ in by_age[: len(_finished_sessions) - MAX_FINISHED_SESSIONS]:
+            _finished_sessions.pop(sid, None)
 
 
 class ExecRequest(BaseModel):
@@ -89,6 +95,7 @@ async def run_terminal(request: TerminalRequest):
     )
     async with _sessions_lock:
         _active_sessions[session_id] = agent
+        await _cleanup_expired_sessions()
 
     # Build prompt with active file context if provided
     prompt = request.prompt
@@ -272,6 +279,7 @@ async def run_plan(request: PlanRequest):
     )
     async with _sessions_lock:
         _active_sessions[session_id] = planner
+        await _cleanup_expired_sessions()
 
     async def event_generator():
         try:

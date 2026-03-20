@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import { apiClient, type ConversationSummary } from '../api/client'
+import { useToast } from '../components/ui/Toast'
 
 interface ConversationContextType {
     conversationList: ConversationSummary[]
@@ -28,6 +29,7 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
     const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
+    const { toast } = useToast()
 
     const fetchConversations = useCallback(async () => {
         try {
@@ -35,11 +37,11 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
             const list = await apiClient.conversations.list()
             setConversationList(list)
         } catch {
-            // fetch failed silently
+            toast('Failed to load conversations', 'error')
         } finally {
             setListLoading(false)
         }
-    }, [])
+    }, [toast])
 
     const handleSearch = useCallback(async (query: string) => {
         setSearchQuery(query)
@@ -48,9 +50,9 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
             const results = await apiClient.conversations.search(query)
             setConversationList(results)
         } catch {
-            // search failed silently
+            toast('Search failed', 'error')
         }
-    }, [fetchConversations])
+    }, [fetchConversations, toast])
 
     const handleDeleteConversation = useCallback(async (id: string) => {
         if (!window.confirm('Delete this conversation?')) return
@@ -59,9 +61,9 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
             if (activeConversationId === id) setActiveConversationId(null)
             fetchConversations()
         } catch {
-            // delete failed silently
+            toast('Failed to delete conversation', 'error')
         }
-    }, [activeConversationId, fetchConversations])
+    }, [activeConversationId, fetchConversations, toast])
 
     const handleRenameConversation = useCallback(async (id: string, newTitle: string) => {
         try {
@@ -69,18 +71,18 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
             setRenamingId(null)
             fetchConversations()
         } catch {
-            // rename failed silently
+            toast('Failed to rename conversation', 'error')
         }
-    }, [fetchConversations])
+    }, [fetchConversations, toast])
 
     const handleTogglePin = useCallback(async (id: string, currentPinned: boolean) => {
         try {
             await apiClient.conversations.update(id, { pinned: !currentPinned })
             fetchConversations()
         } catch {
-            // toggle failed silently
+            toast('Failed to update pin', 'error')
         }
-    }, [fetchConversations])
+    }, [fetchConversations, toast])
 
     const startRename = useCallback((id: string, title: string) => {
         setRenamingId(id)

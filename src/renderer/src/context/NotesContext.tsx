@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import { apiClient } from '../api/client'
 import type { NoteSummary } from '../api/client'
+import { useToast } from '../components/ui/Toast'
 
 interface NotesContextType {
     notesList: NoteSummary[]
@@ -26,6 +27,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     const [activeNoteId, setActiveNoteId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
+    const { toast } = useToast()
 
     const fetchNotes = useCallback(async () => {
         setListLoading(true)
@@ -33,11 +35,11 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
             const list = await apiClient.notes.list()
             setNotesList(list)
         } catch {
-            // ignore
+            toast('Failed to load notes', 'error')
         } finally {
             setListLoading(false)
         }
-    }, [])
+    }, [toast])
 
     const handleDeleteNote = useCallback(async (id: string) => {
         if (!window.confirm('Delete this note?')) return
@@ -45,10 +47,10 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
             await apiClient.notes.delete(id)
             setNotesList(prev => prev.filter(n => n.id !== id))
             if (activeNoteId === id) setActiveNoteId(null)
-        } catch (err) {
-            console.error('Failed to delete note:', err)
+        } catch {
+            toast('Failed to delete note', 'error')
         }
-    }, [activeNoteId])
+    }, [activeNoteId, toast])
 
     const handleRenameNote = useCallback(async (id: string, title: string) => {
         try {
@@ -56,9 +58,9 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
             setNotesList(prev => prev.map(n => n.id === id ? { ...n, title } : n))
             setRenamingId(null)
         } catch {
-            // ignore
+            toast('Failed to rename note', 'error')
         }
-    }, [])
+    }, [toast])
 
     const handleTogglePin = useCallback(async (id: string, currentlyPinned: boolean) => {
         const pinned = !currentlyPinned
@@ -73,9 +75,9 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
                 return updated
             })
         } catch {
-            // ignore
+            toast('Failed to update pin', 'error')
         }
-    }, [])
+    }, [toast])
 
     const startRename = useCallback((id: string, title: string) => {
         setRenamingId(id)

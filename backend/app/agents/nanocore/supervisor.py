@@ -102,7 +102,14 @@ def _git_snapshot(working_dir: str) -> str | None:
             return sha
         # Empty output means no changes to snapshot (clean tree)
         return None
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+    except FileNotFoundError:
+        logger.debug("Git not found — snapshot skipped")
+        return None
+    except subprocess.TimeoutExpired:
+        logger.warning(f"Git snapshot timed out for {working_dir}")
+        return None
+    except OSError as e:
+        logger.warning(f"Git snapshot failed for {working_dir}: {e}")
         return None
 
 

@@ -27,16 +27,16 @@ export function CommandPalette({ isOpen, onClose, onOpenKnowledgeMap, onNavigate
   const commands: CommandItem[] = [
     {
       id: 'swarm',
-      label: 'Trigger Swarm Consensus',
-      description: 'Open Code Workspace with MoA swarm mode active',
+      label: 'Code Workspace (Swarm)',
+      description: 'Open Code Workspace — enable MoA in the agent panel for swarm mode',
       icon: <Brain size={16} className="text-purple-400" />,
       category: 'Agentic Tools',
       action: () => { onNavigateTo?.('code'); onClose(); }
     },
     {
       id: 'sanitizer',
-      label: 'Security Audit',
-      description: 'Open Code Workspace and run a security review',
+      label: 'Code Workspace (Security)',
+      description: 'Open Code Workspace — ask the agent to run a security review',
       icon: <ShieldCheck size={16} className="text-emerald-400" />,
       category: 'Security',
       action: () => { onNavigateTo?.('code'); onClose(); }

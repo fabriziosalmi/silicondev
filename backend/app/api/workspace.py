@@ -80,7 +80,7 @@ def _validate_path(requested: str, workspace_root: str | None = None) -> Path:
     # If workspace root provided, enforce containment
     if workspace_root:
         root = Path(workspace_root).resolve()
-        if not target_str.startswith(str(root) + "/") and target != root:
+        if not target.is_relative_to(root):
             raise HTTPException(
                 status_code=403,
                 detail="Path is outside workspace root",

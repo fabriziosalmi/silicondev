@@ -1,6 +1,6 @@
 [project]
 name = "silicon-studio-backend"
-version = "0.11.0"
+version = "0.11.1"
 description = "SiliconDev backend"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -45,6 +45,8 @@ filterwarnings = [
     "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
     "ignore:builtin type SwigPyObject has no __module__ attribute:DeprecationWarning",
     "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
+    "ignore:The `resume_download` argument is deprecated:UserWarning",
+    "ignore:The `local_dir_use_symlinks` argument is deprecated:UserWarning",
 ]
 
 [tool.setuptools]

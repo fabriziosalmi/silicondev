@@ -4,6 +4,7 @@ import { useGlobalState } from '../context/GlobalState';
 import { apiClient, cleanModelName } from '../api/client';
 import type { ModelEntry } from '../api/client';
 import { DatabaseZap, LogOut, ChevronDown, Loader2, Zap, HardDrive, Search, Cpu, MemoryStick, Brain } from 'lucide-react';
+import { useToast } from './ui/Toast';
 
 const TOPBAR_SETTINGS_KEY = 'silicon-studio-topbar-settings';
 
@@ -52,6 +53,7 @@ function StatGroup({ icon, percent, thresholds, detail }: {
 export function TopBar() {
     const { t } = useTranslation();
     const { backendReady, systemStats, activeModel, setActiveModel, isTraining, isGenerating } = useGlobalState();
+    const { toast } = useToast();
     const thresholds = getThresholds();
     const [showModelMenu, setShowModelMenu] = useState(false);
     const [models, setModels] = useState<ModelEntry[]>([]);
@@ -83,6 +85,7 @@ export function TopBar() {
             setModelFilter('');
         } catch (err) {
             console.error('Failed to load model from top bar:', err)
+            toast('Failed to load model', 'error')
         } finally { setLoadingModelId(null); }
     };
 

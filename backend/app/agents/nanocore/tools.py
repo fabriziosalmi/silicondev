@@ -783,8 +783,17 @@ async def check_broken_imports(file_path: str, old_content: str = None, new_cont
         try:
             content = Path(file_path).read_text(errors="ignore")
             if ext == ".py":
-                ast.parse(content) # Check syntax
-            return None # Implementation placeholder for deeper background checks
+                tree = ast.parse(content)
+                # Check that imported modules resolve as files next to this one
+                parent = Path(file_path).parent
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ImportFrom) and node.module and node.level > 0:
+                        # Relative import — check the target file exists
+                        parts = node.module.split(".")
+                        target = parent / "/".join(parts)
+                        if not target.with_suffix(".py").exists() and not (target / "__init__.py").exists():
+                            return f"Possibly broken relative import: from {'.' * node.level}{node.module}"
+            return None
         except SyntaxError as e:
             return f"Syntax error: {e}"
         except Exception:

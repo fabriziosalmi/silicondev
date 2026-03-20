@@ -35,7 +35,10 @@ def list_conversations():
 
 @router.get("/{conversation_id}")
 def get_conversation(conversation_id: str):
-    conv = service.get_conversation(conversation_id)
+    try:
+        conv = service.get_conversation(conversation_id)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return conv
@@ -53,7 +56,10 @@ def create_conversation(req: ConversationCreate):
 @router.patch("/{conversation_id}")
 def update_conversation(conversation_id: str, req: ConversationUpdate):
     updates = req.model_dump(exclude_none=True)
-    conv = service.update_conversation(conversation_id, updates)
+    try:
+        conv = service.update_conversation(conversation_id, updates)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return conv

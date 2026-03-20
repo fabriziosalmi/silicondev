@@ -17,6 +17,7 @@ import { ParametersPanel, type ChatSettings } from './Chat/ParametersPanel'
 import { CodeBlock, redactPII } from './Chat/CodeBlock'
 import { MemoryMapPanel } from './Chat/MemoryMapPanel'
 import { ResponseActions } from './Chat/ResponseActions'
+import { useToast } from './ui/Toast'
 
 interface SourceRef {
     index: number
@@ -89,6 +90,7 @@ function loadSettings(storageKey: string): ChatSettings {
 export function ChatInterface() {
     const { activeModel, setActiveModel, backendReady, pendingChatInput, setPendingChatInput } = useGlobalState()
     const { t } = useTranslation()
+    const { toast } = useToast()
 
     const [messages, setMessages] = useState<Message[]>(() => {
         try {
@@ -277,10 +279,11 @@ export function ChatInterface() {
             })
         } catch (err) {
             console.error('Failed to load suggested model:', err)
+            toast('Failed to load model', 'error')
         } finally {
             setLoadingSuggested(false)
         }
-    }, [suggestedModel, loadingSuggested, setActiveModel])
+    }, [suggestedModel, loadingSuggested, setActiveModel, toast])
 
     // DOM windowing: only render last N messages to avoid DOM bloat on long conversations
     const RENDER_WINDOW = 100;

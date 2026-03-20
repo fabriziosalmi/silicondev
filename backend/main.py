@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from app.middleware.auth import LocalAuthMiddleware
+from app.version import __version__
 import uvicorn
 import os
 import sys
@@ -209,7 +210,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SiliconDev Backend",
     description="Local-first LLM fine-tuning engine",
-    version="0.7.4",
+    version=__version__,
     lifespan=lifespan,
 )
 

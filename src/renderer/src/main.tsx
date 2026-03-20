@@ -81,13 +81,13 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <GlobalStateProvider>
-        <ConversationProvider>
-          <NotesProvider>
-            <ToastProvider>
+        <ToastProvider>
+          <ConversationProvider>
+            <NotesProvider>
               <App />
-            </ToastProvider>
-          </NotesProvider>
-        </ConversationProvider>
+            </NotesProvider>
+          </ConversationProvider>
+        </ToastProvider>
       </GlobalStateProvider>
     </ErrorBoundary>
   </StrictMode>,

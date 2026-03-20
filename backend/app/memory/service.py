@@ -98,9 +98,8 @@ class KnowledgeGraph:
             cursor.execute(query, params)
             for row in cursor.fetchall():
                 node = dict(row)
-                if node["id"] == node_id: # We want the OTHER side of the edge
-                    # This query is a bit simplified, in a real graph we'd handle directionality better
-                    pass 
+                if node["id"] == node_id:
+                    continue
                 node["metadata"] = json.loads(node["metadata"])
                 results.append(node)
         return results

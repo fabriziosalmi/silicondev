@@ -71,7 +71,11 @@ class ConversationService:
         return data
 
     def get_conversation(self, conversation_id: str) -> Optional[Dict[str, Any]]:
-        """Return full conversation including messages."""
+        """Return full conversation including messages.
+
+        Returns None if the conversation file does not exist.
+        Raises ValueError if the file exists but is corrupt.
+        """
         safe_id(conversation_id)
         path = self.conversations_dir / f"{conversation_id}.json"
         if not path.exists():
@@ -80,6 +84,9 @@ class ConversationService:
             with open(path, "r") as f:
                 data = json.load(f)
             return self._migrate(data)
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            logger.error(f"Corrupt conversation file {conversation_id}: {e}")
+            raise ValueError(f"Conversation data is corrupt: {e}")
         except Exception as e:
             logger.error(f"Failed to load conversation {conversation_id}: {e}")
             return None
