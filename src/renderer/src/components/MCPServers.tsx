@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { PageHeader } from './ui/PageHeader'
 import { Card } from './ui/Card'
 import { Server, Plus, Trash2, Play, ChevronDown, ChevronRight, Search, ExternalLink } from 'lucide-react'
+import { useConfirm } from './ui/ConfirmDialog'
 import { apiClient } from '../api/client'
 import { useToast } from './ui/Toast'
 
@@ -32,6 +33,7 @@ const POPULAR_SERVERS = [
 
 export function MCPServers() {
     const { t } = useTranslation()
+    const { confirm } = useConfirm()
     const [servers, setServers] = useState<MCPServer[]>([])
     const [loading, setLoading] = useState(true)
     const [showAdd, setShowAdd] = useState(false)
@@ -91,7 +93,8 @@ export function MCPServers() {
     }
 
     const handleRemove = async (id: string) => {
-        if (!window.confirm('Remove this MCP server?')) return
+        const ok = await confirm({ message: 'Remove this MCP server?', destructive: true, confirmLabel: 'Remove' })
+        if (!ok) return
         try {
             await apiClient.mcp.removeServer(id)
             setServers(prev => prev.filter(s => s.id !== id))

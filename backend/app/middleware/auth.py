@@ -18,6 +18,9 @@ _PUBLIC_PATHS = {"/health", "/docs", "/openapi.json"}
 
 _TOKEN = os.environ.get("SILICON_AUTH_TOKEN", "")
 
+if not _TOKEN:
+    logger.warning("SILICON_AUTH_TOKEN not set — auth middleware disabled (dev mode)")
+
 
 class LocalAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):

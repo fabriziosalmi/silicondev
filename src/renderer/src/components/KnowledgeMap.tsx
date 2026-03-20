@@ -4,15 +4,40 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Zap, Brain } from 'lucide-react';
 import { apiClient } from '../api/client';
 
+interface GraphNode {
+  id: string;
+  type: string;
+  label: string;
+  content?: string;
+  metadata?: Record<string, unknown>;
+  val?: number;
+  x?: number;
+  y?: number;
+}
+
+interface GraphEdge {
+  source: string;
+  target: string;
+  relation: string;
+  metadata?: string;
+  created_at?: number;
+}
+
+interface GraphLink {
+  source: string;
+  target: string;
+  relation: string;
+}
+
 interface KnowledgeMapProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 const KnowledgeMap: React.FC<KnowledgeMapProps> = ({ isOpen, onClose }) => {
-  const [data, setData] = useState<{ nodes: any[], links: any[] }>({ nodes: [], links: [] });
+  const [data, setData] = useState<{ nodes: GraphNode[], links: GraphLink[] }>({ nodes: [], links: [] });
   const [loading, setLoading] = useState(true);
-  const fgRef = useRef<any>(null);
+  const fgRef = useRef<{ centerAt: (x: number, y: number, ms: number) => void; zoom: (k: number, ms: number) => void } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -25,16 +50,16 @@ const KnowledgeMap: React.FC<KnowledgeMapProps> = ({ isOpen, onClose }) => {
     try {
       const nodesRes = await apiClient.apiFetch(`${apiClient.API_BASE}/api/memory/nodes`);
       const edgesRes = await apiClient.apiFetch(`${apiClient.API_BASE}/api/memory/edges`);
-      
-      const nodes = await nodesRes.json() as any[];
-      const edges = await edgesRes.json() as any[];
 
-      const formattedNodes = nodes.map((n: any) => ({
+      const nodes = await nodesRes.json() as GraphNode[];
+      const edges = await edgesRes.json() as GraphEdge[];
+
+      const formattedNodes = nodes.map((n) => ({
         ...n,
         val: n.type === 'conversation' ? 10 : 5
       }));
 
-      const formattedLinks = edges.map((e: any) => ({
+      const formattedLinks = edges.map((e) => ({
         source: e.source,
         target: e.target,
         relation: e.relation
@@ -107,15 +132,16 @@ const KnowledgeMap: React.FC<KnowledgeMapProps> = ({ isOpen, onClose }) => {
               <ForceGraph2D
                 ref={fgRef}
                 graphData={data}
-                nodeLabel={(node: any) => `${node.type.toUpperCase()}: ${node.label}`}
-                nodeColor={(node: any) => getNodeColor(node.type)}
+                nodeLabel={(node: object) => { const n = node as GraphNode; return `${n.type.toUpperCase()}: ${n.label}`; }}
+                nodeColor={(node: object) => getNodeColor((node as GraphNode).type)}
                 linkColor={() => 'rgba(255, 255, 255, 0.2)'}
                 nodeRelSize={6}
                 linkDirectionalArrowLength={3}
                 linkDirectionalArrowRelPos={1}
-                onNodeClick={(node: any) => {
+                onNodeClick={(node: object) => {
+                  const n = node as GraphNode;
                   if (fgRef.current) {
-                    fgRef.current.centerAt(node.x, node.y, 1000);
+                    fgRef.current.centerAt(n.x ?? 0, n.y ?? 0, 1000);
                     fgRef.current.zoom(2, 1000);
                   }
                 }}

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import { apiClient, type ConversationSummary } from '../api/client'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 
 interface ConversationContextType {
     conversationList: ConversationSummary[]
@@ -30,6 +31,7 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
     const { toast } = useToast()
+    const { confirm } = useConfirm()
 
     const fetchConversations = useCallback(async () => {
         try {
@@ -55,7 +57,8 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
     }, [fetchConversations, toast])
 
     const handleDeleteConversation = useCallback(async (id: string) => {
-        if (!window.confirm('Delete this conversation?')) return
+        const ok = await confirm({ message: 'Delete this conversation?', destructive: true, confirmLabel: 'Delete' })
+        if (!ok) return
         try {
             await apiClient.conversations.delete(id)
             if (activeConversationId === id) setActiveConversationId(null)
@@ -63,7 +66,7 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
         } catch {
             toast('Failed to delete conversation', 'error')
         }
-    }, [activeConversationId, fetchConversations, toast])
+    }, [activeConversationId, fetchConversations, toast, confirm])
 
     const handleRenameConversation = useCallback(async (id: string, newTitle: string) => {
         try {

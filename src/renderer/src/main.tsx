@@ -5,6 +5,7 @@ import { GlobalStateProvider } from './context/GlobalState'
 import { ConversationProvider } from './context/ConversationContext'
 import { NotesProvider } from './context/NotesContext'
 import { ToastProvider } from './components/ui/Toast'
+import { ConfirmProvider } from './components/ui/ConfirmDialog'
 import './i18n'
 import './index.css'
 import App from './App.tsx'
@@ -82,11 +83,13 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <GlobalStateProvider>
         <ToastProvider>
-          <ConversationProvider>
-            <NotesProvider>
-              <App />
-            </NotesProvider>
-          </ConversationProvider>
+          <ConfirmProvider>
+            <ConversationProvider>
+              <NotesProvider>
+                <App />
+              </NotesProvider>
+            </ConversationProvider>
+          </ConfirmProvider>
         </ToastProvider>
       </GlobalStateProvider>
     </ErrorBoundary>

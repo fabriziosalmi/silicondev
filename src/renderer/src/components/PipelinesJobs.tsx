@@ -6,6 +6,7 @@ import { Play, Plus, Trash2, Search, Save, ChevronDown, ChevronRight, Terminal, 
 import { apiClient } from '../api/client'
 import type { AgentDefinition, AgentExecutionResult } from '../api/client'
 import { useToast } from './ui/Toast'
+import { useConfirm } from './ui/ConfirmDialog'
 
 type NodeType = 'llm' | 'tool' | 'condition'
 
@@ -53,6 +54,7 @@ export function PipelinesJobs() {
     const [expandedNode, setExpandedNode] = useState<string | null>(null)
     const [searchTerm, setSearchTerm] = useState('')
     const { toast } = useToast()
+    const { confirm } = useConfirm()
 
     useEffect(() => { fetchPipelines() }, [])
 
@@ -92,7 +94,8 @@ export function PipelinesJobs() {
     }
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm(t('pipelines.delete') + '?')) return
+        const ok = await confirm({ message: t('pipelines.delete') + '?', destructive: true, confirmLabel: 'Delete' })
+        if (!ok) return
         try {
             await apiClient.agents.deleteAgent(id)
             if (active?.id === id) { setActive(null); setNodes([]) }

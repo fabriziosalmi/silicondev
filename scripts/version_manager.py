@@ -11,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_JSON = ROOT / "package.json"
+RENDERER_PACKAGE_JSON = ROOT / "src" / "renderer" / "package.json"
 PYPROJECT = ROOT / "backend" / "pyproject.toml"
 BACKEND_VERSION = ROOT / "backend" / "app" / "version.py"
 README = ROOT / "README.md"
@@ -22,6 +23,7 @@ README_BADGE_RE = re.compile(r"(version-)(\d+\.\d+\.\d+)(-blue)")
 @dataclass(frozen=True)
 class Versions:
     package: str
+    renderer: str
     backend_toml: str
     backend_py: str
     readme_badge: str
@@ -40,6 +42,11 @@ def _format_semver(parts: tuple[int, int, int]) -> str:
 
 def _read_package_version() -> str:
     payload = json.loads(PACKAGE_JSON.read_text(encoding="utf-8"))
+    return payload["version"]
+
+
+def _read_renderer_version() -> str:
+    payload = json.loads(RENDERER_PACKAGE_JSON.read_text(encoding="utf-8"))
     return payload["version"]
 
 
@@ -72,6 +79,7 @@ def _read_readme_badge_version() -> str:
 def read_versions() -> Versions:
     return Versions(
         package=_read_package_version(),
+        renderer=_read_renderer_version(),
         backend_toml=_read_pyproject_version(),
         backend_py=_read_backend_py_version(),
         readme_badge=_read_readme_badge_version(),
@@ -81,6 +89,7 @@ def read_versions() -> Versions:
 def assert_synced(v: Versions) -> None:
     expected = v.package
     actuals = {
+        "src/renderer/package.json": v.renderer,
         "pyproject.toml": v.backend_toml,
         "backend/app/version.py": v.backend_py,
         "README.md badge": v.readme_badge
@@ -110,6 +119,12 @@ def _write_package_version(version: str) -> None:
     payload = json.loads(PACKAGE_JSON.read_text(encoding="utf-8"))
     payload["version"] = version
     PACKAGE_JSON.write_text(json.dumps(payload, indent=4) + "\n", encoding="utf-8")
+
+
+def _write_renderer_version(version: str) -> None:
+    payload = json.loads(RENDERER_PACKAGE_JSON.read_text(encoding="utf-8"))
+    payload["version"] = version
+    RENDERER_PACKAGE_JSON.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def _write_pyproject_version(version: str) -> None:
@@ -142,6 +157,7 @@ def _write_readme_badge_version(version: str) -> None:
 def apply_version(version: str) -> None:
     _parse_semver(version)
     _write_package_version(version)
+    _write_renderer_version(version)
     _write_pyproject_version(version)
     _write_backend_py_version(version)
     _write_readme_badge_version(version)

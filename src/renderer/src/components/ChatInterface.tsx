@@ -6,6 +6,7 @@ import { Settings2, Cpu, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap, File
 import { InputOverlay, detectTrigger, SLASH_COMMANDS, type FileEntry } from './Chat/InputOverlay'
 import { usePromptHistory } from '../hooks/usePromptHistory'
 import { useTokenEstimate } from '../hooks/useTokenEstimate'
+import { useSelfAssessment } from '../hooks/useSelfAssessment'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -147,10 +148,13 @@ export function ChatInterface() {
     const skipLoadRef = useRef(false)
     const creatingConvRef = useRef(false)
 
-    // Self-assessment scores per message index
-    const [assessments, setAssessments] = useState<Record<number, SelfAssessment | 'loading'>>({})
-    // Self-critique loading state per message index
-    const [selfCritiqueLoading, setSelfCritiqueLoading] = useState<Record<number, boolean>>({})
+    // Self-assessment & self-critique (extracted hook)
+    const selfAssessment = useSelfAssessment({
+        currentModelId: activeModel?.id ?? null,
+        contextWindow: activeModel?.context_window || 4096,
+        maxTokens: 2048,
+    })
+    const { assessments, selfCritiqueLoading } = selfAssessment
 
     const showError = useCallback((msg: string) => {
         setFlashError(msg);
@@ -1198,198 +1202,15 @@ export function ChatInterface() {
         return fenceMatch ? fenceMatch[1].trimEnd() : cleaned.trim();
     }, [currentModelId, settings.temperature, settings.maxTokens]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Ethical self-assessment: ask the model to rate its own response
     const assessResponse = async (response: string, msgIndex: number) => {
-        if (!currentModelId || assessments[msgIndex]) return;
-        setAssessments(prev => ({ ...prev, [msgIndex]: 'loading' }));
-        const prompt = `Rate the following AI response on a 0-100 scale for each category. Return ONLY valid JSON, nothing else.
-
-Categories:
-- privacy: Respects user data and privacy
-- fairness: Free from bias and discrimination
-- safety: No harmful, dangerous, or misleading content
-- transparency: Clear about limitations and uncertainty
-- ethics: Aligned with moral values and responsible AI
-- reliability: Factually accurate and internally consistent
-
-Response to assess:
----
-${response.slice(0, 2000)}
----
-
-Return exactly: {"privacy":N,"fairness":N,"safety":N,"transparency":N,"ethics":N,"reliability":N}`;
-
-        try {
-            const res = await apiClient.apiFetch(`${apiClient.API_BASE}/api/engine/chat`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model_id: currentModelId,
-                    messages: [{ role: 'user', content: prompt }],
-                    temperature: 0.1,
-                    max_tokens: 200,
-                })
-            });
-            if (!res.ok) throw new Error('Assessment request failed');
-            const reader = res.body?.getReader();
-            const decoder = new TextDecoder();
-            let accumulated = '';
-            let lineBuffer = '';
-            if (reader) {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    lineBuffer += decoder.decode(value, { stream: true });
-                    const lines = lineBuffer.split('\n');
-                    lineBuffer = lines.pop() ?? '';
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            try {
-                                const data = JSON.parse(line.slice(6).trim());
-                                if (data.text) accumulated += data.text;
-                                if (data.done) break;
-                            } catch { continue; }
-                        }
-                    }
-                }
-            }
-            // Extract JSON from response (may be wrapped in markdown or text)
-            const jsonMatch = accumulated.match(/\{[^}]*"privacy"\s*:\s*\d+[^}]*\}/);
-            if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0]);
-                const clamp = (v: unknown) => Math.max(0, Math.min(100, Number(v) || 0));
-                const assessment: SelfAssessment = {
-                    privacy: clamp(parsed.privacy),
-                    fairness: clamp(parsed.fairness),
-                    safety: clamp(parsed.safety),
-                    transparency: clamp(parsed.transparency),
-                    ethics: clamp(parsed.ethics),
-                    reliability: clamp(parsed.reliability),
-                };
-                setAssessments(prev => ({ ...prev, [msgIndex]: assessment }));
-            } else {
-                throw new Error('No valid JSON in response');
-            }
-        } catch {
-            setAssessments(prev => {
-                const next = { ...prev };
-                delete next[msgIndex];
-                return next;
-            });
-            showError('Assessment failed');
-        }
+        const err = await selfAssessment.assessResponse(response, msgIndex);
+        if (err) showError(err);
     };
 
-    // Self-Critique: iterative critique→improve loop
     const handleSelfCritique = async (originalResponse: string, msgIndex: number) => {
-        if (!currentModelId || selfCritiqueLoading[msgIndex]) return;
-        setSelfCritiqueLoading(prev => ({ ...prev, [msgIndex]: true }));
-
-        // Find the user question that preceded this response
-        const userQuestion = messages.slice(0, msgIndex).reverse().find(m => m.role === 'user')?.content || '';
-        // Determine iterations based on context window size (smaller models get fewer)
-        const contextWindow = activeModel?.context_window || 4096;
-        const iterations = contextWindow >= 8192 ? 2 : 1;
-
-        try {
-            let currentResponse = originalResponse;
-            for (let i = 0; i < iterations; i++) {
-                // Step 1: Critique
-                const critiquePrompt = `You are a strict reviewer. Analyze this AI response to the user's question and generate 3-5 pointed, specific critiques. Focus on accuracy, completeness, clarity, and missed aspects. Be direct and honest.
-
-User question: ${userQuestion}
-
-AI response: ${currentResponse}
-
-Return ONLY the numbered critiques, nothing else.`;
-
-                const critiqueResponse = await apiClient.apiFetch(`${apiClient.API_BASE}/api/engine/chat`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        model_id: currentModelId,
-                        messages: [{ role: 'user', content: critiquePrompt }],
-                        temperature: 0.4,
-                        max_tokens: Math.min(settings.maxTokens, 1024),
-                    })
-                });
-                if (!critiqueResponse.ok) throw new Error('Critique step failed');
-                let critique = '';
-                const reader1 = critiqueResponse.body?.getReader();
-                const decoder1 = new TextDecoder();
-                let buf1 = '';
-                if (reader1) {
-                    while (true) {
-                        const { done, value } = await reader1.read();
-                        if (done) break;
-                        buf1 += decoder1.decode(value, { stream: true });
-                        const lines = buf1.split('\n');
-                        buf1 = lines.pop() ?? '';
-                        for (const line of lines) {
-                            if (line.startsWith('data: ')) {
-                                try { const d = JSON.parse(line.slice(6)); if (d.text) critique += d.text; } catch { /* skip */ }
-                            }
-                        }
-                    }
-                }
-
-                // Step 2: Improve
-                const improvePrompt = `Rewrite and improve the following AI response, addressing ALL of these critiques. Return ONLY the improved response, nothing else.
-
-Original question: ${userQuestion}
-
-Original response: ${currentResponse}
-
-Critiques to address:
-${critique}
-
-Improved response:`;
-
-                const improveResponse = await apiClient.apiFetch(`${apiClient.API_BASE}/api/engine/chat`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        model_id: currentModelId,
-                        messages: [{ role: 'user', content: improvePrompt }],
-                        temperature: 0.5,
-                        max_tokens: settings.maxTokens,
-                    })
-                });
-                if (!improveResponse.ok) throw new Error('Improve step failed');
-                let improved = '';
-                const reader2 = improveResponse.body?.getReader();
-                const decoder2 = new TextDecoder();
-                let buf2 = '';
-                if (reader2) {
-                    while (true) {
-                        const { done, value } = await reader2.read();
-                        if (done) break;
-                        buf2 += decoder2.decode(value, { stream: true });
-                        const lines = buf2.split('\n');
-                        buf2 = lines.pop() ?? '';
-                        for (const line of lines) {
-                            if (line.startsWith('data: ')) {
-                                try { const d = JSON.parse(line.slice(6)); if (d.text) improved += d.text; } catch { /* skip */ }
-                            }
-                        }
-                    }
-                }
-                currentResponse = improved.trim() || currentResponse;
-            }
-
-            // Append the improved response as a new assistant message
-            const label = `*Self-Critique — ${iterations} iteration${iterations > 1 ? 's' : ''}*\n\n`;
-            const improvedMsg: Message = {
-                role: 'assistant',
-                content: label + currentResponse,
-                id: Date.now().toString(),
-            };
-            setMessages(prev => [...prev, improvedMsg]);
-        } catch {
-            showError('Self-critique failed');
-        } finally {
-            setSelfCritiqueLoading(prev => ({ ...prev, [msgIndex]: false }));
-        }
+        const { error, improvedMessage } = await selfAssessment.handleSelfCritique(originalResponse, msgIndex, messages);
+        if (error) showError(error);
+        if (improvedMessage) setMessages(prev => [...prev, { ...improvedMessage, id: Date.now().toString() }]);
     };
 
     // Semantic memory map: summarize recent messages into structured context

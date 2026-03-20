@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react'
 import { apiClient } from '../api/client'
 import type { NoteSummary } from '../api/client'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 
 interface NotesContextType {
     notesList: NoteSummary[]
@@ -28,6 +29,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
     const { toast } = useToast()
+    const { confirm } = useConfirm()
 
     const fetchNotes = useCallback(async () => {
         setListLoading(true)
@@ -42,7 +44,8 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     }, [toast])
 
     const handleDeleteNote = useCallback(async (id: string) => {
-        if (!window.confirm('Delete this note?')) return
+        const ok = await confirm({ message: 'Delete this note?', destructive: true, confirmLabel: 'Delete' })
+        if (!ok) return
         try {
             await apiClient.notes.delete(id)
             setNotesList(prev => prev.filter(n => n.id !== id))
@@ -50,7 +53,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         } catch {
             toast('Failed to delete note', 'error')
         }
-    }, [activeNoteId, toast])
+    }, [activeNoteId, toast, confirm])
 
     const handleRenameNote = useCallback(async (id: string, title: string) => {
         try {

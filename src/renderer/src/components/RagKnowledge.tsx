@@ -6,10 +6,12 @@ import { Brain, Database, Upload, FileText, Trash2, Search, Plus, BarChart3, Tre
 import { apiClient } from '../api/client'
 import type { RagCollection, RagAnalytics } from '../api/client'
 import { useToast } from './ui/Toast'
+import { useConfirm } from './ui/ConfirmDialog'
 
 export function RagKnowledge() {
     const { t } = useTranslation()
     const { toast } = useToast()
+    const { confirm } = useConfirm()
     const [activeTab, setActiveTab] = useState<'collections' | 'ingest' | 'analytics'>('collections')
     const [collections, setCollections] = useState<RagCollection[]>([])
     const [uploading, setUploading] = useState(false)
@@ -87,7 +89,8 @@ export function RagKnowledge() {
     }
 
     const handleDeleteCollection = async (id: string) => {
-        if (!window.confirm(t('rag.deleteConfirm'))) return
+        const ok = await confirm({ message: t('rag.deleteConfirm'), destructive: true, confirmLabel: t('rag.delete') || 'Delete' })
+        if (!ok) return
         try {
             await apiClient.rag.deleteCollection(id)
             fetchCollections()

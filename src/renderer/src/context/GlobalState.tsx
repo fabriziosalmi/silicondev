@@ -99,7 +99,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
                     const json = JSON.stringify(stats);
                     if (json !== lastStatsJson.current) {
                         lastStatsJson.current = json;
-                        setSystemStats(stats as unknown as SystemStats);
+                        setSystemStats(stats as SystemStats);
                     }
 
                     // Sync active model state with backend
@@ -129,23 +129,30 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
 
         const startPolling = () => {
             clearInterval(interval);
-            if (fastInterval) clearInterval(fastInterval);
+            if (fastInterval) clearTimeout(fastInterval as ReturnType<typeof setTimeout>);
             poll();
-            // Fast poll (500ms) until backend is ready, then slow (5s)
-            fastInterval = setInterval(async () => {
-                if (!mounted) return;
-                try {
-                    const ok = await apiClient.checkHealth();
-                    if (ok && fastInterval) {
-                        clearInterval(fastInterval);
-                        fastInterval = null;
-                        startSlowPolling();
-                    }
-                } catch { /* retry */ }
-            }, 500);
+            // Exponential backoff: 500ms → 1s → 2s → 4s (cap) until backend is ready, then slow (5s)
+            let backoff = 500;
+            const MAX_BACKOFF = 4000;
+            const scheduleFastPoll = () => {
+                fastInterval = setTimeout(async () => {
+                    if (!mounted) return;
+                    try {
+                        const ok = await apiClient.checkHealth();
+                        if (ok) {
+                            fastInterval = null;
+                            startSlowPolling();
+                            return;
+                        }
+                    } catch { /* retry */ }
+                    backoff = Math.min(backoff * 2, MAX_BACKOFF);
+                    scheduleFastPoll();
+                }, backoff);
+            };
+            scheduleFastPoll();
             // Safety: stop fast polling after 30s regardless
             setTimeout(() => {
-                if (fastInterval) { clearInterval(fastInterval); fastInterval = null; startSlowPolling(); }
+                if (fastInterval) { clearTimeout(fastInterval as ReturnType<typeof setTimeout>); fastInterval = null; startSlowPolling(); }
             }, 30000);
         };
 
@@ -154,7 +161,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
                 startPolling();
             } else {
                 clearInterval(interval);
-                if (fastInterval) { clearInterval(fastInterval); fastInterval = null; }
+                if (fastInterval) { clearTimeout(fastInterval as ReturnType<typeof setTimeout>); fastInterval = null; }
             }
         };
 
@@ -169,7 +176,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
         return () => {
             mounted = false;
             clearInterval(interval);
-            if (fastInterval) clearInterval(fastInterval);
+            if (fastInterval) clearTimeout(fastInterval as ReturnType<typeof setTimeout>);
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
     }, []);

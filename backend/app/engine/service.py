@@ -85,7 +85,7 @@ def _patch_transformers_vlm_compat():
         pu.ProcessorMixin.check_argument_for_proper_class = _safe_check
 
         logger.debug("Applied transformers VLM compatibility patches")
-    except Exception as e:
+    except (ImportError, AttributeError) as e:
         logger.debug(f"Skipped transformers VLM compat patches: {e}")
 
 # Minimum free disk space required for heavy I/O operations (1 GB)
@@ -179,7 +179,7 @@ class MLXEngineService:
                         self.download_model(model_id)
                     else:
                         logger.warning(f"Embedded model {model_id} not reachable on HuggingFace Hub (Status: {res.status_code}). Skipping auto-download.")
-                except Exception as e:
+                except (IOError, OSError, ValueError) as e:
                     logger.error(f"Failed to auto-download embedded model {model_id}: {e}")
 
     def _run_predictive_loader(self):
@@ -211,7 +211,7 @@ class MLXEngineService:
                         )
                         try:
                             future.result(timeout=120)
-                        except Exception as e:
+                        except Exception as e:  # MLX model loading can raise unpredictable errors
                             logger.warning(f"[PredictiveLoader] Pre-heat failed: {e}")
             
     def _run_auto_discovery(self):
@@ -224,7 +224,7 @@ class MLXEngineService:
                 try:
                     models = self.register_model(name=f"Local / {path.name.replace('-',' ').title()}", path=str(path))
                     discovered_count += len(models)
-                except Exception as e:
+                except (ValueError, OSError) as e:
                     logger.debug(f"Discovery skip for {path}: {e}")
         logger.info(f"Auto-discovery complete. Found {discovered_count} new local models.")
 
@@ -235,7 +235,7 @@ class MLXEngineService:
             try:
                 with open(self.models_config_path, "r") as f:
                     user_models = json.load(f)
-            except Exception as e:
+            except (json.JSONDecodeError, OSError) as e:
                 logger.error(f"Error loading models.json: {e}")
 
         # Merge bundled catalog so discover tab has entries
@@ -263,7 +263,7 @@ class MLXEngineService:
                 try:
                     with open(p, "r") as f:
                         return json.load(f)
-                except Exception as e:
+                except (json.JSONDecodeError, OSError) as e:
                     logger.debug(f"Failed to load bundled catalog from {p}: {e}")
         return []
 
@@ -276,7 +276,7 @@ class MLXEngineService:
             with os.fdopen(fd, "w") as f:
                 json.dump(self.models_config, f, indent=4)
             os.replace(tmp_path, self.models_config_path)
-        except Exception:
+        except OSError:
             try:
                 os.unlink(tmp_path)
             except OSError:
@@ -297,7 +297,7 @@ class MLXEngineService:
             if gb < 1:
                 return f"{gb:.2f}GB"
             return f"{gb:.1f}GB"
-        except Exception as e:
+        except OSError as e:
             logger.warning(f"Error calculating size for {path}: {e}")
             return "Unknown"
 
@@ -335,7 +335,7 @@ class MLXEngineService:
                     vision_keys = ["vision_config", "visual", "image_size",
                                    "vision_tower", "mm_projector_type", "visual_encoder"]
                     meta["is_vision"] = any(k in config and config[k] is not None for k in vision_keys)
-            except Exception as e:
+            except (json.JSONDecodeError, OSError, KeyError, ValueError) as e:
                 logger.debug(f"Failed to parse config.json for {model_path}: {e}")
 
         # 2. GGUF Parsing (Quick Scanner)
@@ -349,7 +349,7 @@ class MLXEngineService:
                         meta["architecture"] = "GGUF"
                         if "q4_k_m" in chunk.lower(): meta["quantization"] = "Q4_K_M"
                         elif "q8_0" in chunk.lower(): meta["quantization"] = "Q8_0"
-            except Exception as e:
+            except OSError as e:
                 logger.debug(f"Failed to parse GGUF header for {gguf_files[0]}: {e}")
 
         # 3. Refine by folder/file names
@@ -612,7 +612,7 @@ class MLXEngineService:
                     vision_keys = ["vision_config", "visual", "image_size",
                                    "vision_tower", "mm_projector_type", "visual_encoder"]
                     is_vision = any(k in cfg and cfg[k] is not None for k in vision_keys)
-            except Exception:
+            except (json.JSONDecodeError, OSError):
                 pass
 
         loop = asyncio.get_running_loop()
@@ -687,7 +687,7 @@ class MLXEngineService:
                         self.active_is_vision = False
                     self.active_model_id = model_id
                     return
-                except Exception as retry_e:
+                except Exception as retry_e:  # MLX model loading can raise unpredictable errors
                     logger.error(f"OOM Retry failed for {model_id}: {retry_e}")
                     raise retry_e
 
@@ -812,7 +812,7 @@ class MLXEngineService:
             with os.fdopen(fd, "wb") as f:
                 f.write(img_bytes)
             return path
-        except Exception as e:
+        except (ValueError, OSError) as e:
             logger.error(f"Failed to decode base64 image: {e}")
             return None
 
@@ -853,7 +853,7 @@ class MLXEngineService:
             # Keep event loop running until the scout's background task completes
             if hasattr(scout, '_task'):
                 loop.run_until_complete(scout._task)
-        except Exception as e:
+        except Exception as e:  # ScoutAgent internals can raise unpredictable errors
             logger.error(f"ScoutAgent thread failed: {e}")
         finally:
             loop.close()
@@ -1011,7 +1011,7 @@ class MLXEngineService:
                     )
                     return {"text": response_text}
 
-            except Exception as e:
+            except Exception as e:  # Top-level generation handler; MLX internals can raise anything
                 logger.error(f"Error during non-streaming generation for {model_id}: {e}")
                 raise
 
@@ -1242,7 +1242,7 @@ class MLXEngineService:
                     if hasattr(tokenizer, "apply_chat_template"):
                         try:
                             prompt = tokenizer.apply_chat_template(flat_messages, tokenize=False, add_generation_prompt=True)
-                        except Exception:
+                        except Exception:  # Tokenizer chat templates can fail in many ways
                             # Fallback: raw ChatML format
                             parts = []
                             for msg in flat_messages:
@@ -1274,7 +1274,7 @@ class MLXEngineService:
                                         prompt = tokenizer.apply_chat_template(
                                             trimmed, tokenize=False, add_generation_prompt=True
                                         )
-                                    except Exception:
+                                    except Exception:  # Tokenizer chat templates can fail in many ways
                                         prompt = trimmed[-1].get("content", "")
                                 else:
                                     prompt = trimmed[-1].get("content", "")
@@ -1371,7 +1371,7 @@ class MLXEngineService:
                 gc.collect()
                 mx.metal.clear_cache()
 
-            except Exception as e:
+            except Exception as e:  # Top-level streaming handler; MLX internals can raise anything
                 logger.error(f"Streaming error: {e}")
                 yield {"error": str(e)}
 
@@ -1514,7 +1514,7 @@ class MLXEngineService:
             try:
                 shutil.copy(dataset_path, target_train_path)
                 logger.info(f"Staged dataset {dataset_path} to {target_train_path}")
-            except Exception as e:
+            except OSError as e:
                 logger.error(f"Error copying dataset: {e}")
                 # Fallback? No, likely fatal.
             
@@ -1679,7 +1679,7 @@ class MLXEngineService:
                 with open(adapter_config_path, 'w') as f:
                     json.dump(final_adapter_config, f, indent=4)
                     
-            except Exception as e:
+            except OSError as e:
                 logger.error(f"Failed to save metadata or adapter config: {e}")
 
             ft_model_entry = {
@@ -1707,7 +1707,7 @@ class MLXEngineService:
                 self._save_models_config()
             logger.info(f"Registered fine-tuned model: {ft_model_entry['name']}")
 
-        except Exception as e:
+        except Exception as e:  # Training involves MLX ops, data loading, LoRA — many failure modes
             logger.error(f"Training failed: {e}", exc_info=True)
             with self._jobs_lock:
                 self.active_jobs[job_id]["status"] = "failed"
@@ -1717,7 +1717,7 @@ class MLXEngineService:
                 if job_adapter_dir.exists() and not (job_adapter_dir / "adapters.safetensors").exists():
                     shutil.rmtree(job_adapter_dir)
                     logger.info(f"Cleaned up partial adapter dir: {job_adapter_dir}")
-            except Exception as cleanup_err:
+            except OSError as cleanup_err:
                 logger.warning(f"Failed to clean up adapter dir: {cleanup_err}")
 
     def get_job_status(self, job_id: str):
@@ -1775,7 +1775,7 @@ class MLXEngineService:
                 with open(config_path, "r") as f:
                     config = json.load(f)
                 info["model_type"] = config.get("model_type", "unknown")
-            except Exception:
+            except (json.JSONDecodeError, OSError):
                 pass
 
         # Read tokenizer_config.json for chat template and special tokens
@@ -1809,8 +1809,8 @@ class MLXEngineService:
                     pad = pad.get("content", str(pad))
                 info["pad_token"] = pad
 
-            except Exception:
-                pass
+            except (json.JSONDecodeError, OSError, KeyError) as e:
+                logger.debug(f"Failed to parse tokenizer_config.json: {e}")
 
         return info
 
@@ -1878,7 +1878,7 @@ class MLXEngineService:
                             if "job_name" in meta and meta["job_name"]:
                                 entry["name"] = meta["job_name"]
                                 m["name"] = meta["job_name"]
-                except Exception as e:
+                except (json.JSONDecodeError, OSError, KeyError) as e:
                     logger.debug(f"Could not read metadata for {m.get('name')}: {e}")
 
             models.append(entry)
@@ -1933,7 +1933,7 @@ class MLXEngineService:
             raise PermissionError(
                 f"Cannot write to models directory: {e}. Check folder permissions for {self.models_dir}"
             ) from e
-        except Exception as e:
+        except Exception as e:  # HF hub download can raise many error types
             logger.error(f"Failed to download {model_id}: {e}")
             raise
         finally:
@@ -1987,7 +1987,7 @@ class MLXEngineService:
             else:
                 logger.info(f"Model {model_id} not found at {local_dir}")
                 return False
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to delete {model_id}: {e}")
             raise
 
@@ -2045,6 +2045,6 @@ class MLXEngineService:
             return {"status": "success", "path": output_path}
         except PermissionError as e:
             raise PermissionError(f"Cannot write to export path: {e}") from e
-        except Exception as e:
+        except Exception as e:  # MLX fuse/quantize can raise unpredictable errors
             logger.error(f"Export failed: {e}")
             raise e
