@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { apiClient, cleanModelName } from '../api/client'
-import type { SelfAssessment, ConversationMemory, ContentPart, ModelEntry } from '../api/client'
+import type { ConversationMemory, ContentPart, ModelEntry } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
 import { Settings2, Cpu, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, User, Baby, FlaskConical, Feather, Plus, Download, Loader2, Brain, Database, Search, X, ChevronUp, ChevronDown, ImagePlus, RefreshCcw, Trash2, Pencil, Hash, GitBranch, Eye, Globe } from 'lucide-react'
 import { InputOverlay, detectTrigger, SLASH_COMMANDS, type FileEntry } from './Chat/InputOverlay'
@@ -154,7 +154,7 @@ export function ChatInterface() {
         contextWindow: activeModel?.context_window || 4096,
         maxTokens: 2048,
     })
-    const { assessments, selfCritiqueLoading } = selfAssessment
+    const { assessments, selfCritiqueLoading, clearAssessments } = selfAssessment
 
     const showError = useCallback((msg: string) => {
         setFlashError(msg);
@@ -423,7 +423,7 @@ export function ChatInterface() {
                 try {
                     const conv = await apiClient.conversations.get(activeConversationId);
                     setMessages(conv.messages || []);
-                    setAssessments({});
+                    clearAssessments();
                     setMemoryMap(null);
                     localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(conv.messages || []));
                 } catch {
@@ -433,7 +433,7 @@ export function ChatInterface() {
         } else {
             // New conversation
             setMessages([]);
-            setAssessments({});
+            clearAssessments();
             setMemoryMap(null);
             localStorage.removeItem(CHAT_STORAGE_KEY);
         }
@@ -730,7 +730,7 @@ export function ChatInterface() {
             }
             case 'clear':
                 setMessages([])
-                setAssessments({})
+                clearAssessments()
                 setMemoryMap(null)
                 localStorage.removeItem(CHAT_STORAGE_KEY)
                 break
@@ -761,7 +761,7 @@ export function ChatInterface() {
         }
         setInput('')
         setOverlayVisible(false)
-    }, [t, handleNewConversation, handleExport, setMessages, setAssessments, setMemoryMap, setParamsExpanded])
+    }, [t, handleNewConversation, handleExport, setMessages, clearAssessments, setMemoryMap, setParamsExpanded])
 
     // ── Overlay selection handler ──
     const handleOverlaySelect = useCallback((value: string, type: 'command' | 'file') => {

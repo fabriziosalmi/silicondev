@@ -183,5 +183,7 @@ Improved response:`
         }
     }
 
-    return { assessments, selfCritiqueLoading, assessResponse, handleSelfCritique }
+    const clearAssessments = () => setAssessments({})
+
+    return { assessments, selfCritiqueLoading, assessResponse, handleSelfCritique, clearAssessments }
 }

@@ -37,7 +37,8 @@ interface KnowledgeMapProps {
 const KnowledgeMap: React.FC<KnowledgeMapProps> = ({ isOpen, onClose }) => {
   const [data, setData] = useState<{ nodes: GraphNode[], links: GraphLink[] }>({ nodes: [], links: [] });
   const [loading, setLoading] = useState(true);
-  const fgRef = useRef<{ centerAt: (x: number, y: number, ms: number) => void; zoom: (k: number, ms: number) => void } | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fgRef = useRef<any>(undefined);
 
   useEffect(() => {
     if (isOpen) {
