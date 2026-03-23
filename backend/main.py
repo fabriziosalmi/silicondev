@@ -50,6 +50,8 @@ try:
     logger.info("Imported engine router")
     from app.api.deployment import router as deployment_router
     logger.info("Imported deployment router")
+    from app.api.preview import router as preview_router
+    logger.info("Imported preview router")
     from app.api.rag import router as rag_router
     logger.info("Imported rag router")
     from app.api.agents import router as agents_router
@@ -250,6 +252,7 @@ app.include_router(monitor_router, prefix="/api/monitor", tags=["monitor"])
 app.include_router(preparation_router, prefix="/api/preparation", tags=["preparation"])
 app.include_router(engine_router, prefix="/api/engine", tags=["engine"])
 app.include_router(deployment_router, prefix="/api/deployment", tags=["deployment"])
+app.include_router(preview_router, prefix="/api/preview", tags=["preview"])
 app.include_router(rag_router, prefix="/api/rag", tags=["rag"])
 app.include_router(agents_router, prefix="/api/agents", tags=["agents"])
 app.include_router(conversations_router, prefix="/api/conversations", tags=["conversations"])

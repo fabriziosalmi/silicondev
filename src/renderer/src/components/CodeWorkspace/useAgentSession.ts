@@ -511,6 +511,28 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           break
         }
 
+        case 'worker_start': {
+          const role = d.worker_role as string || d.role as string || 'worker'
+          const task = d.task as string || ''
+          addFeedItem({
+            type: 'info',
+            content: `🔧 Worker spawned: ${role}${task ? ` — ${task.slice(0, 100)}` : ''}`,
+          })
+          break
+        }
+
+        case 'worker_done': {
+          const role = d.role as string || 'worker'
+          const summary = d.summary as Record<string, unknown> || {}
+          const durationMs = summary.duration_ms as number || 0
+          const iterations = summary.iterations as number || 0
+          addFeedItem({
+            type: 'info',
+            content: `✅ Worker done: ${role} (${iterations} iter, ${Math.round(durationMs / 1000)}s)`,
+          })
+          break
+        }
+
         case 'plan_proposal': {
           const steps = (d.steps as PlanStep[]) || []
           const planSessionId = d.session_id as string

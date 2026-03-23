@@ -81,6 +81,9 @@ async def run_terminal(request: TerminalRequest):
     session_id = str(uuid.uuid4())
     logger.info(f"Agent session created: {session_id} model={request.model_id} mode={request.mode or 'edit'}")
 
+    # Pass the engine service's router so the supervisor can use
+    # role-based model selection (planner, coder, reviewer, etc.)
+    from app.api.engine import service as engine_service
     agent = SupervisorAgent(
         session_id=session_id,
         model_id=request.model_id,
@@ -92,6 +95,7 @@ async def run_terminal(request: TerminalRequest):
         enable_moa=request.enable_moa,
         air_gapped_mode=request.air_gapped_mode,
         enable_python_sandbox=request.enable_python_sandbox,
+        router=engine_service.router,
     )
     async with _sessions_lock:
         _active_sessions[session_id] = agent
@@ -353,3 +357,18 @@ async def dataset_prepare(min_samples: int = 50):
             detail=f"Not enough samples: {pkg.get('count', 0)} / {pkg.get('threshold', min_samples)} required",
         )
     return pkg
+
+
+# ---------------------------------------------------------------------------
+# DPO preference data endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/dataset/dpo-status")
+async def dpo_status():
+    """Return the count of DPO preference pairs collected."""
+    dpo_file = dataset_engine.storage_dir / "dpo_pairs.jsonl"
+    count = 0
+    if dpo_file.exists():
+        with open(dpo_file, "r", encoding="utf-8") as f:
+            count = sum(1 for _ in f)
+    return {"count": count, "path": str(dpo_file)}

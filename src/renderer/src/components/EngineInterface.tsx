@@ -5,7 +5,7 @@ import type { ModelEntry, JobStatus, ModelFormatInfo } from '../api/client'
 import { useGlobalState } from '../context/GlobalState'
 import { useToast } from './ui/Toast'
 import { Card } from './ui/Card'
-import { Cpu, Activity, Play, Settings2, ShieldAlert, FileText, Download, Loader2 } from 'lucide-react'
+import { Cpu, Activity, Play, Settings2, ShieldAlert, FileText, Download, Loader2, GitCompare } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const PRESETS = {
@@ -53,9 +53,14 @@ export function EngineInterface() {
     const [modelFormat, setModelFormat] = useState<ModelFormatInfo | null>(null)
     const [capturedCount, setCapturedCount] = useState(0)
     const [capturedLoading, setCapturedLoading] = useState(false)
+    const [activeTab, setActiveTab] = useState<'lora' | 'dpo'>('lora')
+    const [dpoCount, setDpoCount] = useState(0)
+    const [dpoPath, setDpoPath] = useState('')
+    const [dpoTraining, setDpoTraining] = useState(false)
 
     useEffect(() => {
         apiClient.terminal.datasetStatus().then(s => setCapturedCount(s.count)).catch(() => {})
+        apiClient.terminal.dpoStatus().then(s => { setDpoCount(s.count); setDpoPath(s.path) }).catch(() => {})
     }, [])
 
     const useCapturedDataset = async () => {
@@ -192,7 +197,158 @@ export function EngineInterface() {
     return (
         <div className="h-full flex flex-col space-y-4 text-white overflow-hidden pb-4">
 
-            {models.length === 0 ? (
+            {/* Tab Bar */}
+            <div className="flex gap-1 shrink-0">
+                <button
+                    onClick={() => setActiveTab('lora')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'lora' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
+                >
+                    <Settings2 size={14} /> LoRA / QLoRA
+                </button>
+                <button
+                    onClick={() => { setActiveTab('dpo'); apiClient.terminal.dpoStatus().then(s => { setDpoCount(s.count); setDpoPath(s.path) }).catch(() => {}) }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'dpo' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
+                >
+                    <GitCompare size={14} /> Preference Training (DPO)
+                    {dpoCount > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-bold">{dpoCount}</span>}
+                </button>
+            </div>
+
+            {activeTab === 'dpo' ? (
+                /* ── DPO Preference Training Tab ── */
+                <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
+                    <Card className="p-0 overflow-hidden bg-[#18181B] border border-white/10">
+                        <div className="p-4 border-b border-white/10 bg-white/[0.02] flex items-center gap-2">
+                            <GitCompare className="w-5 h-5 text-purple-400" />
+                            <h3 className="font-bold">Preference Training (DPO)</h3>
+                        </div>
+                        <div className="p-5 space-y-6">
+                            <div className="bg-black/20 rounded-lg border border-white/5 p-4 space-y-3">
+                                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">How it works</div>
+                                <p className="text-sm text-gray-400 leading-relaxed">
+                                    Every time you approve or reject a code change, SiliconDev captures that preference as a DPO training pair.
+                                    Approved diffs become "chosen" examples, rejected diffs become "rejected" examples.
+                                    When you have enough pairs, you can train your model to learn your coding preferences.
+                                </p>
+                            </div>
+
+                            {/* Stats */}
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="bg-black/30 rounded-lg border border-white/5 p-4 text-center">
+                                    <div className="text-3xl font-mono font-bold text-purple-400">{dpoCount}</div>
+                                    <div className="text-[10px] text-gray-500 uppercase mt-1">DPO Pairs</div>
+                                </div>
+                                <div className="bg-black/30 rounded-lg border border-white/5 p-4 text-center">
+                                    <div className="text-3xl font-mono font-bold text-gray-400">{capturedCount}</div>
+                                    <div className="text-[10px] text-gray-500 uppercase mt-1">SFT Samples</div>
+                                </div>
+                                <div className="bg-black/30 rounded-lg border border-white/5 p-4 text-center">
+                                    <div className={`text-3xl font-mono font-bold ${dpoCount >= 50 ? 'text-green-400' : dpoCount >= 20 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                        {dpoCount >= 50 ? 'Ready' : dpoCount >= 20 ? 'Almost' : 'Low'}
+                                    </div>
+                                    <div className="text-[10px] text-gray-500 uppercase mt-1">Status</div>
+                                </div>
+                            </div>
+
+                            {/* Progress bar to 50 pairs */}
+                            <div>
+                                <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                                    <span>Progress to minimum (50 pairs)</span>
+                                    <span>{Math.min(dpoCount, 50)}/50</span>
+                                </div>
+                                <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden border border-white/5">
+                                    <div
+                                        className={`h-full transition-all duration-500 ${dpoCount >= 50 ? 'bg-green-500' : 'bg-purple-500'}`}
+                                        style={{ width: `${Math.min((dpoCount / 50) * 100, 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Model selector + Train button */}
+                            <div className="space-y-3">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Base Model</label>
+                                    <select
+                                        title="Base model for DPO training"
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-purple-500 appearance-none"
+                                        value={selectedModel}
+                                        onChange={e => setSelectedModel(e.target.value)}
+                                    >
+                                        {models.map(m => <option key={m.id} value={m.id}>{m.name} ({m.size})</option>)}
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        if (dpoCount < 20) {
+                                            toast('Need at least 20 DPO pairs to start training. Keep approving/rejecting diffs!', 'warning')
+                                            return
+                                        }
+                                        setDpoTraining(true)
+                                        try {
+                                            const data = await apiClient.engine.dpoTrain({
+                                                model_id: selectedModel,
+                                                dataset_path: dpoPath,
+                                                epochs: 1,
+                                                learning_rate: 1e-5,
+                                                batch_size: 1,
+                                                lora_rank: 16,
+                                                lora_alpha: 32,
+                                                lora_layers: 8,
+                                                max_seq_length: 2048,
+                                                dpo_beta: 0.1,
+                                                job_name: `dpo-${Date.now()}`
+                                            })
+                                            toast('DPO training started', 'success')
+                                            // Poll for completion
+                                            const dpoInterval = setInterval(async () => {
+                                                try {
+                                                    const s = await apiClient.engine.getJobStatus(data.job_id)
+                                                    if (s.status === 'completed') {
+                                                        clearInterval(dpoInterval)
+                                                        setDpoTraining(false)
+                                                        toast('DPO training complete! Model registered.', 'success')
+                                                    } else if (s.status === 'failed') {
+                                                        clearInterval(dpoInterval)
+                                                        setDpoTraining(false)
+                                                        toast(`DPO training failed: ${s.error || 'unknown'}`, 'error')
+                                                    }
+                                                } catch {
+                                                    clearInterval(dpoInterval)
+                                                    setDpoTraining(false)
+                                                }
+                                            }, 2000)
+                                        } catch (err: any) {
+                                            toast(err.message || 'DPO training failed to start', 'error')
+                                            setDpoTraining(false)
+                                        }
+                                    }}
+                                    disabled={dpoTraining || dpoCount < 20 || models.length === 0}
+                                    className="w-full bg-purple-600 hover:bg-purple-500 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {dpoTraining ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <Play className="w-4 h-4 fill-current" />
+                                    )}
+                                    {dpoTraining ? 'Training with preferences...' : 'Train with Preferences (DPO)'}
+                                </button>
+                                {dpoCount < 20 && (
+                                    <p className="text-[11px] text-gray-500 text-center">
+                                        Keep using the agent — every approve/reject captures a preference pair automatically.
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* File path */}
+                            {dpoPath && (
+                                <div className="text-[10px] text-gray-600 font-mono truncate px-1">
+                                    {dpoPath}
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                </div>
+            ) : models.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-xl bg-white/[0.02] p-8 mt-4">
                     <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4 text-gray-500">
                         <Cpu size={32} />

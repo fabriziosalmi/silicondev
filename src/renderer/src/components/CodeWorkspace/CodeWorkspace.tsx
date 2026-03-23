@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, Circle, Save, FolderSearch, Settings as SettingsIcon, FilePlus, PanelRightOpen, PanelRightClose } from 'lucide-react'
+import { X, Circle, Save, FolderSearch, Settings as SettingsIcon, FilePlus, PanelRightOpen, PanelRightClose, Globe } from 'lucide-react'
 import { FileTree } from './FileTree'
 import { MonacoEditor } from './MonacoEditor'
 import { AgentPanel } from './AgentPanel'
 import { InlineRewriteUI } from './InlineRewriteUI'
 import { DebuggerPanel } from './DebuggerPanel'
+import { PreviewPanel } from './PreviewPanel'
+import { usePreviewServer } from './usePreviewServer'
 import { useEnergyManager } from './useEnergyManager'
 import { useAgentSession } from './useAgentSession'
 import { apiClient } from '../../api/client'
@@ -38,6 +40,12 @@ export function CodeWorkspace() {
   const [newFileName, setNewFileName] = useState('')
   const newFileInputRef = useRef<HTMLInputElement>(null)
   const [agentPanelOpen, setAgentPanelOpen] = useState(true)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const preview = usePreviewServer(workspaceDir)
+  const [previewHeight, setPreviewHeight] = useState(() => {
+    const saved = localStorage.getItem('code-preview-height')
+    return saved ? Number(saved) : 300
+  })
   const [pendingDiffs, setPendingDiffs] = useState<Map<string, DiffMetadata>>(new Map())
   const [inlineRewrite, setInlineRewrite] = useState<{
     selection: {
@@ -192,6 +200,9 @@ export function CodeWorkspace() {
   useLayoutEffect(() => {
     localStorage.setItem('code-agent-width', String(agentWidth))
   }, [agentWidth])
+  useLayoutEffect(() => {
+    localStorage.setItem('code-preview-height', String(previewHeight))
+  }, [previewHeight])
 
   const startDrag = useCallback((
     setter: React.Dispatch<React.SetStateAction<number>>,
@@ -227,6 +238,26 @@ export function CodeWorkspace() {
   const handleAgentDrag = useCallback((e: React.MouseEvent) => {
     startDrag(setAgentWidth, 'right', 280, 700, e.clientX, agentWidth)
   }, [agentWidth, startDrag])
+
+  const handlePreviewDrag = useCallback((e: React.MouseEvent) => {
+    const startY = e.clientY
+    const startH = previewHeight
+    const onMove = (ev: MouseEvent) => {
+      // Dragging UP increases height
+      const dy = startY - ev.clientY
+      setPreviewHeight(Math.min(600, Math.max(150, startH + dy)))
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'row-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [previewHeight])
 
   // Listen for workspace directory changes from Settings
   useEffect(() => {
@@ -486,11 +517,20 @@ export function CodeWorkspace() {
             {saveStatus}
           </div>
         )}
+        {/* Preview toggle */}
+        <button
+          type="button"
+          onClick={() => setPreviewOpen(!previewOpen)}
+          className={`ml-auto p-1.5 hover:bg-white/5 transition-colors shrink-0 ${previewOpen || preview.running ? 'text-blue-400' : 'text-gray-600 hover:text-white'}`}
+          title="Live Preview"
+        >
+          <Globe size={14} />
+        </button>
         {/* Agent panel toggle */}
         <button
           type="button"
           onClick={() => setAgentPanelOpen(!agentPanelOpen)}
-          className="ml-auto p-1.5 text-gray-600 hover:text-white hover:bg-white/5 transition-colors shrink-0"
+          className="p-1.5 text-gray-600 hover:text-white hover:bg-white/5 transition-colors shrink-0"
           title={agentPanelOpen ? t('code.agent') : t('code.agent')}
         >
           {agentPanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
@@ -643,6 +683,30 @@ export function CodeWorkspace() {
                 onUpdateState={(state) => setDebugState(state)}
               />
             </div>
+          )}
+          {previewOpen && (
+            <>
+              {/* Preview resize handle */}
+              <div
+                role="separator"
+                onMouseDown={handlePreviewDrag}
+                className="h-1 shrink-0 cursor-row-resize hover:bg-blue-500/30 active:bg-blue-500/50 transition-colors"
+              />
+              <div className="shrink-0" style={{ height: previewHeight }}>
+                <PreviewPanel
+                  running={preview.running}
+                  ready={preview.ready}
+                  port={preview.port}
+                  type={preview.type}
+                  loading={preview.loading}
+                  error={preview.error}
+                  onStart={preview.start}
+                  onStop={preview.stop}
+                  onRefresh={preview.refresh}
+                  onCollapse={() => setPreviewOpen(false)}
+                />
+              </div>
+            </>
           )}
         </div>
 

@@ -43,11 +43,26 @@ ProgressCallback = Callable[[str, str, str], Coroutine[Any, Any, None]]
 
 class MapReduceSwarm:
     def __init__(self, model_id: str, max_tokens_per_expert: int = 400, temperature: float = 0.2,
-                 on_progress: Optional[ProgressCallback] = None):
+                 on_progress: Optional[ProgressCallback] = None,
+                 router=None):
         self.model_id = model_id
         self.max_tokens = max_tokens_per_expert
         self.temperature = temperature
         self._on_progress = on_progress
+        self._router = router  # ModelRouter for per-expert model selection
+
+    def _expert_model(self, expert_id: str) -> str:
+        """Resolve model_id for a given expert via router.
+
+        Maps expert_id to a role name, then asks the router.
+        E.g. "security" expert -> "reviewer" role, "syntax" -> "reviewer",
+        "performance" -> "reviewer".  The reducer uses "coder".
+        """
+        if self._router is None:
+            return self.model_id
+        # All experts are reviewers; the caller can override via routing config
+        role = "reviewer"
+        return self._router.resolve(role, self.model_id)
 
     async def _run_expert(self, expert_id: str, expert_cfg: dict, topic: str, context: str) -> str:
         """Runs a single expert prompt."""
@@ -66,13 +81,14 @@ class MapReduceSwarm:
         if self._on_progress:
             await self._on_progress("map", expert_id, "started")
 
+        expert_model = self._expert_model(expert_id)
         response = await engine_service.generate_response(
-            self.model_id,
+            expert_model,
             messages,
             temperature=self.temperature,
             max_tokens=self.max_tokens
         )
-        logger.info(f"[Swarm] Finished expert: {expert_id}")
+        logger.info(f"[Swarm] Finished expert: {expert_id} (model: {expert_model})")
         if self._on_progress:
             await self._on_progress("map", expert_id, "done")
         return response.get("content", "")
@@ -110,8 +126,9 @@ class MapReduceSwarm:
         ]
         
         # Give the reducer more tokens and slightly higher temp to write the actual code
+        reducer_model = self._router.resolve("coder", self.model_id) if self._router else self.model_id
         final_response = await engine_service.generate_response(
-            self.model_id,
+            reducer_model,
             messages,
             temperature=0.3,
             max_tokens=1500

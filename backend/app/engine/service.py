@@ -12,6 +12,9 @@ import json
 import logging
 import psutil
 from app.agents.nanocore.scout import ScoutAgent
+from app.engine.disk_cache import DiskPromptCache
+from app.engine.routing import ModelRouter
+from app.engine.speculative import load_draft_model, can_load_draft
 import shutil
 import tempfile
 import time
@@ -150,11 +153,81 @@ class MLXEngineService:
         self.last_active = time.time()
         self._main_loop: asyncio.AbstractEventLoop | None = None
 
+        # Smart GC: avoid gc.collect() + mx.metal.clear_cache() after every
+        # single generation — only trigger when memory is tight, after many
+        # generations, or after enough time has passed.
+        self._generation_count: int = 0
+        self._last_gc_time: float = time.time()
+
+        # Disk-backed KV cache for cross-session prefix reuse
+        self._disk_cache = DiskPromptCache()
+
+        # Speculative decoding: optional small draft model
+        self._draft_model = None
+        self._draft_model_id: str | None = None
+
+        # Model routing: role → model_id mapping
+        self.router = ModelRouter()
+
+        # Multi-model LRU cache: keep recently used models in RAM
+        # to make role-based switching near-instant.
+        # Dict of model_id -> (model, tokenizer, processor, is_vision, last_used)
+        self._model_cache: Dict[str, tuple] = {}
+        self._model_cache_max = 2  # max models in cache (besides active)
+
         # Run auto-discovery and predictive loader in background
         threading.Thread(target=self._ensure_embedded_models, daemon=True).start()
         threading.Thread(target=self._run_auto_discovery, daemon=True).start()
         threading.Thread(target=self._run_predictive_loader, daemon=True).start()
         threading.Thread(target=self._run_scout_agent, daemon=True).start()
+
+    def _maybe_gc(self, force: bool = False) -> None:
+        """Conditionally run GC + Metal cache clear.
+
+        Avoids the cost of gc.collect() + mx.metal.clear_cache() on every
+        single generation.  Triggers when:
+        - force=True (model switch, OOM recovery)
+        - Memory usage > 80%
+        - 10+ generations since last GC
+        - 5+ minutes since last GC
+        """
+        self._generation_count += 1
+        if not force:
+            mem = psutil.virtual_memory()
+            elapsed = time.time() - self._last_gc_time
+            if mem.percent <= 80 and self._generation_count < 10 and elapsed < 300:
+                return
+        gc.collect()
+        mx.metal.clear_cache()
+        self._generation_count = 0
+        self._last_gc_time = time.time()
+        logger.debug("GC triggered (gen_count reset, Metal cache cleared)")
+
+    async def set_draft_model(self, draft_model_id: str | None) -> Dict[str, Any]:
+        """Enable or disable speculative decoding.
+
+        Pass a model_id to load a draft model, or None to unload it.
+        Returns status dict with result.
+        """
+        if draft_model_id is None:
+            if self._draft_model is not None:
+                self._draft_model = None
+                self._draft_model_id = None
+                self._maybe_gc(force=True)
+                logger.info("Draft model unloaded")
+            return {"status": "disabled", "draft_model_id": None}
+
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None, load_draft_model, draft_model_id, self.models_dir
+        )
+        if result is None:
+            return {"status": "failed", "reason": "Could not load draft model (not found or not enough RAM)"}
+
+        self._draft_model, _ = result
+        self._draft_model_id = draft_model_id
+        logger.info("Draft model set: %s", draft_model_id)
+        return {"status": "enabled", "draft_model_id": draft_model_id}
 
     def _is_model_downloaded_check(self, model_id: str) -> bool:
         if Path(model_id).is_absolute():
@@ -515,9 +588,49 @@ class MLXEngineService:
             logger.info(f"Model {model_id} is already active.")
             return
 
-        # 0. VRAM Cleanup
+        # 0. Check multi-model cache first (near-instant switch)
+        if model_id in self._model_cache:
+            cached = self._model_cache[model_id]
+            # Stash current active model into cache before swapping
+            if self.active_model and self.active_model_id:
+                self._model_cache[self.active_model_id] = (
+                    self.active_model, self.active_tokenizer, self.active_processor,
+                    self.active_is_vision, time.time(),
+                )
+            self.active_model, self.active_tokenizer, self.active_processor, self.active_is_vision, _ = cached
+            self.active_model_id = model_id
+            # Reset KV cache — it's model-specific
+            self.active_kv_cache = None
+            self.active_kv_cache_id = None
+            del self._model_cache[model_id]
+            logger.info(f"Model {model_id} restored from multi-model cache (instant switch)")
+            return
+
+        # 1. VRAM Cleanup — stash active model in cache if there's room
         if self.active_model:
-            logger.info(f"Unloading previous model {self.active_model_id}...")
+            if len(self._model_cache) < self._model_cache_max:
+                # Stash into cache for later reuse
+                self._model_cache[self.active_model_id] = (
+                    self.active_model, self.active_tokenizer, self.active_processor,
+                    self.active_is_vision, time.time(),
+                )
+                logger.info(f"Stashed {self.active_model_id} in multi-model cache ({len(self._model_cache)} cached)")
+            else:
+                # Cache full — evict the oldest entry, then stash
+                if self._model_cache:
+                    oldest_id = min(self._model_cache, key=lambda k: self._model_cache[k][4])
+                    del self._model_cache[oldest_id]
+                    logger.info(f"Evicted {oldest_id} from multi-model cache")
+                # Check memory: if tight, don't cache, just unload
+                mem = psutil.virtual_memory()
+                if mem.percent > 75:
+                    logger.info(f"Memory tight ({mem.percent}%), not caching {self.active_model_id}")
+                else:
+                    self._model_cache[self.active_model_id] = (
+                        self.active_model, self.active_tokenizer, self.active_processor,
+                        self.active_is_vision, time.time(),
+                    )
+
             self.active_model = None
             self.active_tokenizer = None
             self.active_processor = None
@@ -526,8 +639,10 @@ class MLXEngineService:
             self.active_kv_cache = None
             self.active_kv_cache_id = None
             self.active_kv_bits = None
-            gc.collect()
-            mx.metal.clear_cache()
+            # Also unload draft model on model switch
+            self._draft_model = None
+            self._draft_model_id = None
+            self._maybe_gc(force=True)
             logger.info("VRAM cache cleared.")
 
         logger.info(f"Loading model: {model_id}")
@@ -670,9 +785,8 @@ class MLXEngineService:
                 self.active_tokenizer = None
                 self.active_processor = None
                 self.active_model_id = None
-                gc.collect()
-                mx.metal.clear_cache()
-                
+                self._maybe_gc(force=True)
+
                 # One-time retry after cleanup
                 try:
                     if is_vision:
@@ -731,7 +845,7 @@ class MLXEngineService:
         return {}
 
     async def unload_model(self):
-        """Explicitly unload the active model and free VRAM."""
+        """Explicitly unload the active model, cached models, and free VRAM."""
         async with self.generation_lock:
             if self.active_model:
                 logger.info(f"Unloading model {self.active_model_id}...")
@@ -743,8 +857,11 @@ class MLXEngineService:
                 self.active_kv_cache = None
                 self.active_kv_cache_id = None
                 self.active_kv_bits = None
-                gc.collect()
-                mx.metal.clear_cache()
+                # Also clear the multi-model cache
+                if self._model_cache:
+                    logger.info(f"Clearing {len(self._model_cache)} cached models")
+                    self._model_cache.clear()
+                self._maybe_gc(force=True)
                 logger.info("Model unloaded and VRAM cache cleared.")
             else:
                 logger.info("No model currently loaded.")
@@ -1300,8 +1417,15 @@ class MLXEngineService:
                         from mlx_lm.models.cache import make_prompt_cache, trim_prompt_cache
 
                         if not self.active_kv_cache:
-                            self.active_kv_cache = make_prompt_cache(model)
-                            self.active_kv_cache_id = []
+                            # Try to restore from disk cache first
+                            disk_hit = self._disk_cache.load(model_id, prompt_tokens)
+                            if disk_hit is not None:
+                                self.active_kv_cache, num_cached = disk_hit
+                                self.active_kv_cache_id = prompt_tokens[:num_cached]
+                                logger.info(f"Disk KV cache restored: {num_cached} tokens")
+                            else:
+                                self.active_kv_cache = make_prompt_cache(model)
+                                self.active_kv_cache_id = []
 
                         # Find common prefix length
                         common_len = 0
@@ -1325,29 +1449,63 @@ class MLXEngineService:
                         if self.active_kv_bits in (4, 8):
                             gen_kwargs["kv_bits"] = self.active_kv_bits
 
-                        for response in stream_generate(
-                            model,
-                            tokenizer,
-                            prompt=prompt_tokens,
-                            max_tokens=max_tokens,
-                            sampler=sampler,
-                            logits_processors=logits_processors,
-                            prompt_cache=self.active_kv_cache,
-                            **gen_kwargs
-                        ):
-                            if self.stop_event.is_set():
-                                break
-                            
-                            # Note: stream_generate updates the cache in place
-                            yield response.text
+                        # Speculative decoding: pass draft model if loaded.
+                        # Note: draft_model is incompatible with prompt_cache,
+                        # so we only use one or the other.
+                        if self._draft_model is not None:
+                            gen_kwargs["draft_model"] = self._draft_model
+                            gen_kwargs.pop("kv_bits", None)  # not supported with speculative
+                            logger.debug("Using speculative decoding with %s", self._draft_model_id)
+                            for response in stream_generate(
+                                model,
+                                tokenizer,
+                                prompt=prompt_tokens,
+                                max_tokens=max_tokens,
+                                sampler=sampler,
+                                logits_processors=logits_processors,
+                                **gen_kwargs
+                            ):
+                                if self.stop_event.is_set():
+                                    break
+                                yield response.text
+                        else:
+                            for response in stream_generate(
+                                model,
+                                tokenizer,
+                                prompt=prompt_tokens,
+                                max_tokens=max_tokens,
+                                sampler=sampler,
+                                logits_processors=logits_processors,
+                                prompt_cache=self.active_kv_cache,
+                                **gen_kwargs
+                            ):
+                                if self.stop_event.is_set():
+                                    break
+                                # Note: stream_generate updates the cache in place
+                                yield response.text
                         
                         # Update current cache state
                         if not self.stop_event.is_set():
-                             # We only cache the prompt for now, or extending it?
-                             # Usually we cache the prompt + the generated answer for next turn.
-                             # But for SiliconDev, we often have new tool results injected between turns.
-                             # So we cache up to the end of the prompt for the next hit.
+                             # Cache the prompt prefix for next-turn reuse.
+                             # We don't extend with generated tokens because tool
+                             # results are typically injected between turns.
                              self.active_kv_cache_id = prompt_tokens
+
+                             # Persist to disk in background for cross-session reuse.
+                             # Only worth it for long prefixes (>256 tokens).
+                             if len(prompt_tokens) > 256 and self.active_kv_cache:
+                                 try:
+                                     import copy as _copy
+                                     _cache_snapshot = _copy.copy(self.active_kv_cache)
+                                     _model_id = model_id
+                                     _tokens = list(prompt_tokens)
+                                     threading.Thread(
+                                         target=self._disk_cache.save,
+                                         args=(_model_id, _tokens, _cache_snapshot),
+                                         daemon=True,
+                                     ).start()
+                                 except Exception as e:
+                                     logger.debug("Disk KV cache save skipped: %s", e)
                              # Note: If memory pressure is high, we might want to clear it.
 
                     gen = _generate_iter()
@@ -1366,10 +1524,9 @@ class MLXEngineService:
 
                 yield {"text": "", "done": True}
                 
-                # Phase 9: Dynamic KV-Cache Cleansing
-                # After generation, we ensure VRAM is released and GC is triggered.
-                gc.collect()
-                mx.metal.clear_cache()
+                # Smart GC: only collect when memory is tight or after many generations.
+                # Model-switch and OOM paths still use force=True.
+                self._maybe_gc()
 
             except Exception as e:  # Top-level streaming handler; MLX internals can raise anything
                 logger.error(f"Streaming error: {e}")
@@ -1719,6 +1876,254 @@ class MLXEngineService:
                     logger.info(f"Cleaned up partial adapter dir: {job_adapter_dir}")
             except OSError as cleanup_err:
                 logger.warning(f"Failed to clean up adapter dir: {cleanup_err}")
+
+    # ------------------------------------------------------------------
+    # DPO Training (Direct Preference Optimization)
+    # ------------------------------------------------------------------
+
+    async def start_dpo_training(self, job_id: str, config: Dict[str, Any]):
+        job_name = config.get("job_name", "")
+        logger.debug(f"SERVICE: start_dpo_training job_name='{job_name}' for job_id={job_id}")
+        with self._jobs_lock:
+            self.active_jobs[job_id] = {
+                "status": "starting",
+                "progress": 0,
+                "job_name": job_name,
+                "job_id": job_id,
+            }
+        thread = threading.Thread(target=self._run_dpo_training_job, args=(job_id, config))
+        thread.start()
+        return {"job_id": job_id, "status": "started", "job_name": job_name}
+
+    def _run_dpo_training_job(self, job_id: str, config: Dict):
+        """Run DPO training in a background thread.
+
+        Implements the DPO sigmoid loss directly on MLX without external
+        dependencies (sillm).  The approach:
+        1. Load the base model twice (policy + frozen reference).
+        2. For each (prompt, chosen, rejected) triple, compute log-probs
+           under both policy and reference.
+        3. Apply sigmoid loss on the log-ratio difference.
+        4. Save LoRA adapters.
+        """
+        import mlx.nn as nn
+        import mlx.optimizers as optim
+        from mlx_lm.tuner.utils import linear_to_lora_layers
+
+        job_adapter_dir = self.adapters_dir / job_id
+        try:
+            with self._jobs_lock:
+                self.active_jobs[job_id]["status"] = "training"
+
+            model_id = config["model_id"]
+            dataset_path = config["dataset_path"]
+            beta = float(config.get("dpo_beta", 0.1))
+            lr = float(config.get("learning_rate", 1e-5))
+            epochs = int(config.get("epochs", 1))
+            batch_size = int(config.get("batch_size", 1))
+            lora_rank = int(config.get("lora_rank", 16))
+            lora_alpha = float(config.get("lora_alpha", 32))
+            lora_layers = int(config.get("lora_layers", 8))
+            max_seq_length = int(config.get("max_seq_length", 2048))
+            job_name = config.get("job_name", f"dpo-{job_id[:8]}")
+
+            # Memory safety clamp
+            mem_gb = psutil.virtual_memory().total / (1024 ** 3)
+            max_safe = 512 if mem_gb <= 8 else 2048 if mem_gb <= 16 else 4096 if mem_gb <= 32 else 8192
+            if max_seq_length > max_safe:
+                logger.warning(f"DPO: clamping max_seq_length {max_seq_length} -> {max_safe}")
+                max_seq_length = max_safe
+
+            # Load DPO pairs
+            pairs = []
+            with open(dataset_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    entry = json.loads(line.strip())
+                    if entry.get("prompt") and entry.get("chosen") and entry.get("rejected"):
+                        pairs.append(entry)
+            if len(pairs) < 5:
+                raise ValueError(f"Need at least 5 DPO pairs, got {len(pairs)}")
+
+            logger.info(f"DPO: loaded {len(pairs)} preference pairs")
+
+            # Load model + tokenizer
+            model, tokenizer, model_config = load(model_id, return_config=True)
+
+            # Create reference model (frozen copy)
+            ref_model, _, _ = load(model_id, return_config=True)
+            ref_model.freeze()
+
+            # Apply LoRA to policy model
+            model.freeze()
+            lora_config = {
+                "rank": lora_rank,
+                "alpha": lora_alpha,
+                "scale": float(lora_alpha / lora_rank),
+                "dropout": 0.0,
+                "keys": ["self_attn.q_proj", "self_attn.v_proj"],
+                "num_layers": lora_layers,
+            }
+            linear_to_lora_layers(model, lora_config["num_layers"], lora_config)
+            logger.info("DPO: model converted to LoRA")
+
+            # Setup
+            job_adapter_dir.mkdir(parents=True, exist_ok=True)
+            optimizer = optim.Adam(learning_rate=lr)
+            loss_and_grad_fn = nn.value_and_grad(model, self._dpo_loss_fn)
+
+            total_steps = (len(pairs) // batch_size) * epochs
+            if total_steps < 1:
+                total_steps = 1
+            step = 0
+
+            for epoch in range(epochs):
+                import random
+                random.shuffle(pairs)
+                for i in range(0, len(pairs) - batch_size + 1, batch_size):
+                    batch = pairs[i:i + batch_size]
+
+                    # Tokenize batch
+                    all_chosen_ids = []
+                    all_rejected_ids = []
+                    for p in batch:
+                        text_chosen = p["prompt"] + "\n" + p["chosen"]
+                        text_rejected = p["prompt"] + "\n" + p["rejected"]
+                        chosen_ids = tokenizer.encode(text_chosen)[:max_seq_length]
+                        rejected_ids = tokenizer.encode(text_rejected)[:max_seq_length]
+                        all_chosen_ids.append(chosen_ids)
+                        all_rejected_ids.append(rejected_ids)
+
+                    # Pad to same length within batch
+                    def _pad(seqs):
+                        max_len = max(len(s) for s in seqs)
+                        padded = []
+                        masks = []
+                        for s in seqs:
+                            pad_len = max_len - len(s)
+                            padded.append(s + [0] * pad_len)
+                            masks.append([1.0] * len(s) + [0.0] * pad_len)
+                        return mx.array(padded), mx.array(masks)
+
+                    chosen_tokens, chosen_masks = _pad(all_chosen_ids)
+                    rejected_tokens, rejected_masks = _pad(all_rejected_ids)
+
+                    # Compute reference log-probs (no grad)
+                    ref_chosen_lp = self._sequence_log_probs(ref_model, chosen_tokens, chosen_masks)
+                    ref_rejected_lp = self._sequence_log_probs(ref_model, rejected_tokens, rejected_masks)
+                    mx.eval(ref_chosen_lp, ref_rejected_lp)
+
+                    # Compute loss + gradients on policy model
+                    (loss_val, _), grads = loss_and_grad_fn(
+                        model, chosen_tokens, chosen_masks,
+                        rejected_tokens, rejected_masks,
+                        ref_chosen_lp, ref_rejected_lp, beta,
+                    )
+                    optimizer.update(model, grads)
+                    mx.eval(model.parameters(), optimizer.state, loss_val)
+
+                    step += 1
+                    progress = int((step / total_steps) * 100)
+                    with self._jobs_lock:
+                        self.active_jobs[job_id]["progress"] = min(progress, 99)
+                        self.active_jobs[job_id]["loss"] = round(float(loss_val), 6)
+
+                    if step % 10 == 0:
+                        logger.info(f"DPO step {step}/{total_steps} loss={float(loss_val):.4f}")
+
+            # Save adapters
+            adapter_file = job_adapter_dir / "adapters.safetensors"
+            mx.savez(str(adapter_file), **dict(model.trainable_parameters()))
+
+            # Save adapter config
+            base_model_type = "llama"
+            if hasattr(model_config, "model_type"):
+                base_model_type = model_config.model_type
+            elif isinstance(model_config, dict) and "model_type" in model_config:
+                base_model_type = model_config["model_type"]
+
+            adapter_config_path = job_adapter_dir / "adapter_config.json"
+            with open(adapter_config_path, "w") as f:
+                json.dump({
+                    "num_layers": lora_config["num_layers"],
+                    "model_type": base_model_type,
+                    "base_model_name_or_path": model_id,
+                    "training_type": "dpo",
+                    "dpo_beta": beta,
+                    "lora_parameters": {
+                        "rank": lora_config["rank"],
+                        "alpha": lora_config["alpha"],
+                        "scale": lora_config["scale"],
+                        "dropout": lora_config["dropout"],
+                        "keys": lora_config["keys"],
+                    }
+                }, f, indent=4)
+
+            # Save metadata
+            with open(job_adapter_dir / "metadata.json", "w") as f:
+                json.dump({"job_name": job_name, "job_id": job_id, "base_model": model_id, "params": config, "type": "dpo", "num_pairs": len(pairs)}, f, indent=4)
+
+            # Register fine-tuned model
+            ft_entry = {
+                "id": f"ft-{job_id}",
+                "name": job_name,
+                "base_model": model_id,
+                "adapter_path": str(job_adapter_dir),
+                "size": "Adapter",
+                "family": "Custom",
+                "is_custom": True,
+                "is_finetuned": True,
+                "training_type": "dpo",
+                "params": config,
+            }
+            with self._config_lock:
+                self.models_config.append(ft_entry)
+                self._save_models_config()
+
+            with self._jobs_lock:
+                self.active_jobs[job_id]["status"] = "completed"
+                self.active_jobs[job_id]["model_path"] = str(adapter_file)
+                self.active_jobs[job_id]["progress"] = 100
+
+            logger.info(f"DPO training completed: {job_name} ({len(pairs)} pairs, {step} steps)")
+
+            # Free reference model — unconditional, this is a large allocation
+            del ref_model
+            self._maybe_gc(force=True)
+
+        except Exception as e:
+            logger.error(f"DPO training failed: {e}", exc_info=True)
+            with self._jobs_lock:
+                self.active_jobs[job_id]["status"] = "failed"
+                self.active_jobs[job_id]["error"] = str(e)
+            try:
+                if job_adapter_dir.exists() and not (job_adapter_dir / "adapters.safetensors").exists():
+                    shutil.rmtree(job_adapter_dir)
+            except OSError:
+                pass
+
+    @staticmethod
+    def _sequence_log_probs(model, tokens, masks):
+        """Compute per-sequence mean log-probabilities."""
+        import mlx.nn as nn
+        logits = model(tokens[:, :-1])
+        targets = tokens[:, 1:]
+        log_probs = -nn.losses.cross_entropy(logits, targets, reduction="none")
+        # Mask padding (shift mask to match targets)
+        m = masks[:, 1:]
+        masked = log_probs * m
+        return masked.sum(axis=-1) / mx.maximum(m.sum(axis=-1), mx.array(1.0))
+
+    @staticmethod
+    def _dpo_loss_fn(model, chosen_tokens, chosen_masks, rejected_tokens, rejected_masks, ref_chosen_lp, ref_rejected_lp, beta):
+        """DPO sigmoid loss: -log(sigmoid(beta * (log_ratio_chosen - log_ratio_rejected)))."""
+        import mlx.nn as nn
+        policy_chosen_lp = MLXEngineService._sequence_log_probs(model, chosen_tokens, chosen_masks)
+        policy_rejected_lp = MLXEngineService._sequence_log_probs(model, rejected_tokens, rejected_masks)
+
+        # Log-ratio differences
+        logits = beta * ((policy_chosen_lp - ref_chosen_lp) - (policy_rejected_lp - ref_rejected_lp))
+        loss = -nn.log_sigmoid(logits).mean()
+        return loss, policy_chosen_lp.mean()
 
     def get_job_status(self, job_id: str):
         with self._jobs_lock:

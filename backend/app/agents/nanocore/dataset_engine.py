@@ -1,10 +1,13 @@
 """Engine for capturing and formatting local session data for fine-tuning."""
 
 import json
+import logging
 import os
 import time
 from pathlib import Path
 from typing import List, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 class DatasetEngine:
     def __init__(self, storage_dir: str = None):
@@ -36,27 +39,51 @@ class DatasetEngine:
             with open(self.current_session_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry) + "\n")
         except Exception as e:
-            # Non-critical, don't break the agent if logging fails
-            pass
+            logger.debug("Failed to log interaction: %s", e)
 
     def log_rejected_interaction(self, messages: List[Dict[str, str]], reason: str = None):
         """Logs a failed or rejected interaction for later DPO tuning."""
         if not messages:
             return
-        
+
         entry = {
             "timestamp": time.time(),
             "messages": messages,
             "status": "rejected",
             "reason": reason
         }
-        
+
         try:
             rejected_file = self.storage_dir / "rejected_interactions.jsonl"
             with open(rejected_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry) + "\n")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to log rejected interaction: %s", e)
+
+    def log_dpo_pair(self, prompt: str, chosen: str, rejected: str, metadata: Dict[str, Any] = None):
+        """Logs a DPO preference pair in SiLLM-compatible JSONL format.
+
+        Each approve/reject of a diff produces one pair:
+        - chosen = the content the user accepted (or would have been the alternative)
+        - rejected = the content the user rejected (or the pre-edit state)
+        """
+        if not prompt or not chosen or not rejected:
+            return
+
+        entry = {
+            "prompt": prompt,
+            "chosen": chosen,
+            "rejected": rejected,
+            "timestamp": time.time(),
+            "metadata": metadata or {}
+        }
+
+        try:
+            dpo_file = self.storage_dir / "dpo_pairs.jsonl"
+            with open(dpo_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry) + "\n")
+        except Exception as e:
+            logger.debug("Failed to log DPO pair: %s", e)
 
     def prepare_training_package(self, min_samples: int = 50) -> Dict[str, Any]:
         """Checks if enough samples are available and prepares a training config."""

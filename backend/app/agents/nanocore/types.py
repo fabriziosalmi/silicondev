@@ -37,6 +37,9 @@ SSEEventType = Literal[
     "auto_retry",
     "undo_applied",
     "lint_result",
+    "worker_start",
+    "worker_progress",
+    "worker_done",
     "error",
     "done",
 ]

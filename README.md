@@ -2,7 +2,7 @@
 
 **Local LLM fine-tuning and chat for Apple Silicon.**
 
-![Version](https://img.shields.io/badge/version-0.11.1-blue)
+![Version](https://img.shields.io/badge/version-0.12.0-blue)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Platform: macOS](https://img.shields.io/badge/Platform-macOS_(Apple_Silicon)-black)
 ![Engine: MLX](https://img.shields.io/badge/Engine-MLX-blue)
@@ -60,7 +60,7 @@ npm run dev
 Local ChatGPT-like interface, fully offline. Vision model support with image attachments. Conversation branching, in-chat search (Ctrl+F), quick actions (rewrite, translate, self-critique), RAG knowledge injection, web search, syntax validation, PII redaction.
 
 ### Fine-Tuning
-LoRA / QLoRA with visual configuration. Real-time loss curves, configurable hyperparameters, LoRA rank/alpha/dropout/layers.
+LoRA / QLoRA with visual configuration. Real-time loss curves, configurable hyperparameters, LoRA rank/alpha/dropout/layers. DPO preference training: every diff approve/reject is captured as a training pair, with a dedicated tab to launch DPO jobs directly on MLX.
 
 ### Data Preparation
 Preview and edit JSONL/CSV datasets. PII redaction via Presidio. CSV-to-JSONL conversion with chat templates. MCP-based dataset generation.
@@ -76,8 +76,11 @@ Add stdio-transport MCP servers. Discover and test tools. Generate fine-tuning d
 
 ### Code Workspace
 Monaco-based editor with an agentic panel powered by the NanoCore supervisor agent. Open a folder, ask it to edit or create files, and review diffs before they are applied.
-- **NanoCore Agent**: Tools: `read_file`, `edit_file`, `patch_file`, `run_bash`. Generates diffs, waits for approval before writing.
-- **Mixture of Agents (MoA)**: Optional parallel sub-agents (Security, Performance, Syntax) that review the proposed changes.
+- **NanoCore Agent**: Tools: `read_file`, `edit_file`, `patch_file`, `run_bash`, `spawn_worker`. Generates diffs, waits for approval before writing.
+- **Mixture of Agents (MoA)**: Parallel sub-agents (Security, Performance, Syntax) that review the proposed changes.
+- **Subagent Workers**: Delegate focused tasks (code review, test writing, docs, bug fixing) to independent workers with their own context and tool subsets.
+- **Model Routing**: Assign different models to different roles (planner, coder, reviewer). The supervisor picks the right model per phase.
+- **Live Preview**: Start a dev server (Vite, Next.js, Flask, static HTML) directly in the editor. Auto-detects project type, picks a free port, renders in an iframe with resize handle.
 - **Self-Healing**: Detects bash failures and retries up to 3 times; escalates to the user if stuck.
 - **Air-Gapped Mode**: Blocks outbound network calls during agent runs.
 - **Python Sandbox**: Isolated subprocess execution for scripts.
@@ -116,7 +119,7 @@ If you run into bugs or rough edges, please [open an issue](https://github.com/f
 
 - **Frontend**: Electron, React 19, TypeScript, Vite, TailwindCSS
 - **Backend**: Python 3.12+, FastAPI, Uvicorn
-- **Inference**: Apple MLX, MLX-LM, MLX-VLM
+- **Inference**: Apple MLX, MLX-LM, MLX-VLM (prefix caching, KV quantization, disk KV cache, speculative decoding)
 - **Data**: Pandas, Presidio, MCP SDK
 - **Memory**: SQLite (Knowledge Graph), BM25 + HNSW (search/RAG)
 - **Monitoring**: psutil, platform-native GPU stats

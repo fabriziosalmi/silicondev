@@ -128,11 +128,13 @@ class PromptProfile:
         self.suggested_mode: str | None = None
         self.suggested_max_iterations: int | None = None
         self.suggested_temperature: float | None = None
+        self.suggested_model_role: str | None = None  # for model routing
         self.extracted_paths: list[str] = []
         self.pre_read_context: str = ""
 
     def __repr__(self):
-        return f"PromptProfile(intent={self.intent}, complexity={self.complexity}, paths={len(self.extracted_paths)})"
+        role = f", role={self.suggested_model_role}" if self.suggested_model_role else ""
+        return f"PromptProfile(intent={self.intent}, complexity={self.complexity}, paths={len(self.extracted_paths)}{role})"
 
 
 def classify_prompt(prompt: str) -> tuple[str, str]:
@@ -190,7 +192,18 @@ def analyze_prompt(prompt: str, workspace_dir: str) -> PromptProfile:
         profile.suggested_max_iterations = 15
         profile.suggested_temperature = 0.4
 
-    # 4. Extract and pre-read file paths
+    # 4. Suggest model role for routing
+    # Complex tasks benefit from a larger "planner" model.
+    # Reviews are best handled by a "reviewer" model (if one is configured).
+    # Everything else uses the "coder" model.
+    if profile.complexity == "complex":
+        profile.suggested_model_role = "planner"
+    elif profile.intent == "review":
+        profile.suggested_model_role = "reviewer"
+    else:
+        profile.suggested_model_role = "coder"
+
+    # 5. Extract and pre-read file paths
     profile.extracted_paths = extract_file_paths(prompt, workspace_dir)
     if profile.extracted_paths:
         profile.pre_read_context = pre_read_files(profile.extracted_paths)

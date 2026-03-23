@@ -1,6 +1,7 @@
 """Supervisor agent — orchestrates the tool-use loop and yields SSE events."""
 
 import asyncio
+import json as _json
 import sqlite3
 import logging
 import os
@@ -129,9 +130,11 @@ class SupervisorAgent:
         air_gapped_mode: bool = False,
         enable_python_sandbox: bool = False,
         engine_service = None,
+        router = None,
     ):
         self.session_id = session_id
         self.model_id = model_id
+        self._router = router  # ModelRouter for role-based model selection
         self.max_iterations = max_iterations
         self.temperature = temperature
         self.mode = mode
@@ -166,6 +169,15 @@ class SupervisorAgent:
         self._context_mgr = HierarchicalContextManager(max_context_tokens=16000)
         # Fix 3: process manager
         self.process_manager = ProcessManager()
+
+    def _model_for(self, role: str) -> str:
+        """Resolve model_id for a given role via the router.
+
+        Falls back to self.model_id if routing is disabled or unconfigured.
+        """
+        if self._router is not None:
+            return self._router.resolve(role, self.model_id)
+        return self.model_id
 
     def stop(self):
         """Signal the agent to stop after current iteration."""
@@ -639,7 +651,7 @@ class SupervisorAgent:
 
             try:
                 async for chunk in engine_service.generate_stream(
-                    self.model_id,
+                    self._model_for("coder"),
                     fitted_messages,
                     temperature=effective_temp,
                     max_tokens=4096,
@@ -877,7 +889,7 @@ class SupervisorAgent:
                                 if attempt == MAX_AUTO_RETRIES:
                                     yield _sse("info", {"content": "🔥 Intelligent Router: persistent failure detected. Escalating to MoA Swarm Experts..."})
                                     try:
-                                        swarm = MapReduceSwarm(self.model_id)
+                                        swarm = MapReduceSwarm(self._model_for("reviewer"), router=self._router)
                                         topic = f"Fixing persistent failure for command: {command}\nError: {raw_output[-500:]}"
                                         swarm_result = await swarm.run_swarm(topic=topic, context=f"Context: {command}")
                                         tool_results.append(f"\n[INTELLIGENT ROUTER] Swarm Expert Consensus:\n{swarm_result}")
@@ -1015,6 +1027,7 @@ class SupervisorAgent:
                     # --- Internal Review (Inspector) ---
                     # Skip inspector for new files (no old content = nothing to review)
                     is_new_file = not diff_info["old"]
+                    inspector_scores = None
                     if not is_new_file:
                         yield self._agency_status("inspector", "Verifying change quality")
                         review_msg = f"Proposed change to {file_path}:\n```diff\n{diff_info['diff']}\n```"
@@ -1023,9 +1036,38 @@ class SupervisorAgent:
                             {"role": "user", "content": review_msg}
                         ]
                         review_accum = ""
-                        async for rev_chunk in engine_service.generate_stream(self.model_id, reviewer_messages, temperature=0.1):
+                        async for rev_chunk in engine_service.generate_stream(self._model_for("inspector"), reviewer_messages, temperature=0.1):
                             if "text" in rev_chunk:
                                 review_accum += rev_chunk["text"]
+
+                        # Parse inspector scoring JSON from first line
+                        try:
+                            first_line = review_accum.strip().split("\n", 1)[0]
+                            inspector_scores = _json.loads(first_line)
+                        except Exception:
+                            inspector_scores = None
+
+                        if inspector_scores:
+                            min_score = min(inspector_scores.get("correctness", 10), inspector_scores.get("style", 10), inspector_scores.get("safety", 10))
+                            yield _sse("inspector_score", {
+                                "file_path": file_path,
+                                "scores": inspector_scores,
+                                "min_score": min_score,
+                            })
+                            # Auto-reject if any dimension < 4
+                            if min_score < 4:
+                                logger.warning(f"Inspector auto-rejected {file_path}: scores {inspector_scores}")
+                                review_body = review_accum.strip().split("\n", 1)[1] if "\n" in review_accum.strip() else ""
+                                yield _sse("agency_trace", {
+                                    "role": "inspector",
+                                    "content": f"Auto-rejected (score {min_score}/10): {review_body}",
+                                    "target": file_path
+                                })
+                                tool_results.append(f"[edit_file] Inspector auto-rejected changes to {file_path} (min score {min_score}/10). Fix the issues and try again.")
+                                # Log as rejected DPO pair
+                                diff_text = f"edit_file {file_path}\n{diff_info['diff']}"
+                                dataset_engine.log_dpo_pair(prompt, chosen=f"[no change] {file_path}", rejected=diff_text, metadata={"tool": "edit_file", "file": file_path, "reason": f"inspector_auto_reject score={min_score}", "inspector_scores": inspector_scores})
+                                continue
 
                         if "LGTM" not in review_accum.upper():
                             # Inspector found issues — show to user
@@ -1101,6 +1143,17 @@ class SupervisorAgent:
                         if reason:
                             msg += f" — reason: {reason}"
                         tool_results.append(msg)
+
+                    # DPO pair: approved diff = chosen, old content = rejected (or vice versa)
+                    diff_text = f"edit_file {file_path}\n{diff_info['diff']}"
+                    dpo_meta = {"tool": "edit_file", "file": file_path}
+                    if inspector_scores:
+                        dpo_meta["inspector_scores"] = inspector_scores
+                    if approved:
+                        dataset_engine.log_dpo_pair(prompt, chosen=diff_text, rejected=f"[no change] {file_path}", metadata=dpo_meta)
+                    else:
+                        dpo_meta["reason"] = reason
+                        dataset_engine.log_dpo_pair(prompt, chosen=f"[no change] {file_path}", rejected=diff_text, metadata=dpo_meta)
 
                     self._trajectory.append(TrajectoryEntry(
                         agent="supervisor", action="edit_file",
@@ -1243,6 +1296,13 @@ class SupervisorAgent:
                             msg += f" — reason: {reason}"
                         tool_results.append(msg)
 
+                    # DPO pair: approved patch = chosen, old content = rejected (or vice versa)
+                    patch_diff_text = f"patch_file {file_path}\n{patch_result['diff']}"
+                    if approved:
+                        dataset_engine.log_dpo_pair(prompt, chosen=patch_diff_text, rejected=f"[no change] {file_path}", metadata={"tool": "patch_file", "file": file_path})
+                    else:
+                        dataset_engine.log_dpo_pair(prompt, chosen=f"[no change] {file_path}", rejected=patch_diff_text, metadata={"tool": "patch_file", "file": file_path, "reason": reason})
+
                     self._trajectory.append(TrajectoryEntry(
                         agent="supervisor", action="patch_file",
                         input=file_path,
@@ -1347,7 +1407,10 @@ class SupervisorAgent:
                             yield heartbeat
 
                         approved, reason = self._consume_diff_result(bc_id)
+                        # DPO pair for batch_edit
+                        batch_diff_text = f"batch_edit {fp}\n{patch_result['diff']}"
                         if approved:
+                            dataset_engine.log_dpo_pair(prompt, chosen=batch_diff_text, rejected=f"[no change] {fp}", metadata={"tool": "batch_edit", "file": fp})
                             self._edit_history.append({
                                 "file_path": fp,
                                 "old_content": patch_result["old"],
@@ -1359,6 +1422,8 @@ class SupervisorAgent:
                             yield _sse("file_changed", {"path": fp, "is_new": not patch_result["old"]})
                             applied += 1
                             repo_map_cache.invalidate()
+                        else:
+                            dataset_engine.log_dpo_pair(prompt, chosen=f"[no change] {fp}", rejected=batch_diff_text, metadata={"tool": "batch_edit", "file": fp})
 
                     yield _sse("tool_done", {"call_id": call_id, "exit_code": 0})
                     tool_results.append(f"[batch_edit] Applied to {applied}/{len(file_list)} files")
@@ -1417,7 +1482,7 @@ class SupervisorAgent:
                         async def _swarm_progress(phase: str, expert_id: str, status: str):
                             swarm_events.append({"phase": phase, "expert": expert_id, "status": status})
 
-                        swarm = MapReduceSwarm(self.model_id, on_progress=_swarm_progress)
+                        swarm = MapReduceSwarm(self._model_for("reviewer"), on_progress=_swarm_progress, router=self._router)
                         result = await swarm.run_swarm(topic=topic, context=context)
 
                         # Flush accumulated progress events
@@ -1430,6 +1495,54 @@ class SupervisorAgent:
                         logger.error(f"Swarm failure: {e}", exc_info=True)
                         yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
                         tool_results.append(f"[ask_swarm_experts] Error: {e}")
+
+                elif tc.name == "spawn_worker":
+                    worker_role = tc.args.get("role", "")
+                    worker_task = tc.args.get("task", "")
+                    worker_files_str = tc.args.get("files", "")
+                    worker_files = [f.strip() for f in worker_files_str.split(",") if f.strip()] if worker_files_str else None
+
+                    yield self._step_label(f"Spawning {worker_role} worker...", iteration)
+                    yield _sse("tool_start", {"tool": "spawn_worker", "args": {"role": worker_role, "task": worker_task[:200]}, "call_id": call_id})
+
+                    from app.agents.nanocore.subagent import WORKER_ROLES
+                    if worker_role not in WORKER_ROLES:
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                        tool_results.append(f"[spawn_worker] Unknown role: {worker_role}. Available: {list(WORKER_ROLES.keys())}")
+                        continue
+                    if not worker_task:
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                        tool_results.append("[spawn_worker] Error: 'task' argument is required.")
+                        continue
+
+                    try:
+                        from app.agents.nanocore.orchestrator import SubagentOrchestrator
+                        orch = SubagentOrchestrator(
+                            default_model_id=self.model_id,
+                            workspace_dir=self.workspace_dir or ".",
+                            router=self._router,
+                        )
+
+                        yield _sse("worker_start", {"worker_role": worker_role, "task": worker_task[:200], "call_id": call_id})
+
+                        result = await orch.spawn_worker(
+                            role=worker_role,
+                            task=worker_task,
+                            context_files=worker_files,
+                        )
+
+                        yield _sse("worker_done", {
+                            "call_id": call_id,
+                            "worker_id": result["worker_id"],
+                            "role": worker_role,
+                            "summary": result.get("summary", {}),
+                        })
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 0})
+                        tool_results.append(f"[spawn_worker ({worker_role})]\n{result['result']}")
+                    except Exception as e:
+                        logger.error(f"spawn_worker failure: {e}", exc_info=True)
+                        yield _sse("tool_done", {"call_id": call_id, "exit_code": 1})
+                        tool_results.append(f"[spawn_worker] Error: {e}")
 
                 else:
                     tool_results.append(f"Unknown tool: {tc.name}")

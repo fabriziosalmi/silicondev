@@ -394,6 +394,56 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to start fine-tuning');
             return res.json();
         },
+        dpoTrain: async (params: { model_id: string; dataset_path: string; epochs?: number; learning_rate?: number; batch_size?: number; lora_rank?: number; lora_alpha?: number; lora_layers?: number; max_seq_length?: number; dpo_beta?: number; job_name?: string }): Promise<{ job_id: string; status: string; job_name: string }> => {
+            const res = await apiFetch(`${API_BASE}/api/engine/dpo`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            await throwIfNotOk(res, 'Failed to start DPO training');
+            return res.json();
+        },
+        // ── Model Routing ───────────────────────────────────────
+        getRouting: async (): Promise<{ enabled: boolean; routes: Record<string, string> }> => {
+            const res = await apiFetch(`${API_BASE}/api/engine/routing`);
+            await throwIfNotOk(res, 'Failed to get routing config');
+            return res.json();
+        },
+        updateRouting: async (params: { enabled?: boolean; routes?: Record<string, string> }): Promise<{ enabled: boolean; routes: Record<string, string> }> => {
+            const res = await apiFetch(`${API_BASE}/api/engine/routing`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            await throwIfNotOk(res, 'Failed to update routing config');
+            return res.json();
+        },
+        // ── Speculative Decoding ──────────────────────────────
+        setDraftModel: async (draftModelId: string | null): Promise<{ status: string; draft_model_id?: string }> => {
+            const res = await apiFetch(`${API_BASE}/api/engine/draft-model`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ draft_model_id: draftModelId })
+            });
+            await throwIfNotOk(res, 'Failed to set draft model');
+            return res.json();
+        },
+        getDraftModel: async (): Promise<{ enabled: boolean; draft_model_id: string | null }> => {
+            const res = await apiFetch(`${API_BASE}/api/engine/draft-model`);
+            await throwIfNotOk(res, 'Failed to get draft model status');
+            return res.json();
+        },
+        // ── KV Cache ──────────────────────────────────────────
+        getKVCacheStats: async (): Promise<{ entries: number; total_size_mb: number; max_size_mb: number; cache_dir: string }> => {
+            const res = await apiFetch(`${API_BASE}/api/engine/kv-cache/stats`);
+            await throwIfNotOk(res, 'Failed to get KV cache stats');
+            return res.json();
+        },
+        clearKVCache: async (): Promise<{ status: string }> => {
+            const res = await apiFetch(`${API_BASE}/api/engine/kv-cache`, { method: 'DELETE' });
+            await throwIfNotOk(res, 'Failed to clear KV cache');
+            return res.json();
+        },
         chatStream: async (modelId: string, messages: ChatMessage[], params: Record<string, unknown> = {}): Promise<Response> => {
             const res = await apiFetch(`${API_BASE}/api/engine/chat`, {
                 method: 'POST',
@@ -678,6 +728,37 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to fetch deployment logs');
             return res.json();
         }
+    },
+    preview: {
+        start: async (workspaceDir: string, command?: string, port?: number): Promise<{ status: string; port: number; type: string; pid: number; command?: string }> => {
+            const res = await apiFetch(`${API_BASE}/api/preview/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workspace_dir: workspaceDir, command: command || undefined, port: port || undefined })
+            });
+            await throwIfNotOk(res, 'Failed to start preview');
+            return res.json();
+        },
+        stop: async (): Promise<{ status: string }> => {
+            const res = await apiFetch(`${API_BASE}/api/preview/stop`, { method: 'POST' });
+            await throwIfNotOk(res, 'Failed to stop preview');
+            return res.json();
+        },
+        status: async (): Promise<{ running: boolean; ready: boolean; port: number | null; type: string | null; pid: number | null; uptime_seconds: number | null }> => {
+            const res = await apiFetch(`${API_BASE}/api/preview/status`);
+            await throwIfNotOk(res, 'Failed to get preview status');
+            return res.json();
+        },
+        detect: async (workspaceDir: string): Promise<{ type: string; command: string | null; port: number | null }> => {
+            const res = await apiFetch(`${API_BASE}/api/preview/detect?workspace_dir=${encodeURIComponent(workspaceDir)}`);
+            await throwIfNotOk(res, 'Failed to detect project type');
+            return res.json();
+        },
+        logs: async (since: number = 0): Promise<{ logs: { timestamp: number; source: string; message: string }[] }> => {
+            const res = await apiFetch(`${API_BASE}/api/preview/logs?since=${since}`);
+            await throwIfNotOk(res, 'Failed to fetch preview logs');
+            return res.json();
+        },
     },
     notes: {
         list: async (): Promise<NoteSummary[]> => {
@@ -1042,6 +1123,11 @@ export const apiClient = {
         datasetPrepare: async (minSamples = 50): Promise<{ ready: boolean; count: number; path: string; command: string }> => {
             const res = await apiFetch(`${API_BASE}/api/terminal/dataset/prepare?min_samples=${minSamples}`, { method: 'POST' });
             await throwIfNotOk(res, 'Failed to prepare dataset');
+            return res.json();
+        },
+        dpoStatus: async (): Promise<{ count: number; path: string }> => {
+            const res = await apiFetch(`${API_BASE}/api/terminal/dataset/dpo-status`);
+            await throwIfNotOk(res, 'Failed to get DPO status');
             return res.json();
         },
     },

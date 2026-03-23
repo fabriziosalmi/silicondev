@@ -42,6 +42,87 @@ async def start_finetune(request: FineTuneRequest):
     result = await service.start_finetuning(job_id, config)
     return result
 
+class DPOTrainRequest(BaseModel):
+    model_id: str = Field(min_length=1, max_length=255)
+    dataset_path: str = Field(min_length=1, max_length=1024)
+    epochs: int = Field(default=1, ge=1, le=20)
+    learning_rate: float = Field(default=1e-5, gt=0, le=1.0)
+    batch_size: int = Field(default=1, ge=1, le=16)
+    lora_rank: int = Field(default=16, ge=1, le=256)
+    lora_alpha: float = Field(default=32.0, gt=0)
+    lora_layers: int = Field(default=8, ge=1, le=128)
+    max_seq_length: int = Field(default=2048, ge=64, le=32768)
+    dpo_beta: float = Field(default=0.1, gt=0, le=1.0)
+    job_name: str = Field(default="", max_length=255)
+
+@router.post("/dpo")
+async def start_dpo(request: DPOTrainRequest):
+    """Start a DPO preference training job."""
+    try:
+        safe_user_file(request.dataset_path)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    job_id = str(uuid.uuid4())
+    logger.info(f"Received DPO request. Job Name: '{request.job_name}'")
+    config = request.model_dump()
+    result = await service.start_dpo_training(job_id, config)
+    return result
+
+class RoutingConfigRequest(BaseModel):
+    enabled: Optional[bool] = None
+    routes: Optional[Dict[str, str]] = None
+
+@router.get("/routing")
+async def get_routing():
+    """Return current model routing config."""
+    return service.router.get_config()
+
+@router.put("/routing")
+async def update_routing(request: RoutingConfigRequest):
+    """Update model routing config.
+
+    Pass partial routes dict to merge, and/or enabled flag to toggle.
+    """
+    if request.routes is not None:
+        config = service.router.update_routes(request.routes, enabled=request.enabled)
+    elif request.enabled is not None:
+        config = service.router.update_routes({}, enabled=request.enabled)
+    else:
+        return service.router.get_config()
+    return config
+
+class DraftModelRequest(BaseModel):
+    draft_model_id: Optional[str] = Field(default=None, max_length=255)
+
+@router.post("/draft-model")
+async def set_draft_model(request: DraftModelRequest):
+    """Enable or disable speculative decoding with a draft model.
+
+    Pass draft_model_id to enable, or null/empty to disable.
+    The draft model must be already downloaded and should be small (~0.5-1B).
+    """
+    result = await service.set_draft_model(request.draft_model_id or None)
+    return result
+
+@router.get("/draft-model")
+async def get_draft_model():
+    """Return current draft model status."""
+    return {
+        "enabled": service._draft_model is not None,
+        "draft_model_id": service._draft_model_id,
+    }
+
+@router.get("/kv-cache/stats")
+async def get_kv_cache_stats():
+    """Return disk KV cache statistics."""
+    return service._disk_cache.stats()
+
+@router.delete("/kv-cache")
+async def clear_kv_cache():
+    """Clear the disk KV cache."""
+    service._disk_cache.clear()
+    return {"status": "cleared"}
+
 @router.get("/jobs/{job_id}")
 async def get_job_status(job_id: str):
     """Get status of a fine-tuning job."""
