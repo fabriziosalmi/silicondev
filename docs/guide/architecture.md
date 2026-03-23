@@ -85,6 +85,7 @@ All routers are registered in `backend/main.py`:
 | `/api/workspace`     | `workspace.py`     | File tree, read, save, git info   |
 | `/api/memory`        | `memory.py`        | Knowledge graph nodes and edges   |
 | `/api/training`      | `training.py`      | Fine-tuning orchestrator          |
+| `/api/preview`       | `preview.py`       | Live preview server management    |
 
 ### Model Lifecycle
 
@@ -92,7 +93,47 @@ All routers are registered in `backend/main.py`:
 Download (HuggingFace) -> Register in models.json -> Load into MLX memory -> Chat/Fine-tune -> Unload
 ```
 
-Only one model can be loaded at a time. Loading a new model unloads the previous one. The active model state is tracked in the frontend's `GlobalState` context.
+With model routing enabled (`~/.silicon-studio/routing.json`), up to 2 models can be cached in RAM simultaneously. The engine swaps between them based on the agent's current phase (planning, coding, reviewing). On machines with limited RAM, this degrades to single-model mode transparently.
+
+### Agent Architecture
+
+```
+Prelayer (intent + complexity + file extraction)
+    |
+    v
+SupervisorAgent (main agent loop)
+    |
+    +-- Tools: read_file, edit_file, patch_file, run_bash, spawn_worker
+    |
+    +-- MapReduceSwarm (3 parallel experts: security, performance, syntax)
+    |
+    +-- PlannerEditor (2-phase plan + execute)
+    |
+    +-- SubagentOrchestrator
+    |       |
+    |       +-- SubagentWorker (code_reviewer, test_writer, docs_generator, bug_fixer)
+    |
+    +-- DatasetEngine (SFT + DPO pair logging)
+    |
+    +-- KnowledgeGraph (SQLite fact/edge store)
+    |
+    +-- ModelRouter (role -> model_id resolution)
+```
+
+The Prelayer classifies each user prompt before the supervisor runs, determining intent, complexity, relevant files, and suggested model role. The supervisor then executes the agent loop, optionally delegating to the Swarm (parallel review), Planner (multi-step edits), or Subagent Workers (focused tasks).
+
+### Inference Engine
+
+```
+generate_stream(model_id, messages)
+    |
+    +-- Prefix cache: token-by-token matching with dynamic trimming
+    +-- KV quantization: 4-bit or 8-bit (optional)
+    +-- Disk KV cache: cross-session prefix reuse (~/.silicon-studio/cache/kv/)
+    +-- Speculative decoding: draft model for faster generation (optional)
+    +-- Smart GC: conditional gc.collect() + mx.metal.clear_cache()
+    +-- Multi-model LRU cache: up to 2 models for fast role switching
+```
 
 ### Data Flow: Chat
 

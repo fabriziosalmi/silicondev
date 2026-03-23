@@ -64,6 +64,30 @@ After training completes:
 - It appears in the Models list with `is_finetuned: true`.
 - It can be exported via [Model Export](/features/model-export) at various quantization levels.
 
+## DPO Preference Training
+
+SiliconDev captures preference data automatically: every time you approve or reject a diff in the Code Workspace, the prompt and the proposed change are logged as a DPO pair (chosen/rejected).
+
+### Preference Training Tab
+
+The fine-tuning UI includes a "Preference Training" tab that shows:
+
+- **Pair counter**: How many approve/reject pairs have been collected.
+- **Train with Preferences button**: Launches a DPO training job using the collected pairs.
+- **Loss curve**: Same real-time visualization as LoRA training.
+
+### DPO Data Format
+
+Pairs are stored in `~/.silicon-studio/datasets/dpo_pairs.jsonl`:
+
+```jsonl
+{"prompt": "...", "chosen": "...", "rejected": "...", "metadata": {"tool": "patch_file", "file": "src/auth.py"}}
+```
+
+### Inspector Scoring
+
+The agent's Inspector adds a numeric quality score (1-10) to each response. This score acts as an automatic quality gate and can be used as a reward signal for RLAIF-style training.
+
 ## Limitations
 
 - One training job at a time.

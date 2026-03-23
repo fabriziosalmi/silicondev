@@ -18,7 +18,7 @@ export default defineConfig({
       { text: 'API', link: '/api/overview' },
       { text: 'Development', link: '/development/setup' },
       {
-        text: 'v0.10.2',
+        text: 'v0.12.0',
         items: [
           { text: 'Changelog', link: '/changelog' },
           { text: 'GitHub', link: 'https://github.com/fabriziosalmi/silicondev' },
@@ -87,6 +87,8 @@ export default defineConfig({
             { text: 'Search', link: '/api/search' },
             { text: 'Indexer', link: '/api/indexer' },
             { text: 'Monitor', link: '/api/monitor' },
+            { text: 'Preview', link: '/api/preview' },
+            { text: 'Codebase', link: '/api/codebase' },
           ],
         },
       ],

@@ -1,5 +1,77 @@
 # Changelog
 
+## v0.12.0
+
+### Inference Engine Improvements
+
+- **Smart GC**: `gc.collect()` + `mx.metal.clear_cache()` now triggers conditionally (memory > 80%, 10+ generations, or 5+ minutes) instead of after every generation.
+- **Disk KV cache**: Cross-session cache for KV prompt state in `~/.silicon-studio/cache/kv/` with 2 GB LRU eviction.
+- **Speculative decoding**: Optional draft model for faster generation. Memory-aware, falls back silently if the draft model cannot fit.
+- New API: `POST/GET /api/engine/draft-model`, `GET/DELETE /api/engine/kv-cache`.
+
+### Model Routing
+
+- Role-based model selection (planner, coder, reviewer, inspector) via `~/.silicon-studio/routing.json`.
+- Multi-model LRU cache (up to 2 models) for near-instant role switching.
+- Prelayer suggests model role based on intent and complexity.
+- Supervisor, Swarm, and Inspector all route through the resolver. Falls back to single model when disabled.
+- New API: `GET/PUT /api/engine/routing`.
+
+### Subagent System
+
+- `SubagentWorker`: focused single-task workers with independent context. Roles: `code_reviewer` (read-only), `test_writer`, `docs_generator`, `bug_fixer`.
+- `SubagentOrchestrator`: parallel (`asyncio.gather`) and pipeline (sequential chain) execution.
+- The LLM can invoke `spawn_worker` as a tool. Results injected back as tool output.
+- SSE events: `worker_start`, `worker_done`.
+
+### Live Preview
+
+- Auto-detects Vite, Next.js, CRA, Nuxt, Svelte, Astro, Flask, FastAPI, and static HTML projects. Detects package manager (npm/pnpm/yarn/bun).
+- Starts dev server on a free port (3100-3199), renders in an iframe below the editor with resize handle.
+- New API: `POST /api/preview/start|stop`, `GET /api/preview/status|detect|logs`.
+
+### DPO Preference Training
+
+- Every diff approve/reject is captured as a DPO training pair via `DatasetEngine.log_dpo_pair()`.
+- Dedicated "Preference Training" tab in the fine-tuning UI with pair counter and training button.
+- Inspector scoring adds a numeric quality signal to each agent response.
+
+### Tests
+
+- 314 backend tests passing (65 new across 5 test files).
+
+## v0.11.1
+
+### Fixes
+- TypeScript build errors from hook extraction refactor.
+- UX, code quality, and maintainability improvements.
+- Security hardening: auth middleware edge cases, error handling.
+
+## v0.11.0
+
+### Features
+- NanoCoder model integration (4 variants in models.json).
+- App hotkey fixes for non-US keyboard layouts.
+
+## v0.10.5
+
+### Fixes
+- Proposed change overlay moved to bottom-right to avoid obscuring code.
+
+## v0.10.4
+
+### Fixes
+- Fix broken "Start Server" due to missing python executable path.
+- Fix avatar paths and code block overflow.
+
+## v0.10.3
+
+### Features
+- Codebase API documentation with hybrid search.
+
+### Fixes
+- Avatar paths and code block overflow styling.
+
 ## v0.10.2
 
 ### Evaluations
