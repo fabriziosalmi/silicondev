@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import {
     Globe, Play, Square, RefreshCw, ExternalLink,
-    Loader2, AlertCircle, ChevronDown, ChevronUp, Terminal
+    Loader2, AlertCircle, ChevronDown, Terminal
 } from 'lucide-react'
 
 interface PreviewPanelProps {

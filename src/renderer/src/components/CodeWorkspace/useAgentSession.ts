@@ -515,8 +515,10 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           const role = d.worker_role as string || d.role as string || 'worker'
           const task = d.task as string || ''
           addFeedItem({
+            id: `worker-start-${Date.now()}`,
             type: 'info',
             content: `🔧 Worker spawned: ${role}${task ? ` — ${task.slice(0, 100)}` : ''}`,
+            timestamp: Date.now(),
           })
           break
         }
@@ -527,8 +529,10 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           const durationMs = summary.duration_ms as number || 0
           const iterations = summary.iterations as number || 0
           addFeedItem({
+            id: `worker-done-${Date.now()}`,
             type: 'info',
             content: `✅ Worker done: ${role} (${iterations} iter, ${Math.round(durationMs / 1000)}s)`,
+            timestamp: Date.now(),
           })
           break
         }
