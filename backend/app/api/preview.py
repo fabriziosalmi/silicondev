@@ -46,8 +46,8 @@ def _read_pipe(pipe, label: str):
                     "source": label,
                     "message": line,
                 })
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Preview pipe read failed (%s): %s", label, e)
     finally:
         pipe.close()
 
@@ -192,7 +192,8 @@ async def stop_preview():
             else:
                 _preview_process.terminate()
             _preview_process.wait(timeout=5)
-        except Exception:
+        except Exception as e:
+            logger.warning("Graceful preview stop failed, force-killing: %s", e)
             if _preview_process:
                 _preview_process.kill()
 

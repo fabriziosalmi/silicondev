@@ -773,11 +773,23 @@ class MLXEngineService:
             # Post-load memory pressure check
             mem = psutil.virtual_memory()
             if mem.percent > 85:
-                self._load_warning = (
-                    f"High memory pressure after loading ({mem.percent:.0f}% used). "
-                    f"System may be slow due to swapping."
-                )
-                logger.warning(self._load_warning)
+                # Evict cached models to free memory before warning
+                if self._model_cache:
+                    evicted = list(self._model_cache.keys())
+                    self._model_cache.clear()
+                    gc.collect()
+                    mx.metal.clear_cache()
+                    logger.warning(
+                        "Memory critical (%d%%) after load — evicted %d cached model(s): %s",
+                        mem.percent, len(evicted), ", ".join(evicted),
+                    )
+                    mem = psutil.virtual_memory()  # re-check after eviction
+                if mem.percent > 85:
+                    self._load_warning = (
+                        f"High memory pressure after loading ({mem.percent:.0f}% used). "
+                        f"System may be slow due to swapping."
+                    )
+                    logger.warning(self._load_warning)
         except (MemoryError, Exception) as e:
             if isinstance(e, MemoryError):
                 logger.warning(f"OOM detected during load of {model_id}. Unloading everything and retrying...")

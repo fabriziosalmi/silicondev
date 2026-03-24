@@ -94,8 +94,8 @@ class DiskPromptCache:
                 if entry_dir.exists():
                     import shutil
                     shutil.rmtree(entry_dir, ignore_errors=True)
-            except Exception:
-                pass
+            except Exception as cleanup_err:
+                logger.debug("Cache cleanup failed: %s", cleanup_err)
             return False
 
     def load(
@@ -149,8 +149,8 @@ class DiskPromptCache:
                 if meta.get("model_id") == model_id:
                     shutil.rmtree(entry_dir, ignore_errors=True)
                     removed += 1
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to invalidate cache entry %s: %s", entry_dir.name, e)
         if removed:
             logger.info("Invalidated %d disk KV cache entries for %s", removed, model_id)
         return removed

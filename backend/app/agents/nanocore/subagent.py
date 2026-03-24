@@ -203,8 +203,8 @@ class SubagentWorker:
                     result = await read_file(abs_path, max_lines=200)
                     if "content" in result:
                         context_parts.append(f"\n--- {fpath} ---\n{result['content']}")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("Worker failed to read context file %s: %s", fpath, e)
 
         self._history.append({"role": "user", "content": "\n".join(context_parts)})
 

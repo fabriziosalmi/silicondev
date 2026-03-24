@@ -186,8 +186,8 @@ class SupervisorAgent:
         try:
             from app.api.engine import service as engine_service
             engine_service.stop_generation()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to stop MLX generation: %s", e)
         # Schedule background process cleanup safely
         try:
             loop = asyncio.get_event_loop()
@@ -480,8 +480,8 @@ class SupervisorAgent:
                 linter_res = await run_lint_check(active_file_path)
                 if linter_res:
                     linter_addition = f"\n\n## Current Linter Errors in {os.path.basename(active_file_path)} (Fix these if relevant):\n{linter_res}"
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Linter check failed for %s: %s", active_file_path, e)
 
         # --- Commandment 3: VRAM / Memory Sensing ---
         import psutil
@@ -556,8 +556,8 @@ class SupervisorAgent:
                             header += f" ({r.kind}: {r.symbol})"
                         ctx_lines.append(f"{header}\n{r.content[:500]}")
                     system_content += "\n" + "\n\n".join(ctx_lines) + "\n"
-            except Exception:
-                pass  # codebase may not be indexed
+            except Exception as e:
+                logger.debug("Codebase search unavailable: %s", e)
 
         system_content += no_think_suffix
 

@@ -34,8 +34,8 @@ def _read_output(pipe, label: str):
                 }
                 with _log_lock:
                     server_logs.append(entry)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Deployment pipe read failed (%s): %s", label, e)
     finally:
         pipe.close()
 
@@ -104,7 +104,8 @@ async def stop_server():
                 server_process.terminate()
 
             server_process.wait(timeout=5)
-        except Exception:
+        except Exception as e:
+            logger.warning("Graceful server stop failed, force-killing: %s", e)
             if server_process:
                 server_process.kill()
 

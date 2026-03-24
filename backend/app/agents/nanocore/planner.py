@@ -129,8 +129,8 @@ class PlannerEditor:
         try:
             from app.api.engine import service as engine_service
             engine_service.stop_generation()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to stop generation in planner: %s", e)
 
     def resolve_plan(self, approved: bool, modifications: list[dict] | None = None) -> bool:
         self._plan_decision = approved

@@ -70,5 +70,6 @@ Assistant: {response}
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0].strip()
             return json.loads(text)
-        except Exception:
+        except Exception as e:
+            logger.debug("JSON parse failed in knowledge extraction: %s", e)
             return {}
