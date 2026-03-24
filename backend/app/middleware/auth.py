@@ -32,13 +32,15 @@ class LocalAuthMiddleware(BaseHTTPMiddleware):
         if not _TOKEN:
             return await call_next(request)
 
-        # Accept token via Authorization header or ?token= query param (for EventSource/SSE)
+        # Accept token via Authorization header only.
+        # SSE/EventSource clients must use a polyfill that supports headers
+        # (e.g. event-source-polyfill) instead of query-param tokens.
         auth_header = request.headers.get("authorization", "")
-        query_token = request.query_params.get("token", "")
-        if auth_header == f"Bearer {_TOKEN}" or query_token == _TOKEN:
+        if auth_header == f"Bearer {_TOKEN}":
             return await call_next(request)
 
-        logger.warning(f"Rejected unauthorized request to {request.url.path}")
+        # Log only the path — never the full URL which could leak query params
+        logger.warning("Rejected unauthorized request to %s", request.url.path)
         return JSONResponse(
             status_code=403,
             content={"detail": "Unauthorized: invalid or missing auth token"},

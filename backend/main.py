@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from app.middleware.auth import LocalAuthMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
 from app.version import __version__
 import uvicorn
 import os
@@ -231,6 +232,9 @@ app.add_middleware(
 
 # Local auth: require Bearer token from Electron (skipped if SILICON_AUTH_TOKEN is unset)
 app.add_middleware(LocalAuthMiddleware)
+
+# Rate-limit sensitive endpoints (terminal, sandbox, engine, preview)
+app.add_middleware(RateLimitMiddleware)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):

@@ -22,22 +22,37 @@ export function DebuggerPanel({ sessionId, onStop, onUpdateState }: DebuggerPane
             return
         }
 
-        const eventSource = new EventSource(apiClient.sandbox.getDebugStream(sessionId))
-
-        eventSource.onmessage = (event) => {
-            const state = JSON.parse(event.data)
-            setDebugState(state)
-            onUpdateState(state)
-            if (state.status === 'finished') {
-                eventSource.close()
+        const controller = new AbortController()
+        ;(async () => {
+            try {
+                const res = await apiClient.sandbox.fetchDebugStream(sessionId)
+                const reader = res.body?.getReader()
+                if (!reader) return
+                const decoder = new TextDecoder()
+                let buf = ''
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+                    buf += decoder.decode(value, { stream: true })
+                    const lines = buf.split('\n')
+                    buf = lines.pop() || ''
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue
+                        const state = JSON.parse(line.slice(6))
+                        setDebugState(state)
+                        onUpdateState(state)
+                        if (state.status === 'finished') {
+                            reader.cancel()
+                            return
+                        }
+                    }
+                }
+            } catch {
+                // stream closed or aborted
             }
-        }
+        })()
 
-        eventSource.onerror = () => {
-            eventSource.close()
-        }
-
-        return () => eventSource.close()
+        return () => controller.abort()
     }, [sessionId])
 
     const sendCommand = async (cmd: string) => {

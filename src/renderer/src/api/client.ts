@@ -670,8 +670,12 @@ export const apiClient = {
             return res.json();
         },
         getDebugStream: (sessionId: string): string => {
-            const tokenParam = AUTH_TOKEN ? `?token=${AUTH_TOKEN}` : '';
-            return `${API_BASE}/api/sandbox/debug/${sessionId}/events${tokenParam}`;
+            // Auth is now header-only; EventSource callers must use
+            // fetchDebugStream() instead for authenticated SSE.
+            return `${API_BASE}/api/sandbox/debug/${sessionId}/events`;
+        },
+        fetchDebugStream: async (sessionId: string): Promise<Response> => {
+            return apiFetch(`${API_BASE}/api/sandbox/debug/${sessionId}/events`);
         },
         check: async (code: string, language: string = ''): Promise<SyntaxCheckResult> => {
             const res = await apiFetch(`${API_BASE}/api/sandbox/check`, {

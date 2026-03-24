@@ -66,6 +66,10 @@ jobs:
         working-directory: src/renderer
         run: npm audit --omit=dev --audit-level=high
 
+      - name: Lint
+        working-directory: src/renderer
+        run: npm run lint
+
       - name: TypeScript check
         working-directory: src/renderer
         run: npx tsc --noEmit

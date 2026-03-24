@@ -1793,14 +1793,27 @@ class MLXEngineService:
             
             logger.info("Model converted to LoRA.")
 
-            train(
-                model=model,
-                optimizer=optimizer,
-                train_dataset=train_set,
-                val_dataset=val_set,
-                args=args,
-                training_callback=progress_callback
-            )
+            # Run training with a timeout to prevent runaway jobs.
+            # Default: 6 hours max; scale with iteration count.
+            max_seconds = max(6 * 3600, total_iters * 60)
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    train,
+                    model=model,
+                    optimizer=optimizer,
+                    train_dataset=train_set,
+                    val_dataset=val_set,
+                    args=args,
+                    training_callback=progress_callback,
+                )
+                try:
+                    future.result(timeout=max_seconds)
+                except concurrent.futures.TimeoutError:
+                    raise RuntimeError(
+                        f"Training job {job_id} timed out after {max_seconds}s "
+                        f"({total_iters} iterations). Job terminated."
+                    )
 
             with self._jobs_lock:
                 self.active_jobs[job_id]["status"] = "completed"

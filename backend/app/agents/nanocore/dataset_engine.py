@@ -67,7 +67,17 @@ class DatasetEngine:
         - chosen = the content the user accepted (or would have been the alternative)
         - rejected = the content the user rejected (or the pre-edit state)
         """
-        if not prompt or not chosen or not rejected:
+        # Validate types and non-empty content
+        if not isinstance(prompt, str) or not isinstance(chosen, str) or not isinstance(rejected, str):
+            logger.warning("DPO pair rejected: prompt/chosen/rejected must be strings")
+            return
+        if not prompt.strip() or not chosen.strip() or not rejected.strip():
+            return
+        if chosen.strip() == rejected.strip():
+            logger.debug("DPO pair skipped: chosen and rejected are identical")
+            return
+        if metadata is not None and not isinstance(metadata, dict):
+            logger.warning("DPO pair rejected: metadata must be a dict, got %s", type(metadata).__name__)
             return
 
         entry = {

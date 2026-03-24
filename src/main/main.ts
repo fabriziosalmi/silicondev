@@ -76,7 +76,19 @@ function startBackend() {
         backendProcess = spawn(command, args, {
             cwd: isDev ? path.join(__dirname, '../../backend') : path.join(process.resourcesPath, 'backend', 'dist', 'silicon_server'),
             stdio: ['ignore', 'pipe', 'pipe'],
-            env: { ...process.env, SILICON_PARENT_PID: String(process.pid), SILICON_AUTH_TOKEN: authToken },
+            env: {
+                // Only pass safe, necessary env vars — avoid leaking the full parent environment.
+                PATH: process.env.PATH || '',
+                HOME: process.env.HOME || '',
+                TMPDIR: process.env.TMPDIR || '',
+                LANG: process.env.LANG || '',
+                // HuggingFace cache location (if customised by user)
+                ...(process.env.HF_HOME ? { HF_HOME: process.env.HF_HOME } : {}),
+                ...(process.env.TRANSFORMERS_CACHE ? { TRANSFORMERS_CACHE: process.env.TRANSFORMERS_CACHE } : {}),
+                // Silicon-specific
+                SILICON_PARENT_PID: String(process.pid),
+                SILICON_AUTH_TOKEN: authToken,
+            },
         });
 
         backendProcess.on('error', (err) => {
