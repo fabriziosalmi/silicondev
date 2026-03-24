@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.13.0
+
+### Component Modularization
+
+- Split `EngineInterface.tsx` (695 lines) into `engine/LoraTab` and `engine/DpoTab`.
+- Split `ModelsInterface.tsx` (901 lines) into `models/MyModelsTab`, `models/DiscoverTab`, `models/AddModelModal`, and `models/ModelsUtils`.
+- Split `Settings.tsx` (1066 lines) into `settings/WebIndexerSection`, `settings/CodebaseIndexSection`, `settings/LogViewerSection`, and `settings/SettingsUtils`.
+- Split `RagKnowledge.tsx` (621 lines) into `rag/CollectionsTab`, `rag/IngestTab`, and `rag/AnalyticsTab`.
+
+### Security Hardening
+
+- Preview command injection: `shell=True` replaced with `shlex.split()` + `shell=False`.
+- Model cache thread safety: `_cache_lock` around all `_model_cache` mutations.
+- RAG concurrency: `threading.Lock` on create/delete/ingest to prevent data corruption.
+- Air-gap bypass fix: AST-based import detection replaces string matching; blocks `__import__()`.
+- Path validation: Pydantic `field_validator` on `workspace_dir` in terminal/plan requests.
+- OOM recovery: cache cleared before retry, protected by lock.
+
+### Fixes
+
+- `pre_flight_check.py` reads version from `package.json` instead of hardcoded string.
+- Resolved `tar` symlink traversal vulnerability in npm dependencies.
+
+---
+
 ## v0.12.0
 
 ### Inference Engine Improvements

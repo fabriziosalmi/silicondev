@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.13.0] — 2026-03-24
+
+### Component Modularization
+
+- Split `EngineInterface.tsx` (695 lines) into `engine/LoraTab` and `engine/DpoTab`.
+- Split `ModelsInterface.tsx` (901 lines) into `models/MyModelsTab`, `models/DiscoverTab`, `models/AddModelModal`, and `models/ModelsUtils`.
+- Split `Settings.tsx` (1066 lines) into `settings/WebIndexerSection`, `settings/CodebaseIndexSection`, `settings/LogViewerSection`, and `settings/SettingsUtils`.
+- Split `RagKnowledge.tsx` (621 lines) into `rag/CollectionsTab`, `rag/IngestTab`, and `rag/AnalyticsTab`.
+
+### Security Hardening
+
+- **Preview command injection**: Replaced `shell=True` with `shlex.split()` + `shell=False` in the preview server launcher.
+- **Model cache thread safety**: Added `_cache_lock` around all `_model_cache` mutations to prevent concurrent access corruption.
+- **RAG concurrency**: Added `threading.Lock` to `create_collection`, `delete_collection`, and `ingest_files` to prevent data corruption under concurrent requests.
+- **Air-gap bypass fix**: Replaced string-matching import detection with AST-based analysis; blocks `__import__()` calls.
+- **Path validation**: Added Pydantic `field_validator` on `workspace_dir` in `TerminalRequest` and `PlanRequest`; preview endpoint now validates with `safe_user_file()`.
+- **OOM recovery**: Model cache is now cleared before retry to free memory; cache clear protected by lock.
+- **npm audit**: Resolved `tar` symlink traversal vulnerability in root dependencies.
+
+### Fixes
+
+- `pre_flight_check.py` now reads version from `package.json` instead of a hardcoded string.
+
+---
+
 ## [0.12.0] — 2026-03-23
 
 Four structural features that change how the inference engine, agent routing, task delegation, and project preview work.
