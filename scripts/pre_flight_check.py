@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pre-flight check for SiliconDev v0.7.4 release build.
+"""Pre-flight check for SiliconDev release build.
 
 Run this BEFORE PyInstaller + electron-builder to catch problems early.
 Usage: python scripts/pre_flight_check.py
@@ -12,7 +12,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-EXPECTED_VERSION = "0.7.4"
+# Read version from package.json so it never drifts
+_pkg_json = Path(__file__).resolve().parent.parent / "package.json"
+EXPECTED_VERSION = json.loads(_pkg_json.read_text())["version"]
 CHECKS_PASSED = 0
 CHECKS_FAILED = 0
 

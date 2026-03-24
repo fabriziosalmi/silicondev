@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 from typing import Literal, Optional
 import time
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from app.security import safe_user_file
 
 
 class AgentRole(str, Enum):
@@ -81,6 +82,13 @@ class TerminalRequest(BaseModel):
     air_gapped_mode: bool = Field(default=False)
     enable_python_sandbox: bool = Field(default=False)
 
+    @field_validator("workspace_dir")
+    @classmethod
+    def validate_workspace_dir(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            safe_user_file(v)  # raises ValueError if outside home or sensitive
+        return v
+
 
 class DiffDecision(BaseModel):
     session_id: str = Field(min_length=1)
@@ -101,6 +109,12 @@ class PlanRequest(BaseModel):
     workspace_dir: str = Field(min_length=1, max_length=2048)
     temperature: float = Field(default=0.3, ge=0.0, le=2.0)
     max_edit_tokens: int = Field(default=8192, ge=1000, le=32768)
+
+    @field_validator("workspace_dir")
+    @classmethod
+    def validate_workspace_dir(cls, v: str) -> str:
+        safe_user_file(v)
+        return v
 
 
 class PlanDecision(BaseModel):

@@ -5,6 +5,7 @@ import json
 import uuid
 import logging
 import tempfile
+import threading
 import time
 import numpy as np
 from pathlib import Path
@@ -31,6 +32,7 @@ class RagService:
         self.workspace_dir = Path.home() / ".silicon-studio"
         self.rag_dir = self.workspace_dir / "rag"
         self.collections_file = self.rag_dir / "collections.json"
+        self._lock = threading.Lock()
 
         self.rag_dir.mkdir(parents=True, exist_ok=True)
         if not self.collections_file.exists():
@@ -48,32 +50,34 @@ class RagService:
             return []
 
     def create_collection(self, name: str) -> Dict[str, Any]:
-        collections = self.get_collections()
-        new_col = {
-            "id": str(uuid.uuid4()),
-            "name": name,
-            "chunks": 0,
-            "size": "0 KB",
-            "lastUpdated": "Just now",
-            "model": "all-MiniLM-L6-v2",
-        }
-        collections.append(new_col)
-        self._save_collections(collections)
-        return new_col
+        with self._lock:
+            collections = self.get_collections()
+            new_col = {
+                "id": str(uuid.uuid4()),
+                "name": name,
+                "chunks": 0,
+                "size": "0 KB",
+                "lastUpdated": "Just now",
+                "model": "all-MiniLM-L6-v2",
+            }
+            collections.append(new_col)
+            self._save_collections(collections)
+            return new_col
 
     def delete_collection(self, collection_id: str) -> bool:
-        collections = self.get_collections()
-        initial_len = len(collections)
-        collections = [c for c in collections if c["id"] != collection_id]
-        if len(collections) < initial_len:
-            self._save_collections(collections)
-            # Clean up chunk, embedding, index, and analytics files
-            for suffix in ("_chunks.json", "_embeddings.npy", "_hnsw.bin", "_usage.json", "_analytics.json"):
-                p = self.rag_dir / f"{collection_id}{suffix}"
-                if p.exists():
-                    p.unlink()
-            return True
-        return False
+        with self._lock:
+            collections = self.get_collections()
+            initial_len = len(collections)
+            collections = [c for c in collections if c["id"] != collection_id]
+            if len(collections) < initial_len:
+                self._save_collections(collections)
+                # Clean up chunk, embedding, index, and analytics files
+                for suffix in ("_chunks.json", "_embeddings.npy", "_hnsw.bin", "_usage.json", "_analytics.json"):
+                    p = self.rag_dir / f"{collection_id}{suffix}"
+                    if p.exists():
+                        p.unlink()
+                return True
+            return False
 
     # ── Ingest ──────────────────────────────────────────────
 
@@ -84,7 +88,21 @@ class RagService:
         chunk_size: int,
         overlap: int,
     ) -> Dict[str, Any]:
-        """Ingest files into a collection: chunk, embed, and persist."""
+        """Ingest files into a collection: chunk, embed, and persist.
+
+        Thread-safe: holds self._lock for the entire operation to prevent
+        concurrent ingests from corrupting chunks or embeddings.
+        """
+        with self._lock:
+            return self._ingest_files_impl(collection_id, files, chunk_size, overlap)
+
+    def _ingest_files_impl(
+        self,
+        collection_id: str,
+        files: List[str],
+        chunk_size: int,
+        overlap: int,
+    ) -> Dict[str, Any]:
         collections = self.get_collections()
         col = next((c for c in collections if c["id"] == collection_id), None)
         if not col:

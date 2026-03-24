@@ -6,6 +6,7 @@ renders it in an iframe.
 """
 
 import os
+import shlex
 import signal
 import socket
 import subprocess
@@ -19,6 +20,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.engine.project_detector import detect_project, ProjectType
+from app.security import safe_user_file
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +96,12 @@ async def start_preview(req: PreviewStartRequest):
     global _preview_process, _preview_port, _preview_type
     global _preview_start_time, _preview_workspace
 
+    # Validate workspace_dir is under user's home
+    try:
+        safe_user_file(req.workspace_dir)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     with _lock:
         if _preview_process is not None and _preview_process.poll() is None:
             # Already running — return current state
@@ -128,9 +136,10 @@ async def start_preview(req: PreviewStartRequest):
         env = {**os.environ, "PORT": str(port), "BROWSER": "none"}
 
         try:
+            cmd_args = shlex.split(command)
             _preview_process = subprocess.Popen(
-                command,
-                shell=True,
+                cmd_args,
+                shell=False,
                 cwd=req.workspace_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

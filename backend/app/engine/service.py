@@ -126,6 +126,7 @@ class MLXEngineService:
         self.generation_lock = asyncio.Lock()
         self._jobs_lock = threading.Lock()
         self._config_lock = threading.Lock()
+        self._cache_lock = threading.Lock()
         self._load_warning: str | None = None
 
         # Use writable per-user directory for models/adapters
@@ -589,47 +590,49 @@ class MLXEngineService:
             return
 
         # 0. Check multi-model cache first (near-instant switch)
-        if model_id in self._model_cache:
-            cached = self._model_cache[model_id]
-            # Stash current active model into cache before swapping
-            if self.active_model and self.active_model_id:
-                self._model_cache[self.active_model_id] = (
-                    self.active_model, self.active_tokenizer, self.active_processor,
-                    self.active_is_vision, time.time(),
-                )
-            self.active_model, self.active_tokenizer, self.active_processor, self.active_is_vision, _ = cached
-            self.active_model_id = model_id
-            # Reset KV cache — it's model-specific
-            self.active_kv_cache = None
-            self.active_kv_cache_id = None
-            del self._model_cache[model_id]
-            logger.info(f"Model {model_id} restored from multi-model cache (instant switch)")
-            return
-
-        # 1. VRAM Cleanup — stash active model in cache if there's room
-        if self.active_model:
-            if len(self._model_cache) < self._model_cache_max:
-                # Stash into cache for later reuse
-                self._model_cache[self.active_model_id] = (
-                    self.active_model, self.active_tokenizer, self.active_processor,
-                    self.active_is_vision, time.time(),
-                )
-                logger.info(f"Stashed {self.active_model_id} in multi-model cache ({len(self._model_cache)} cached)")
-            else:
-                # Cache full — evict the oldest entry, then stash
-                if self._model_cache:
-                    oldest_id = min(self._model_cache, key=lambda k: self._model_cache[k][4])
-                    del self._model_cache[oldest_id]
-                    logger.info(f"Evicted {oldest_id} from multi-model cache")
-                # Check memory: if tight, don't cache, just unload
-                mem = psutil.virtual_memory()
-                if mem.percent > 75:
-                    logger.info(f"Memory tight ({mem.percent}%), not caching {self.active_model_id}")
-                else:
+        with self._cache_lock:
+            if model_id in self._model_cache:
+                cached = self._model_cache[model_id]
+                # Stash current active model into cache before swapping
+                if self.active_model and self.active_model_id:
                     self._model_cache[self.active_model_id] = (
                         self.active_model, self.active_tokenizer, self.active_processor,
                         self.active_is_vision, time.time(),
                     )
+                self.active_model, self.active_tokenizer, self.active_processor, self.active_is_vision, _ = cached
+                self.active_model_id = model_id
+                # Reset KV cache — it's model-specific
+                self.active_kv_cache = None
+                self.active_kv_cache_id = None
+                del self._model_cache[model_id]
+                logger.info(f"Model {model_id} restored from multi-model cache (instant switch)")
+                return
+
+        # 1. VRAM Cleanup — stash active model in cache if there's room
+        if self.active_model:
+            with self._cache_lock:
+                if len(self._model_cache) < self._model_cache_max:
+                    # Stash into cache for later reuse
+                    self._model_cache[self.active_model_id] = (
+                        self.active_model, self.active_tokenizer, self.active_processor,
+                        self.active_is_vision, time.time(),
+                    )
+                    logger.info(f"Stashed {self.active_model_id} in multi-model cache ({len(self._model_cache)} cached)")
+                else:
+                    # Cache full — evict the oldest entry, then stash
+                    if self._model_cache:
+                        oldest_id = min(self._model_cache, key=lambda k: self._model_cache[k][4])
+                        del self._model_cache[oldest_id]
+                        logger.info(f"Evicted {oldest_id} from multi-model cache")
+                    # Check memory: if tight, don't cache, just unload
+                    mem = psutil.virtual_memory()
+                    if mem.percent > 75:
+                        logger.info(f"Memory tight ({mem.percent}%), not caching {self.active_model_id}")
+                    else:
+                        self._model_cache[self.active_model_id] = (
+                            self.active_model, self.active_tokenizer, self.active_processor,
+                            self.active_is_vision, time.time(),
+                        )
 
             self.active_model = None
             self.active_tokenizer = None
@@ -774,16 +777,17 @@ class MLXEngineService:
             mem = psutil.virtual_memory()
             if mem.percent > 85:
                 # Evict cached models to free memory before warning
-                if self._model_cache:
-                    evicted = list(self._model_cache.keys())
-                    self._model_cache.clear()
-                    gc.collect()
-                    mx.metal.clear_cache()
-                    logger.warning(
-                        "Memory critical (%d%%) after load — evicted %d cached model(s): %s",
-                        mem.percent, len(evicted), ", ".join(evicted),
-                    )
-                    mem = psutil.virtual_memory()  # re-check after eviction
+                with self._cache_lock:
+                    if self._model_cache:
+                        evicted = list(self._model_cache.keys())
+                        self._model_cache.clear()
+                        gc.collect()
+                        mx.metal.clear_cache()
+                        logger.warning(
+                            "Memory critical (%d%%) after load — evicted %d cached model(s): %s",
+                            mem.percent, len(evicted), ", ".join(evicted),
+                        )
+                        mem = psutil.virtual_memory()  # re-check after eviction
                 if mem.percent > 85:
                     self._load_warning = (
                         f"High memory pressure after loading ({mem.percent:.0f}% used). "
@@ -797,6 +801,8 @@ class MLXEngineService:
                 self.active_tokenizer = None
                 self.active_processor = None
                 self.active_model_id = None
+                with self._cache_lock:
+                    self._model_cache.clear()
                 self._maybe_gc(force=True)
 
                 # One-time retry after cleanup
@@ -870,9 +876,10 @@ class MLXEngineService:
                 self.active_kv_cache_id = None
                 self.active_kv_bits = None
                 # Also clear the multi-model cache
-                if self._model_cache:
-                    logger.info(f"Clearing {len(self._model_cache)} cached models")
-                    self._model_cache.clear()
+                with self._cache_lock:
+                    if self._model_cache:
+                        logger.info(f"Clearing {len(self._model_cache)} cached models")
+                        self._model_cache.clear()
                 self._maybe_gc(force=True)
                 logger.info("Model unloaded and VRAM cache cleared.")
             else:

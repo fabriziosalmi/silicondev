@@ -848,15 +848,28 @@ async def execute_python_script(script_code: str, timeout: int = 15, air_gapped:
     since true air-gapping requires OS-level namespaces or sandboxing not uniformly available on macOS, 
     but we will drop standard proxy/network env vars just in case).
     """
-    # Strip dangerous imports if air_gapped is strict (Best effort for this quick win)
+    # Block network-capable imports in air-gapped mode using AST for robust detection
     if air_gapped:
-        blocked_imports = ["urllib", "requests", "http.client", "socket", "ftplib", "aiohttp", "httpx"]
-        for bi in blocked_imports:
-            if f"import {bi}" in script_code or f"from {bi}" in script_code:
-                return {
-                    "output": "",
-                    "error": f"Security Error: Air-gapped mode is ENABLED. Import of '{bi}' is blocked."
-                }
+        import ast as _ast
+        blocked_imports = {"urllib", "requests", "http", "socket", "ftplib", "aiohttp", "httpx"}
+        try:
+            tree = _ast.parse(script_code)
+            for node in _ast.walk(tree):
+                if isinstance(node, _ast.Import):
+                    for alias in node.names:
+                        top = alias.name.split(".")[0]
+                        if top in blocked_imports:
+                            return {"output": "", "error": f"Security Error: Air-gapped mode is ENABLED. Import of '{alias.name}' is blocked."}
+                elif isinstance(node, _ast.ImportFrom):
+                    if node.module:
+                        top = node.module.split(".")[0]
+                        if top in blocked_imports:
+                            return {"output": "", "error": f"Security Error: Air-gapped mode is ENABLED. Import of '{node.module}' is blocked."}
+        except SyntaxError:
+            pass  # Let the subprocess handle syntax errors
+        # Also block __import__ calls
+        if "__import__" in script_code:
+            return {"output": "", "error": "Security Error: Air-gapped mode is ENABLED. Dynamic imports via __import__ are blocked."}
     
     # Write script to temporary file
     fd, tmp_path = tempfile.mkstemp(suffix=".py", prefix="nanocore_sandbox_")
