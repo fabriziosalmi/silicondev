@@ -34,6 +34,9 @@ test: $(DEPS)
 	$(PYTHON) backend/scripts/check_constraints_sync.py
 	$(PYTHON) backend/scripts/run_pytest_clean.py
 
+test-integration: $(DEPS)
+	cd backend && $(PYTHON) -m pytest tests/test_integration_mlx.py -m integration -v -s
+
 hooks:
 	bash scripts/install_git_hooks.sh
 
