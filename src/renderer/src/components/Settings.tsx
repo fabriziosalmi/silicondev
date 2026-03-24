@@ -4,16 +4,17 @@ import i18n from '../i18n'
 import { Card } from './ui/Card'
 import { ToggleSwitch } from './ui/ToggleSwitch'
 import { apiClient } from '../api/client'
-import { Settings2, MessageSquare, Brain, RotateCcw, Info, Plus, Trash2, Loader2, Gauge, Globe, Play, Square, RefreshCcw, HardDrive, FolderSearch, FolderOpen, Bug, ScrollText, Copy, RefreshCw, Shield, Bot, ChevronRight } from 'lucide-react'
+import { Settings2, MessageSquare, Brain, RotateCcw, Info, Trash2, Loader2, Gauge, Globe, HardDrive, FolderSearch, Bug, ScrollText, Shield, Bot, ChevronRight } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
-import type { IndexerSource, IndexerStatus } from '../api/client'
-
-interface SettingsNavItem {
-    id: string
-    label: string
-    icon: React.ReactNode
-    group: string
-}
+import {
+    type SettingsNavItem, type ChatDefaults, type RagDefaults, type TopBarDefaults,
+    defaultChat, defaultRag, defaultTopBar,
+    CHAT_SETTINGS_KEY, RAG_SETTINGS_KEY, TOPBAR_SETTINGS_KEY,
+    SectionHeader, SliderField,
+} from './settings/SettingsUtils'
+import { WebIndexerSection } from './settings/WebIndexerSection'
+import { CodebaseIndexSection } from './settings/CodebaseIndexSection'
+import { LogViewerSection } from './settings/LogViewerSection'
 
 const NAV_ITEMS: SettingsNavItem[] = [
     { id: 'general', label: 'General', icon: <Info size={14} />, group: 'App' },
@@ -30,511 +31,6 @@ const NAV_ITEMS: SettingsNavItem[] = [
 ]
 
 const NAV_GROUPS = ['App', 'Security', 'Integrations', 'System']
-
-const CHAT_SETTINGS_KEY = 'silicon-studio-chat-settings'
-const RAG_SETTINGS_KEY = 'silicon-studio-rag-settings'
-const TOPBAR_SETTINGS_KEY = 'silicon-studio-topbar-settings'
-
-interface ChatDefaults {
-    systemPrompt: string
-    temperature: number
-    maxTokens: number
-    maxContext: number
-    topP: number
-    repetitionPenalty: number
-    reasoningMode: 'off' | 'auto' | 'low' | 'high'
-    webSearchEnabled: boolean
-    enableMoA: boolean
-    airGappedMode: boolean
-    enablePythonSandbox: boolean
-}
-
-interface RagDefaults {
-    chunkSize: number
-    chunkOverlap: number
-}
-
-const defaultChat: ChatDefaults = {
-    systemPrompt: "You are a helpful AI assistant running locally on Apple Silicon.",
-    temperature: 0.7,
-    maxTokens: 2048,
-    maxContext: 4096,
-    topP: 0.9,
-    repetitionPenalty: 1.1,
-    reasoningMode: 'auto',
-    webSearchEnabled: false,
-    enableMoA: true,
-    airGappedMode: false,
-    enablePythonSandbox: false,
-}
-
-const defaultRag: RagDefaults = {
-    chunkSize: 512,
-    chunkOverlap: 50,
-}
-
-interface TopBarDefaults {
-    warn: number
-    critical: number
-}
-
-const defaultTopBar: TopBarDefaults = {
-    warn: 60,
-    critical: 85,
-}
-
-function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
-    return (
-        <div className="flex items-center gap-2 mb-4">
-            <span className="text-blue-400">{icon}</span>
-            <h3 className="text-sm font-bold text-white uppercase tracking-wide">{title}</h3>
-        </div>
-    )
-}
-
-function SliderField({ label, value, onChange, min, max, step = 1, hint }: {
-    label: string; value: number; onChange: (v: number) => void; min: number; max: number; step?: number; hint?: string
-}) {
-    return (
-        <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-gray-500 uppercase">{label}</label>
-                <input
-                    type="number"
-                    value={value}
-                    onChange={(e) => onChange(Number(e.target.value))}
-                    min={min}
-                    max={max}
-                    step={step}
-                    className="w-20 bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white text-right outline-none focus:border-blue-500"
-                />
-            </div>
-            <input
-                type="range"
-                value={value}
-                onChange={(e) => onChange(Number(e.target.value))}
-                min={min}
-                max={max}
-                step={step}
-                className="w-full accent-blue-500 h-1"
-            />
-            {hint && <span className="text-[10px] text-gray-600">{hint}</span>}
-        </div>
-    )
-}
-
-
-function WebIndexerSection() {
-    const [sources, setSources] = useState<IndexerSource[]>([])
-    const [status, setStatus] = useState<IndexerStatus | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [crawling, setCrawling] = useState(false)
-    const [crawlResult, setCrawlResult] = useState<string | null>(null)
-    const [newUrl, setNewUrl] = useState('')
-    const [newLabel, setNewLabel] = useState('')
-    const [showAdd, setShowAdd] = useState(false)
-
-    const fetchData = async () => {
-        try {
-            const [srcRes, statusRes] = await Promise.all([
-                apiClient.indexer.getSources(),
-                apiClient.indexer.getStatus(),
-            ])
-            setSources(srcRes.sources)
-            setStatus(statusRes)
-        } catch { /* ignore */ }
-        finally { setLoading(false) }
-    }
-
-    useEffect(() => { fetchData() }, [])
-
-    const handleAdd = async () => {
-        if (!newUrl.trim()) return
-        try {
-            await apiClient.indexer.addSource(newUrl.trim(), newLabel.trim() || undefined)
-            setNewUrl('')
-            setNewLabel('')
-            setShowAdd(false)
-            fetchData()
-        } catch { /* ignore */ }
-    }
-
-    const handleRemove = async (id: string) => {
-        try {
-            await apiClient.indexer.removeSource(id)
-            setSources(prev => prev.filter(s => s.id !== id))
-        } catch { /* ignore */ }
-    }
-
-    const handleToggle = async (id: string, enabled: boolean) => {
-        try {
-            await apiClient.indexer.toggleSource(id, enabled)
-            setSources(prev => prev.map(s => s.id === id ? { ...s, enabled } : s))
-        } catch { /* ignore */ }
-    }
-
-    const handleCrawl = async () => {
-        setCrawling(true)
-        setCrawlResult(null)
-        try {
-            const res = await apiClient.indexer.crawl()
-            setCrawlResult(`Indexed ${res.indexed} chunks from ${res.fetched ?? 0} pages`)
-            fetchData()
-        } catch (err) {
-            setCrawlResult(err instanceof Error ? err.message : 'Crawl failed')
-        } finally { setCrawling(false) }
-    }
-
-    const handleToggleBackground = async () => {
-        if (!status) return
-        try {
-            if (status.running) {
-                await apiClient.indexer.stop()
-            } else {
-                await apiClient.indexer.start(60)
-            }
-            fetchData()
-        } catch { /* ignore */ }
-    }
-
-    return (
-        <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                    <span className="text-blue-400"><Globe size={16} /></span>
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wide">Web Indexer</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={handleCrawl}
-                        disabled={crawling || sources.filter(s => s.enabled).length === 0}
-                        className="flex items-center gap-1 px-2 py-1 rounded text-xs text-green-400 hover:bg-green-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {crawling ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
-                        {crawling ? 'Crawling...' : 'Crawl Now'}
-                    </button>
-                    {status && (
-                        <button
-                            onClick={handleToggleBackground}
-                            className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${status.running ? 'text-red-400 hover:bg-red-500/10' : 'text-blue-400 hover:bg-blue-500/10'}`}
-                        >
-                            {status.running ? <><Square size={14} /> Stop</> : <><Play size={14} /> Auto</>}
-                        </button>
-                    )}
-                    <button
-                        onClick={() => setShowAdd(!showAdd)}
-                        className="flex items-center gap-1 px-2 py-1 rounded text-xs text-blue-400 hover:bg-blue-500/10 transition-colors"
-                    >
-                        <Plus size={14} /> Add URL
-                    </button>
-                </div>
-            </div>
-
-            {status && (
-                <div className="flex items-center gap-4 mb-3 text-[10px] text-gray-500">
-                    <span className={`flex items-center gap-1 ${status.running ? 'text-green-500' : 'text-gray-600'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${status.running ? 'bg-green-500' : 'bg-gray-600'}`} />
-                        {status.running ? 'Running (hourly)' : 'Stopped'}
-                    </span>
-                    {status.last_run && (
-                        <span>Last crawl: {new Date(status.last_run * 1000).toLocaleString()}</span>
-                    )}
-                    <span>{status.enabled_sources}/{status.total_sources} sources enabled</span>
-                </div>
-            )}
-
-            {showAdd && (
-                <div className="mb-4 p-3 rounded-lg bg-black/30 border border-white/5 space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase">URL</label>
-                            <input
-                                value={newUrl}
-                                onChange={(e) => setNewUrl(e.target.value)}
-                                placeholder="https://docs.example.com"
-                                className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase">Label (optional)</label>
-                            <input
-                                value={newLabel}
-                                onChange={(e) => setNewLabel(e.target.value)}
-                                placeholder="Python docs"
-                                className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <button onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors">Cancel</button>
-                        <button
-                            onClick={handleAdd}
-                            disabled={!newUrl.trim()}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Add
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {loading ? (
-                <div className="flex justify-center py-4">
-                    <Loader2 size={16} className="animate-spin text-gray-500" />
-                </div>
-            ) : sources.length === 0 ? (
-                <p className="text-sm text-gray-500">No URLs configured. Add URLs to automatically crawl, chunk, and index web content into your RAG knowledge base.</p>
-            ) : (
-                <div className="space-y-2">
-                    {sources.map(s => (
-                        <div key={s.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-black/20 border border-white/5 ${!s.enabled ? 'opacity-50' : ''}`}>
-                            <ToggleSwitch
-                                enabled={s.enabled}
-                                onChange={(v) => handleToggle(s.id, v)}
-                                size="sm"
-                                label={`Toggle ${s.label}`}
-                            />
-                            <Globe size={14} className="text-gray-500 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                                <div className="text-sm text-white font-medium truncate">{s.label}</div>
-                                <div className="text-[10px] text-gray-600 truncate">{s.url}</div>
-                            </div>
-                            <button onClick={() => handleRemove(s.id)} title="Remove source" className="text-gray-600 hover:text-red-400 transition-colors">
-                                <Trash2 size={14} />
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {crawlResult && (
-                <div className="mt-3 text-xs text-gray-400 bg-black/20 rounded px-3 py-2">
-                    {crawlResult}
-                </div>
-            )}
-        </Card>
-    )
-}
-
-function CodebaseIndexSection() {
-    const [status, setStatus] = useState<{ indexed: boolean; directory?: string; file_count?: number; chunk_count?: number; indexed_at?: number; has_embeddings?: boolean } | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [indexing, setIndexing] = useState(false)
-    const [indexResult, setIndexResult] = useState<string | null>(null)
-    const [showManualPath, setShowManualPath] = useState(false)
-    const [manualPath, setManualPath] = useState("")
-
-    const fetchStatus = async () => {
-        try {
-            const s = await apiClient.codebase.getStatus()
-            setStatus(s)
-        } catch { setStatus({ indexed: false }) }
-        finally { setLoading(false) }
-    }
-
-    useEffect(() => { fetchStatus() }, [])
-
-    const handlePickDirectory = async () => {
-        try {
-            const dir = await window.electronAPI?.selectDirectory?.()
-            if (dir) {
-                handleIndex(dir)
-            }
-        } catch {
-            setShowManualPath(true)
-        }
-    }
-
-    const handleIndex = async (directory: string) => {
-        setIndexing(true)
-        setIndexResult(null)
-        // Always set workspace dir so the Code tab can browse files,
-        // even if the codebase indexer finds no source files to index.
-        localStorage.setItem('silicon-studio-workspace-dir', directory)
-        window.dispatchEvent(new CustomEvent('workspace-dir-changed', { detail: directory }))
-        try {
-            const result = await apiClient.codebase.index(directory)
-            setIndexResult(`Indexed ${result.file_count} files into ${result.chunk_count} chunks`)
-            fetchStatus()
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Indexing failed'
-            setIndexResult(msg.includes('No source files') ? 'Workspace set. No source files found for semantic search, but you can browse files in the Code tab.' : msg)
-        } finally { setIndexing(false) }
-    }
-
-    const handleDelete = async () => {
-        if (!confirm('Delete the codebase index? You can re-index at any time.')) return
-        try {
-            await apiClient.codebase.deleteIndex()
-            localStorage.removeItem('silicon-studio-workspace-dir')
-            window.dispatchEvent(new CustomEvent('workspace-dir-changed', { detail: null }))
-            setStatus({ indexed: false })
-            setIndexResult(null)
-        } catch { /* ignore */ }
-    }
-
-    return (
-        <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                    <span className="text-blue-400"><FolderSearch size={16} /></span>
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wide">Codebase Index</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={handlePickDirectory}
-                        disabled={indexing}
-                        className="flex items-center gap-1 px-2 py-1 rounded text-xs text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
-                    >
-                        {indexing ? <Loader2 size={14} className="animate-spin" /> : <FolderOpen size={14} />}
-                        {indexing ? 'Indexing...' : status?.indexed ? 'Re-index' : 'Select Directory'}
-                    </button>
-                    {status?.indexed && (
-                        <button
-                            onClick={handleDelete}
-                            className="flex items-center gap-1 px-2 py-1 rounded text-xs text-red-400 hover:bg-red-500/10 transition-colors"
-                        >
-                            <Trash2 size={14} /> Delete
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {loading ? (
-                <div className="flex justify-center py-4">
-                    <Loader2 size={16} className="animate-spin text-gray-500" />
-                </div>
-            ) : status?.indexed ? (
-                <div className="space-y-2">
-                    <div className="flex items-center gap-4 text-[10px] text-gray-500">
-                        <span className="flex items-center gap-1 text-green-500">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                            Indexed
-                        </span>
-                        <span>{status.file_count} files</span>
-                        <span>{status.chunk_count} chunks</span>
-                        {status.has_embeddings && <span className="text-blue-400">vector search enabled</span>}
-                        {status.indexed_at && (
-                            <span>Last indexed: {new Date(status.indexed_at * 1000).toLocaleString()}</span>
-                        )}
-                    </div>
-                    <div className="flex items-center px-3 py-2 rounded-lg bg-black/30 border border-white/5">
-                        <span className="text-xs text-gray-400 font-mono truncate">{status.directory}</span>
-                    </div>
-                </div>
-            ) : (
-                <p className="text-sm text-gray-500">
-                    Select a project directory to enable semantic code search in the NanoCore terminal. AST-aware chunking for Python, line-based for other languages.
-                </p>
-            )}
-
-            {showManualPath && (
-                <div className="mt-3 flex items-center gap-2">
-                    <input
-                        type="text"
-                        value={manualPath}
-                        onChange={e => setManualPath(e.target.value)}
-                        onKeyDown={e => {
-                            if (e.key === 'Enter' && manualPath.trim()) { handleIndex(manualPath.trim()); setShowManualPath(false); setManualPath(""); }
-                            if (e.key === 'Escape') { setShowManualPath(false); setManualPath(""); }
-                        }}
-                        placeholder="/absolute/path/to/project"
-                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500/50 font-mono"
-                        autoFocus
-                    />
-                    <button
-                        type="button"
-                        onClick={() => { if (manualPath.trim()) { handleIndex(manualPath.trim()); setShowManualPath(false); setManualPath(""); } }}
-                        disabled={!manualPath.trim()}
-                        className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Index
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => { setShowManualPath(false); setManualPath(""); }}
-                        className="px-2 py-1.5 text-gray-500 hover:text-gray-300 text-xs transition-colors"
-                    >
-                        Cancel
-                    </button>
-                </div>
-            )}
-
-            {indexResult && (
-                <div className="mt-3 text-xs text-gray-400 bg-black/20 rounded px-3 py-2">
-                    {indexResult}
-                </div>
-            )}
-        </Card>
-    )
-}
-
-function LogViewerSection() {
-    const [logs, setLogs] = useState<string[]>([])
-    const [expanded, setExpanded] = useState(false)
-    const [loading, setLoading] = useState(false)
-
-    const fetchLogs = async () => {
-        setLoading(true)
-        try {
-            const data = await apiClient.monitor.getLogs(300)
-            setLogs(data.lines)
-        } catch { setLogs(['Failed to fetch logs']) }
-        finally { setLoading(false) }
-    }
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText(logs.join('\n')).catch(() => { })
-    }
-
-    return (
-        <Card className="p-5">
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                    <span className="text-blue-400"><ScrollText size={16} /></span>
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wide">Debug Logs</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                    {expanded && logs.length > 0 && (
-                        <button onClick={handleCopy} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
-                            <Copy size={14} /> Copy
-                        </button>
-                    )}
-                    {expanded && (
-                        <button onClick={fetchLogs} disabled={loading} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                            Refresh
-                        </button>
-                    )}
-                    <button
-                        onClick={() => { if (!expanded) fetchLogs(); setExpanded(!expanded) }}
-                        className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-                    >
-                        {expanded ? 'Hide' : 'Show Logs'}
-                    </button>
-                </div>
-            </div>
-            {!expanded && (
-                <p className="text-sm text-gray-500">View backend logs for debugging. Useful when reporting bugs.</p>
-            )}
-            {expanded && (
-                <div className="mt-2 max-h-80 overflow-y-auto bg-black/40 border border-white/5 rounded-lg p-3 font-mono text-[11px] text-gray-400 leading-relaxed">
-                    {loading && logs.length === 0 ? (
-                        <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-gray-500" /></div>
-                    ) : logs.length === 0 ? (
-                        <span className="text-gray-600">No log entries found.</span>
-                    ) : (
-                        logs.map((line, i) => (
-                            <div key={i} className={`whitespace-pre-wrap break-all ${line.includes('ERROR') ? 'text-red-400' : line.includes('WARNING') ? 'text-yellow-400' : ''}`}>
-                                {line}
-                            </div>
-                        ))
-                    )}
-                </div>
-            )}
-        </Card>
-    )
-}
 
 export function Settings() {
     const { t } = useTranslation()
@@ -559,7 +55,6 @@ export function Settings() {
         return { ...defaultRag }
     })
 
-    // Persist chat settings on change
     useEffect(() => {
         try {
             const existing = localStorage.getItem(CHAT_SETTINGS_KEY)
@@ -576,17 +71,14 @@ export function Settings() {
         return { ...defaultTopBar }
     })
 
-    // Persist RAG settings on change
     useEffect(() => {
         localStorage.setItem(RAG_SETTINGS_KEY, JSON.stringify(rag))
     }, [rag])
 
-    // Persist TopBar settings on change
     useEffect(() => {
         localStorage.setItem(TOPBAR_SETTINGS_KEY, JSON.stringify(topBar))
     }, [topBar])
 
-    // PII redaction toggle (stored in CHAT_SETTINGS_KEY alongside chat settings)
     const [piiRedaction, setPiiRedaction] = useState(() => {
         try {
             const saved = localStorage.getItem(CHAT_SETTINGS_KEY)
@@ -619,13 +111,11 @@ export function Settings() {
         localStorage.removeItem(TOPBAR_SETTINGS_KEY)
     }
 
-    // Log path from Electron
     const [logPath, setLogPath] = useState<string | null>(null)
     useEffect(() => {
         window.electronAPI?.getLogPath?.().then(p => setLogPath(p)).catch(err => console.error('Failed to get log path:', err))
     }, [])
 
-    // Storage management
     const [storageInfo, setStorageInfo] = useState<{ total_bytes: number; breakdown: Record<string, number>; path: string } | null>(null)
     const [storageCleaning, setStorageCleaning] = useState(false)
 
@@ -674,7 +164,6 @@ export function Settings() {
         setTimeout(() => { isScrollingTo.current = false }, 600)
     }, [])
 
-    // Track active section on scroll via IntersectionObserver
     useEffect(() => {
         const container = scrollContainerRef.current
         if (!container) return
