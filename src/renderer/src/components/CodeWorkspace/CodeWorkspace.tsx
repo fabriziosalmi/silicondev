@@ -744,6 +744,7 @@ export function CodeWorkspace() {
                   clearHistory,
                   pinnedItems,
                   togglePin,
+                  scoutIssues,
                   contextHealth,
                   activeAgencyRole,
                   promptProfile,
