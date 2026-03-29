@@ -1,6 +1,7 @@
 """Supervisor agent — orchestrates the tool-use loop and yields SSE events."""
 
 import asyncio
+import collections
 import json as _json
 import sqlite3
 import logging
@@ -155,7 +156,8 @@ class SupervisorAgent:
         self._start_time = 0.0
 
         # Edit history for undo/rollback (list of {file_path, old_content, new_content, timestamp, tool})
-        self._edit_history: list[dict] = []
+        # Bounded to prevent memory leaks in long sessions
+        self._edit_history: collections.deque[dict] = collections.deque(maxlen=200)
         # Conversation history reference (set in run(), used by undo/rollback)
         self._history: list[dict] = []
 
@@ -406,9 +408,10 @@ class SupervisorAgent:
         self._start_time = time.time()
 
         # Use workspace dir if provided, otherwise fall back to backend CWD
+        # Note: we do NOT os.chdir() — that mutates global process state and
+        # breaks concurrent agents. Instead, pass cwd explicitly to subprocesses.
         cwd = self.workspace_dir or os.getcwd()
         if self.workspace_dir:
-            os.chdir(cwd)
             logger.info(f"Agent workspace: {cwd}")
 
         # Fix 38: snapshot working tree before agent starts
@@ -768,11 +771,16 @@ class SupervisorAgent:
                 call_id = str(uuid.uuid4())[:8]
                 logger.info(f"Tool call: {tc.name} (iter {iteration}/{self.max_iterations}, session={self.session_id})")
 
-                # Resolve relative file paths against workspace
+                # Resolve relative file paths against workspace (with traversal guard)
                 if tc.name in ("read_file", "edit_file", "patch_file") and "path" in tc.args:
                     raw_path = tc.args["path"].strip()
                     if raw_path and not os.path.isabs(raw_path):
-                        tc.args["path"] = os.path.join(cwd, raw_path)
+                        resolved = Path(cwd, raw_path).resolve()
+                        cwd_resolved = Path(cwd).resolve()
+                        if not str(resolved).startswith(str(cwd_resolved) + os.sep) and resolved != cwd_resolved:
+                            tool_results.append(f"[{tc.name}] Blocked: path '{raw_path}' escapes the workspace directory.")
+                            continue
+                        tc.args["path"] = str(resolved)
                         logger.debug(f"Resolved relative path '{raw_path}' -> '{tc.args['path']}'")
 
                 # Block write tools in review mode
@@ -788,7 +796,12 @@ class SupervisorAgent:
                     if _cat_match:
                         redirect_path = _cat_match.group(1)
                         if not os.path.isabs(redirect_path):
-                            redirect_path = os.path.join(cwd, redirect_path)
+                            resolved_rp = Path(cwd, redirect_path).resolve()
+                            cwd_resolved_rp = Path(cwd).resolve()
+                            if not str(resolved_rp).startswith(str(cwd_resolved_rp) + os.sep) and resolved_rp != cwd_resolved_rp:
+                                tool_results.append(f"[run_bash] Blocked: path '{redirect_path}' escapes the workspace directory.")
+                                continue
+                            redirect_path = str(resolved_rp)
                         logger.info(f"Redirecting 'run_bash {command}' → read_file {redirect_path}")
                         yield _sse("tool_start", {"tool": "read_file", "args": {"path": redirect_path}, "call_id": call_id})
                         result = await read_file_paged(redirect_path, max_lines=300)

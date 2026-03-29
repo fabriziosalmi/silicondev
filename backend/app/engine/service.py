@@ -19,9 +19,18 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, NamedTuple
 
 logger = logging.getLogger(__name__)
+
+
+class _CachedModel(NamedTuple):
+    """Typed entry for the multi-model LRU cache."""
+    model: Any
+    tokenizer: Any
+    processor: Any
+    is_vision: bool
+    last_used: float
 
 _vlm_compat_patched = False
 
@@ -172,8 +181,7 @@ class MLXEngineService:
 
         # Multi-model LRU cache: keep recently used models in RAM
         # to make role-based switching near-instant.
-        # Dict of model_id -> (model, tokenizer, processor, is_vision, last_used)
-        self._model_cache: Dict[str, tuple] = {}
+        self._model_cache: Dict[str, _CachedModel] = {}
         self._model_cache_max = 2  # max models in cache (besides active)
 
         # Run auto-discovery and predictive loader in background
@@ -571,17 +579,18 @@ class MLXEngineService:
         Includes VRAM cleanup for Apple Silicon.
         """
         self._main_loop = asyncio.get_running_loop()
-        if self.generation_lock.locked():
-            # A generation may be running — signal it to stop and wait briefly
-            self.stop_event.set()
-            try:
-                await asyncio.wait_for(self.generation_lock.acquire(), timeout=5.0)
-                self.generation_lock.release()
-            except asyncio.TimeoutError:
-                raise RuntimeError("Cannot switch models while generation is in progress")
-
-        async with self.generation_lock:
+        # Signal any running generation to stop, then acquire lock atomically.
+        # Previous code had a race: checking locked() and acquiring were separate ops.
+        self.stop_event.set()
+        try:
+            await asyncio.wait_for(self.generation_lock.acquire(), timeout=5.0)
+        except asyncio.TimeoutError:
+            raise RuntimeError("Cannot switch models while generation is in progress")
+        try:
             await self._load_model_impl(model_id, **kwargs)
+        finally:
+            self.generation_lock.release()
+            self.stop_event.clear()
 
     async def _load_model_impl(self, model_id: str, **kwargs):
         """Internal model loading without lock (caller must hold the lock)."""
@@ -595,7 +604,7 @@ class MLXEngineService:
                 cached = self._model_cache[model_id]
                 # Stash current active model into cache before swapping
                 if self.active_model and self.active_model_id:
-                    self._model_cache[self.active_model_id] = (
+                    self._model_cache[self.active_model_id] = _CachedModel(
                         self.active_model, self.active_tokenizer, self.active_processor,
                         self.active_is_vision, time.time(),
                     )
@@ -613,7 +622,7 @@ class MLXEngineService:
             with self._cache_lock:
                 if len(self._model_cache) < self._model_cache_max:
                     # Stash into cache for later reuse
-                    self._model_cache[self.active_model_id] = (
+                    self._model_cache[self.active_model_id] = _CachedModel(
                         self.active_model, self.active_tokenizer, self.active_processor,
                         self.active_is_vision, time.time(),
                     )
@@ -621,7 +630,7 @@ class MLXEngineService:
                 else:
                     # Cache full — evict the oldest entry, then stash
                     if self._model_cache:
-                        oldest_id = min(self._model_cache, key=lambda k: self._model_cache[k][4])
+                        oldest_id = min(self._model_cache, key=lambda k: self._model_cache[k].last_used)
                         del self._model_cache[oldest_id]
                         logger.info(f"Evicted {oldest_id} from multi-model cache")
                     # Check memory: if tight, don't cache, just unload

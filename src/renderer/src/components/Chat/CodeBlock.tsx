@@ -4,6 +4,7 @@ import { Copy, Check, Play, Loader2, ChevronLeft, ChevronRight, Square, CircleCh
 import { apiClient } from '../../api/client'
 import type { SandboxResult, SyntaxCheckResult } from '../../api/client'
 
+// eslint-disable-next-line no-control-regex -- stripping ANSI escape sequences requires matching the \x1b control character
 const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
 
 // Lightweight PII redaction — regex patterns for common PII types
@@ -101,8 +102,8 @@ export const CodeBlock = memo(function CodeBlock({
     const totalVersions = versions.length;
     const displayVersionNum = versionIndex >= 0 ? versionIndex + 1 : (totalVersions > 0 ? 0 : -1);
 
-    // Languages too vague for meaningful syntax checking
-    const skipLangs = new Set(['', 'code', 'text', 'txt', 'output', 'plaintext', 'log', 'console', 'terminal', 'stdout', 'stderr']);
+    // Languages too vague for meaningful syntax checking (stable reference for hook deps)
+    const skipLangs = useRef(new Set(['', 'code', 'text', 'txt', 'output', 'plaintext', 'log', 'console', 'terminal', 'stdout', 'stderr'])).current;
 
     // Auto-run syntax check on mount (only for blocks > 2 lines with a real language)
     useEffect(() => {
@@ -113,7 +114,7 @@ export const CodeBlock = memo(function CodeBlock({
             .then(setCheckResult)
             .catch(err => console.error('Syntax check failed:', err))
             .finally(() => setChecking(false));
-    }, [syntaxCheck, code, language]);
+    }, [syntaxCheck, code, language, skipLangs]);
 
     // Re-check syntax when version changes
     useEffect(() => {

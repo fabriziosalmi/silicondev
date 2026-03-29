@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react'
 import { FolderOpen, FolderClosed, FileCode, FileText, ChevronRight, ChevronDown, MoreHorizontal, Pencil, Trash2, Copy, Pin } from 'lucide-react'
+import { apiClient } from '../../api/client'
 
 export interface TreeNode {
   name: string
@@ -187,7 +188,7 @@ const TreeItem = memo(function TreeItem({
     e.stopPropagation()
     if (!onTogglePin) return
     try {
-      const { content } = await (window as any).apiClient.workspace.readFile(node.path)
+      const { content } = await apiClient.workspace.readFile(node.path)
       onTogglePin({
         id: node.path,
         type: 'file',

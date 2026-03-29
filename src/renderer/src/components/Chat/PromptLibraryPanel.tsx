@@ -175,12 +175,14 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
     })
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- reset expansion and editing state when filter changes
         setExpanded(null)
         setEditingId(null)
     }, [activeCategory, search])
 
     useEffect(() => {
         if (activeCategory === 'imported' && importedPrompts.length === 0) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- redirect to 'all' tab when imported list becomes empty
             setActiveCategory('all')
         }
     }, [activeCategory, importedPrompts.length])

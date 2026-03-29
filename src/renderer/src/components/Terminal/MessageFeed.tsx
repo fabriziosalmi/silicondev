@@ -131,7 +131,7 @@ function CollapsibleToolOutput({ item, onFixError }: { item: FeedItem; onFixErro
         detail: { command, output: item.content, exitCode: item.toolMeta?.exitCode }
       }))
     }
-  }, [isError, command])
+  }, [isError, command, item.content, item.toolMeta?.exitCode])
 
   return (
     <div className="rounded-[10px] overflow-hidden border border-white/[0.06] bg-white/[0.02]">
@@ -602,28 +602,27 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
   const containerRef = useRef<HTMLDivElement>(null)
   const userScrolledUpRef = useRef(false)
 
-  // Stable callback ref for onDiffDecided
+  // Stable callback refs — update in effects to avoid writing refs during render
   const onDiffDecidedRef = useRef(onDiffDecided)
-  onDiffDecidedRef.current = onDiffDecided
+  useEffect(() => { onDiffDecidedRef.current = onDiffDecided }, [onDiffDecided])
   const stableDiffDecided = useCallback((callId: string, approved: boolean, reason?: string) => {
     onDiffDecidedRef.current(callId, approved, reason)
   }, [])
 
-  // Stable callback ref for onEscalationResponded
   const onEscalationRef = useRef(onEscalationResponded)
-  onEscalationRef.current = onEscalationResponded
+  useEffect(() => { onEscalationRef.current = onEscalationResponded }, [onEscalationResponded])
   const stableEscalationResponded = useCallback((escalationId: string, userMessage: string) => {
     onEscalationRef.current(escalationId, userMessage)
   }, [])
 
   const onPlanDecisionRef = useRef(onPlanDecision)
-  onPlanDecisionRef.current = onPlanDecision
+  useEffect(() => { onPlanDecisionRef.current = onPlanDecision }, [onPlanDecision])
   const stablePlanDecision = useCallback((sid: string, approved: boolean) => {
     onPlanDecisionRef.current?.(sid, approved)
   }, [])
 
   const onFixErrorRef = useRef(onFixError)
-  onFixErrorRef.current = onFixError
+  useEffect(() => { onFixErrorRef.current = onFixError }, [onFixError])
   const stableFixError = useCallback((errorText: string, command?: string) => {
     onFixErrorRef.current?.(errorText, command)
   }, [])

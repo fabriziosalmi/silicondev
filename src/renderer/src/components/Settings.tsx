@@ -198,7 +198,7 @@ export function Settings() {
                     const items = NAV_ITEMS.filter(i => i.group === group)
                     return (
                         <div key={group}>
-                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-1 px-2">{t(`settings.group.${group.toLowerCase()}` as any, group)}</div>
+                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-1 px-2">{t(`settings.group.${group.toLowerCase()}` as string, group)}</div>
                             <div className="space-y-0.5">
                                 {items.map(item => (
                                     <button
@@ -211,7 +211,7 @@ export function Settings() {
                                         }`}
                                     >
                                         {activeSection === item.id && <ChevronRight size={12} />}
-                                        <span className={activeSection === item.id ? '' : 'ml-[18px]'}>{t(`settings.nav.${item.id}` as any, item.label)}</span>
+                                        <span className={activeSection === item.id ? '' : 'ml-[18px]'}>{t(`settings.nav.${item.id}` as string, item.label)}</span>
                                     </button>
                                 ))}
                             </div>

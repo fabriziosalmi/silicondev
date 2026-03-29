@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Trash2, AlertCircle, Undo2, Eye, Pencil, Brain, Zap, Search, Shield } from 'lucide-react'
 import { type ActiveFileContext } from './useAgentSession'
@@ -7,7 +7,27 @@ import { PreLayerBar } from './PreLayerBar'
 import { MessageFeed } from '../Terminal/MessageFeed'
 import { TimelineRail, type Checkpoint } from '../Terminal/TimelineRail'
 import { apiClient } from '../../api/client'
-import type { DiffMetadata } from '../Terminal/types'
+import type { DiffMetadata, FeedItem, TelemetryData } from '../Terminal/types'
+
+interface AgentSession {
+  feedItems: FeedItem[]
+  isRunning: boolean
+  sessionId: string | null
+  telemetry: TelemetryData
+  activeModel: { id: string; name: string; context_window?: number } | null
+  handleSubmit: (input: string) => Promise<void>
+  handlePlanSubmit: (input: string) => Promise<void>
+  handlePlanDecision: (sessionId: string, approved: boolean) => Promise<void>
+  handleStop: () => void
+  handleDiffDecided: (callId: string, approved: boolean, reason?: string) => void
+  handleEscalationResponded: (callId: string, message: string) => void
+  handleUndo: () => Promise<void>
+  agentMode: 'edit' | 'review'
+  setAgentMode: (mode: 'edit' | 'review') => void
+  clearHistory: () => void
+  activeAgencyRole: { role: 'architect' | 'worker' | 'inspector'; status: string } | null
+  promptProfile: { intent: string; complexity: string; extracted_paths: string[] } | null
+}
 
 interface AgentPanelProps {
   onOpenFile: (path: string) => void
@@ -28,7 +48,7 @@ function formatMs(ms: number): string {
 const ROLE_ICONS = { architect: Brain, worker: Zap, inspector: Search } as const
 const ROLE_COLORS = { architect: 'text-blue-400', worker: 'text-amber-400', inspector: 'text-emerald-400' } as const
 
-export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: AgentPanelProps & { session: any }) {
+export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: AgentPanelProps & { session: AgentSession }) {
   const { t } = useTranslation()
   const {
     feedItems,
@@ -54,6 +74,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
   const [infoCycle, setInfoCycle] = useState(0)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset cycle index when running state changes; this is intentional synchronization with props
     if (isRunning || !activeModel) { setInfoCycle(0); return }
     const id = setInterval(() => setInfoCycle(c => c + 1), 4000)
     return () => clearInterval(id)
@@ -71,7 +92,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
       items.push({ text: t('code.idle'), color: 'text-emerald-400/70' })
     }
     return items
-  }, [activeModel, feedItems.length, sessionId, isRunning])
+  }, [activeModel, feedItems.length, sessionId, isRunning, t])
 
   const statusInfo = useMemo(() => {
     if (isRunning) {
@@ -79,13 +100,13 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
       return { text: t('code.thinking'), color: 'text-blue-400' }
     }
     return idleInfo[infoCycle % idleInfo.length]
-  }, [isRunning, activeAgencyRole, idleInfo, infoCycle])
+  }, [isRunning, activeAgencyRole, idleInfo, infoCycle, t])
 
   // Wrap handleDiffDecided to also sync with CodeWorkspace (DiffEditor)
   const handleDiffDecided = useCallback((callId: string, approved: boolean, reason?: string) => {
     rawHandleDiffDecided(callId, approved, reason)
     // Find filePath from feed items
-    const item = feedItems.find((it: any) => it.diffMeta?.callId === callId)
+    const item = feedItems.find((it: FeedItem) => it.diffMeta?.callId === callId)
     if (item?.diffMeta?.filePath && onDiffSynced) {
       onDiffSynced(item.diffMeta.filePath, approved)
     }
@@ -128,12 +149,12 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
 
   // Checkpoint timeline
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([])
-  const prevRunningRef = useState(false)
+  const prevRunningRef = useRef(false)
 
   // Fetch checkpoints when a run finishes
   useEffect(() => {
-    const wasRunning = prevRunningRef[0]
-    prevRunningRef[0] = isRunning
+    const wasRunning = prevRunningRef.current
+    prevRunningRef.current = isRunning
     if (wasRunning && !isRunning && sessionId) {
       apiClient.terminal.getCheckpoints(sessionId)
         .then(setCheckpoints)
@@ -143,10 +164,11 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
 
   // Clear checkpoints when history is cleared
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset checkpoints when feed is cleared; intentional derived state reset
     if (feedItems.length === 0) setCheckpoints([])
   }, [feedItems.length])
 
-  const handleRollback = useCallback((_index: number, _files: string[]) => {
+  const handleRollback = useCallback(() => {
     // Refresh checkpoints after rollback
     if (sessionId) {
       apiClient.terminal.getCheckpoints(sessionId)

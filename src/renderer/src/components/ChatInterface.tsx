@@ -4,6 +4,7 @@ import type { ConversationMemory, ContentPart, ModelEntry } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
 import { Settings2, Cpu, ChevronRight, Square, ArrowUp, Wand2, Shield, Zap, FileText, TestTube2, Expand, Shrink, Languages, Briefcase, MessageCircle, GraduationCap, Scale, User, Baby, FlaskConical, Feather, Plus, Download, Loader2, Brain, Database, Search, X, ChevronUp, ChevronDown, ImagePlus, RefreshCcw, Trash2, Pencil, Hash, GitBranch, Eye, Globe } from 'lucide-react'
 import { InputOverlay, detectTrigger, SLASH_COMMANDS, type FileEntry } from './Chat/InputOverlay'
+import type { TreeNode } from './CodeWorkspace/FileTree'
 import { usePromptHistory } from '../hooks/usePromptHistory'
 import { useTokenEstimate } from '../hooks/useTokenEstimate'
 import { useSelfAssessment } from '../hooks/useSelfAssessment'
@@ -548,11 +549,11 @@ export function ChatInterface() {
         }
     }, [input])
 
-    const handleNewConversation = () => {
+    const handleNewConversation = useCallback(() => {
         setActiveConversationId(null);
-    };
+    }, [setActiveConversationId]);
 
-    const handleExport = (format: 'md' | 'json') => {
+    const handleExport = useCallback((format: 'md' | 'json') => {
         const title = conversationList.find(c => c.id === activeConversationId)?.title || 'conversation';
         const safeName = title.replace(/[^a-zA-Z0-9 _-]/g, '_').slice(0, 50);
         let blob: Blob;
@@ -571,7 +572,7 @@ export function ChatInterface() {
         a.download = `${safeName}.${format === 'md' ? 'md' : 'json'}`;
         a.click();
         URL.revokeObjectURL(url);
-    };
+    }, [conversationList, activeConversationId, messages]);
 
     // PII redaction state
     const [redactedCount, setRedactedCount] = useState<number | null>(null);
@@ -672,7 +673,7 @@ export function ChatInterface() {
             pendingImages.forEach(img => URL.revokeObjectURL(img.preview))
             setPendingImages([])
         }
-    }, [activeModel?.is_vision])
+    }, [activeModel?.is_vision, pendingImages])
 
     // ── Workspace file loading for @mentions ──
     useEffect(() => {
@@ -681,7 +682,7 @@ export function ChatInterface() {
             try {
                 const tree = await apiClient.workspace.tree('.', 3)
                 const flat: FileEntry[] = []
-                const walk = (node: any) => {
+                const walk = (node: TreeNode) => {
                     if (node.type === 'file') flat.push({ name: node.name, path: node.path, type: 'file' })
                     if (node.children) node.children.forEach(walk)
                 }
@@ -1297,15 +1298,15 @@ Return exactly this JSON structure (no other text):
             memoryBuildingRef.current = false;
         }
         return null;
-    }, [currentModelId]);
+    }, [currentModelId, showError]);
 
-    const sendCodeAction = useCallback((code: string, _action: string) => {
+    const sendCodeAction = useCallback((code: string, action: string) => {
         if (isGenerating || !currentModelId) return;
         // Tests go through chat (produces a separate file, not a rewrite)
         const prompt = `Write tests for the following code. Do NOT modify the original code. Generate a complete test file with good coverage of edge cases, typical usage, and error conditions. Use the most appropriate testing framework for the language.\n\n\`\`\`\n${code}\n\`\`\``;
         const lineCount = code.split('\n').length;
-        const display = `**Tests** — ${lineCount} lines`;
-        handleSend(prompt, display, 'tests');
+        const display = `**${action.charAt(0).toUpperCase() + action.slice(1)}** — ${lineCount} lines`;
+        handleSend(prompt, display, action);
     }, [isGenerating, currentModelId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Memoize ReactMarkdown components so CodeBlock instances are not remounted on unrelated re-renders

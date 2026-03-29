@@ -77,6 +77,7 @@ export function CommandPalette({ isOpen, onClose, onOpenKnowledgeMap, onNavigate
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form state and selection when palette opens
       setSearch('');
       setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 10);

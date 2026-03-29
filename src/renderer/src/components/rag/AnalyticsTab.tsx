@@ -40,7 +40,7 @@ export function AnalyticsTab({ collections }: AnalyticsTabProps) {
         if (collections.length > 0 && !analyticsCollectionId) {
             setAnalyticsCollectionId(collections[0].id)
         }
-    }, [collections])
+    }, [collections, analyticsCollectionId])
 
     useEffect(() => {
         if (analyticsCollectionId) fetchAnalytics(analyticsCollectionId)

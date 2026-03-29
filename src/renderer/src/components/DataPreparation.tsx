@@ -40,7 +40,7 @@ export function DataPreparation() {
                 }
             }).catch(err => { console.error('Failed to load MCP servers:', err); setMcpServers([]) })
         }
-    }, [dataMode])
+    }, [dataMode, mcpServer])
 
     const handleFileSelect = async () => {
         try {

@@ -78,6 +78,7 @@ export const ResponseActions = memo(function ResponseActions({
     // Auto-show panel when assessment finishes loading
     useEffect(() => {
         if (prevAssessmentRef.current === 'loading' && assessment && assessment !== 'loading') {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: show popover once async assessment completes
             setShowAssessment(true);
         }
         prevAssessmentRef.current = assessment;

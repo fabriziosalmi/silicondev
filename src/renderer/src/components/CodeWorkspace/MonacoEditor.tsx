@@ -1,4 +1,4 @@
-import { Suspense, lazy, useRef, useCallback, useEffect, type ComponentProps } from 'react'
+import { Suspense, lazy, useState, useRef, useCallback, useEffect, type ComponentProps } from 'react'
 import { Loader2 } from 'lucide-react'
 import type MonacoEditorType from '@monaco-editor/react'
 
@@ -22,6 +22,13 @@ interface MonacoEditorProps {
 
 import './debugger.css'
 
+// Monaco attaches itself to `window` at runtime; no TS type is available for this global
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getMonaco(): any {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (window as Record<string, any>).monaco
+}
+
 function EditorFallback() {
   return (
     <div className="flex items-center justify-center h-full bg-[#1e1e1e]">
@@ -34,17 +41,22 @@ function EditorFallback() {
 }
 
 export function MonacoEditor({ filePath, content, language, onSave, onChange, originalContent, activeModelId, debugLine }: MonacoEditorProps) {
+  // Monaco editor instance -- stored in both ref (for callbacks) and state (for hooks that need re-render on mount)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [editorInstance, setEditorInstance] = useState<any>(null)
 
-  useHolographicDiff(editorRef.current, originalContent || null, content)
+  useHolographicDiff(editorInstance, originalContent || null, content)
   // Refs to avoid stale closures in Monaco's addCommand callback
   const filePathRef = useRef(filePath)
   const onSaveRef = useRef(onSave)
-  filePathRef.current = filePath
-  onSaveRef.current = onSave
   const activeModelIdRef = useRef(activeModelId)
-  activeModelIdRef.current = activeModelId
+  useEffect(() => {
+    filePathRef.current = filePath
+    onSaveRef.current = onSave
+    activeModelIdRef.current = activeModelId
+  }, [filePath, onSave, activeModelId])
 
   const debugDecorationsRef = useRef<string[]>([])
   useEffect(() => {
@@ -56,7 +68,7 @@ export function MonacoEditor({ filePath, content, language, onSave, onChange, or
       return
     }
 
-    const monaco = (window as any).monaco
+    const monaco = getMonaco()
     if (!monaco) return
 
     const newDecorations = [
@@ -77,11 +89,11 @@ export function MonacoEditor({ filePath, content, language, onSave, onChange, or
 
   // Ghost Text (Inline Completions)
   useEffect(() => {
-    const monaco = (window as any).monaco
+    const monaco = getMonaco()
     if (!monaco) return
 
     const provider = monaco.languages.registerInlineCompletionsProvider(language, {
-      provideInlineCompletions: async (model: any, position: any) => {
+      provideInlineCompletions: async (model: { getValueInRange: (range: unknown) => string }, position: { lineNumber: number; column: number }) => {
         if (!activeModelIdRef.current || originalContent) return { items: [] }
 
         // Get context before cursor (max 1000 chars for speed)
@@ -121,8 +133,9 @@ export function MonacoEditor({ filePath, content, language, onSave, onChange, or
   }, [language, originalContent])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleEditorDidMount = useCallback((editor: any, _monaco: any) => {
+  const handleEditorDidMount = useCallback((editor: any) => {
     editorRef.current = editor
+    setEditorInstance(editor)
 
     // Cmd+S to save — uses refs to avoid stale closure
     editor.addCommand(
@@ -181,7 +194,7 @@ export function MonacoEditor({ filePath, content, language, onSave, onChange, or
         contextMenuOrder: actions.indexOf(action) + 1,
         precondition: 'editorHasSelection',
         keybindings: [],
-        run: (ed: any) => {
+        run: (ed: { getModel: () => { getValueInRange: (range: unknown) => string } | null; getSelection: () => unknown }) => {
           const selection = ed.getModel()?.getValueInRange(ed.getSelection())
           if (!selection) return
           const fullPrompt = `${action.prompt}\n\`\`\`\n${selection}\n\`\`\``

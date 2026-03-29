@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useGlobalState } from '../../context/GlobalState'
 import { apiClient, getAuthHeaders } from '../../api/client'
-import type { FeedItem, TelemetryData, SSEEvent, ScoutAlertMetadata, PlanStep } from '../Terminal/types'
+import type { FeedItem, TelemetryData, SSEEvent, ScoutAlertMetadata, RAGSearchMetadata, PlanStep } from '../Terminal/types'
 
 const EMPTY_TELEMETRY: TelemetryData = {
   agent: '',
@@ -467,11 +467,11 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           addFeedItem({
             id: crypto.randomUUID(),
             type: 'rag_search' as const,
-            content: `Found ${((d.results as any[]) || []).length} relevant snippets`,
+            content: `Found ${((d.results as RAGSearchMetadata['results']) || []).length} relevant snippets`,
             timestamp: Date.now(),
             ragSearchMeta: {
               query: d.query as string,
-              results: d.results as any[]
+              results: d.results as RAGSearchMetadata['results']
             }
           })
           break
@@ -480,14 +480,14 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
             console.log("Ignoring Scout Alert due to Low Power Mode")
             break
           }
-          setScoutIssues((prev: ScoutAlertMetadata['issues']) => [...prev, ...(d.issues as any[])])
+          setScoutIssues((prev: ScoutAlertMetadata['issues']) => [...prev, ...(d.issues as ScoutAlertMetadata['issues'])])
           addFeedItem({
             id: crypto.randomUUID(),
             type: 'scout_alert' as const,
-            content: `Scout Agent found ${((d.issues as any[]) || []).length} potential issues`,
+            content: `Scout Agent found ${((d.issues as ScoutAlertMetadata['issues']) || []).length} potential issues`,
             timestamp: Date.now(),
             scoutAlertMeta: {
-              issues: d.issues as any[]
+              issues: d.issues as ScoutAlertMetadata['issues']
             }
           })
           break
@@ -720,7 +720,7 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
     aiTextIdRef.current = null
     toolOutputIdRef.current = null
     setActiveAgencyRole(null) // Clear active agency role when session ends
-  }, [isRunning, activeModel, addFeedItem, consumeSSE, agentMode])
+  }, [isRunning, activeModel, addFeedItem, consumeSSE, agentMode, feedItems, options, pinnedItems])
 
   const handlePlanSubmit = useCallback(async (input: string) => {
     if (isRunning) return

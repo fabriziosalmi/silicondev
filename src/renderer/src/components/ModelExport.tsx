@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { apiClient, cleanModelName } from '../api/client'
 import type { ModelEntry } from '../api/client'
@@ -23,11 +23,7 @@ export function ModelExport() {
     const [exporting, setExporting] = useState(false)
     const [result, setResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
-    useEffect(() => {
-        fetchAdapters()
-    }, [])
-
-    const fetchAdapters = async () => {
+    const fetchAdapters = useCallback(async () => {
         setLoading(true)
         try {
             const list = await apiClient.engine.listAdapters()
@@ -40,7 +36,11 @@ export function ModelExport() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [selectedId])
+
+    useEffect(() => {
+        fetchAdapters()
+    }, [fetchAdapters])
 
     const handleSelectOutput = async () => {
         try {

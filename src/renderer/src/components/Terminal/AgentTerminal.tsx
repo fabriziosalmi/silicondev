@@ -47,7 +47,6 @@ export function AgentTerminal() {
 
   // Check backend connectivity on mount + periodic health check every 30s
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval>
     const check = async () => {
       try {
         const res = await apiClient.apiFetch(`${apiClient.API_BASE}/api/monitor/stats`, { signal: AbortSignal.timeout(5000) })
@@ -57,7 +56,7 @@ export function AgentTerminal() {
       }
     }
     check()
-    timer = setInterval(check, 30_000)
+    const timer = setInterval(check, 30_000)
     return () => clearInterval(timer)
   }, [])
 
@@ -244,8 +243,8 @@ export function AgentTerminal() {
   }, [sessionId])
 
   // No-op handlers — terminal has no diffs/escalations but MessageFeed requires them
-  const noopDiff = useCallback((_callId: string, _approved: boolean, _reason?: string) => {}, [])
-  const noopEscalation = useCallback((_id: string, _msg: string) => {}, [])
+  const noopDiff = useCallback(() => {}, [])
+  const noopEscalation = useCallback(() => {}, [])
 
   return (
     <div className="h-full flex flex-col">

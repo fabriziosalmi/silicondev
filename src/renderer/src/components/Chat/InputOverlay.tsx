@@ -139,6 +139,7 @@ export function InputOverlay({ input, cursorPosition, visible, onSelect, onClose
     }, [trigger, files])
 
     // Reset selection when items change
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset derived UI state when computed items list changes
     useEffect(() => { setSelectedIndex(0) }, [items])
 
     // Scroll selected item into view

@@ -45,8 +45,13 @@ class RagService:
         try:
             with open(self.collections_file, "r") as f:
                 return json.load(f)
-        except Exception as e:
-            logger.error(f"Failed to load collections: {e}")
+        except FileNotFoundError:
+            return []
+        except json.JSONDecodeError as e:
+            logger.error(f"Collections file is corrupted: {e}")
+            return []
+        except OSError as e:
+            logger.error(f"Failed to read collections: {e}")
             return []
 
     def create_collection(self, name: str) -> Dict[str, Any]:

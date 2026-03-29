@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DataPreparation } from './components/DataPreparation'
 import { ChatInterface } from './components/ChatInterface'
@@ -53,17 +53,18 @@ function App() {
     return () => { cleanup?.(); };
   }, []);
 
-  const toggleSidebar = () => {
+  const toggleSidebar = useCallback(() => {
     setSidebarCollapsed(prev => {
       const next = !prev;
       localStorage.setItem('sidebarCollapsed', String(next));
       return next;
     });
-  }
+  }, [])
 
 
   // Switch to chat when a note sends content
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- navigate to chat tab when external input arrives
     if (pendingChatInput) setActiveTab('chat');
   }, [pendingChatInput]);
 
@@ -136,6 +137,7 @@ function App() {
 
   // Fake progress bar — fast start, slows down, never reaches 100 until ready
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- progress bar driven by timer, setState in interval callback is the intended pattern
     if (backendReady) { setLoadProgress(100); return }
     const start = Date.now()
     const tick = () => {
@@ -153,7 +155,7 @@ function App() {
     if (backendReady) return;
     const timer = setTimeout(() => setLoadingMessage(t('app.loading.starting')), 3000);
     return () => clearTimeout(timer);
-  }, [backendReady]);
+  }, [backendReady, t]);
 
 
 

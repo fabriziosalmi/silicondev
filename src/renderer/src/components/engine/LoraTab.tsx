@@ -68,8 +68,8 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
             setDatasetPath(pkg.path + '/train.jsonl')
             toast(`Dataset ready: ${pkg.count} samples`, 'success')
             setCapturedCount(pkg.count)
-        } catch (err: any) {
-            toast(err.message || 'Not enough captured samples', 'warning')
+        } catch (err: unknown) {
+            toast(err instanceof Error ? err.message : 'Not enough captured samples', 'warning')
         } finally {
             setCapturedLoading(false)
         }
@@ -112,7 +112,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                     pollIntervalRef.current = null
                     setIsTraining(false)
                     setChartData(prev => {
-                        try { localStorage.setItem('silicon-studio-last-loss', JSON.stringify(prev)) } catch {}
+                        try { localStorage.setItem('silicon-studio-last-loss', JSON.stringify(prev)) } catch { /* storage full or unavailable */ }
                         return prev
                     })
                 }
@@ -287,7 +287,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                                 <select
                                     title="Hyperparameters Preset"
                                     value={preset}
-                                    onChange={(e) => handlePresetChange(e.target.value as any)}
+                                    onChange={(e) => handlePresetChange(e.target.value as keyof typeof PRESETS | 'custom')}
                                     className="bg-white/5 text-gray-300 border border-white/10 text-xs rounded px-2 py-1 outline-none"
                                 >
                                     <option value="draft">Draft (Fast)</option>
@@ -492,7 +492,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                                         contentStyle={{ backgroundColor: 'rgba(24, 24, 27, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
                                         itemStyle={{ color: '#60a5fa' }}
                                         labelStyle={{ color: '#9ca3af', marginBottom: '4px' }}
-                                        formatter={(value: any) => [`${value}`, 'Loss']}
+                                        formatter={(value: number | string) => [`${value}`, 'Loss']}
                                         labelFormatter={(label) => `Step ${label}`}
                                     />
                                     <Line

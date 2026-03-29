@@ -60,11 +60,11 @@ export function usePreviewServer(workspaceDir: string | null) {
             }))
             // Poll for readiness every 1.5s
             pollRef.current = setInterval(pollStatus, 1500)
-        } catch (e: any) {
+        } catch (e: unknown) {
             setState(prev => ({
                 ...prev,
                 loading: false,
-                error: e.message || 'Failed to start preview',
+                error: e instanceof Error ? e.message : 'Failed to start preview',
             }))
         }
     }, [workspaceDir, pollStatus])

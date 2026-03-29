@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageHeader } from './ui/PageHeader'
 import { Database, FileText, Plus, BarChart3 } from 'lucide-react'
@@ -20,20 +20,22 @@ export function RagKnowledge() {
     const [newCollectionName, setNewCollectionName] = useState("")
     const [selectedCollectionId, setSelectedCollectionId] = useState("")
 
-    useEffect(() => { fetchCollections() }, [])
-
-    useEffect(() => {
-        if (collections.length > 0 && !selectedCollectionId) {
-            setSelectedCollectionId(collections[0].id)
-        }
-    }, [collections])
-
-    const fetchCollections = async () => {
+    const fetchCollections = useCallback(async () => {
         try {
             const data = await apiClient.rag.getCollections()
             setCollections(data)
         } catch { /* ignore */ }
-    }
+    }, [])
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount triggers state update via callback
+    useEffect(() => { fetchCollections() }, [fetchCollections])
+
+    useEffect(() => {
+        if (collections.length > 0 && !selectedCollectionId) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- auto-select first collection when none is selected
+            setSelectedCollectionId(collections[0].id)
+        }
+    }, [collections, selectedCollectionId])
 
     const handleCreateCollection = async () => {
         if (!newCollectionName) return

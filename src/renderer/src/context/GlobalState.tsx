@@ -179,6 +179,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
             if (fastInterval) clearTimeout(fastInterval as ReturnType<typeof setTimeout>);
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init-once polling, setters are stable
     }, []);
 
     return (

@@ -2,14 +2,21 @@ import { useState, useEffect } from 'react'
 import { Play, StepForward, ArrowDown, Square, ChevronRight, ChevronDown, Bug } from 'lucide-react'
 import { apiClient } from '../../api/client'
 
+interface DebugState {
+    line?: number
+    status?: string
+    locals?: Record<string, string>
+    stack?: Array<{ function: string; line: number }>
+}
+
 interface DebuggerPanelProps {
     sessionId: string | null
     onStop: () => void
-    onUpdateState: (state: any) => void
+    onUpdateState: (state: DebugState) => void
 }
 
 export function DebuggerPanel({ sessionId, onStop, onUpdateState }: DebuggerPanelProps) {
-    const [debugState, setDebugState] = useState<any>(null)
+    const [debugState, setDebugState] = useState<DebugState | null>(null)
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
         locals: true,
         globals: false,
@@ -18,6 +25,7 @@ export function DebuggerPanel({ sessionId, onStop, onUpdateState }: DebuggerPane
 
     useEffect(() => {
         if (!sessionId) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset state when session is cleared; this is intentional cleanup, not a cascading render
             setDebugState(null)
             return
         }
@@ -53,7 +61,7 @@ export function DebuggerPanel({ sessionId, onStop, onUpdateState }: DebuggerPane
         })()
 
         return () => controller.abort()
-    }, [sessionId])
+    }, [sessionId, onUpdateState])
 
     const sendCommand = async (cmd: string) => {
         if (sessionId) {
@@ -155,7 +163,7 @@ export function DebuggerPanel({ sessionId, onStop, onUpdateState }: DebuggerPane
                     </button>
                     {expandedGroups.stack && (
                         <div className="space-y-1 pl-3">
-                            {debugState?.stack?.map((frame: any, i: number) => (
+                            {debugState?.stack?.map((frame, i) => (
                                 <div key={i} className={`flex items-center gap-2 p-1 rounded ${i === 0 ? 'bg-blue-500/10 text-blue-300' : 'text-gray-500'}`}>
                                     <span className="truncate">{frame.function}</span>
                                     <span className="text-[10px] opacity-50">:{frame.line}</span>

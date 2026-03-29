@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.14.0] — 2026-03-29
+
+### Security
+
+- **Path traversal fix**: Agent supervisor now validates all relative paths with `Path.resolve()` + workspace bounds check, blocking `../` escapes in `read_file`, `edit_file`, `patch_file`, and bash redirects.
+- **Global state mutation fix**: Removed `os.chdir()` from supervisor — was mutating process-wide working directory, breaking concurrent agents.
+
+### Bug Fixes
+
+- **Engine race condition**: Fixed check-then-act race on `generation_lock` during model switching. Now uses atomic `wait_for(acquire)` with proper `try/finally` release.
+- **React refs-during-render**: Moved all callback ref updates in `MessageFeed.tsx` into `useEffect` hooks (was causing stale renders).
+- **RAG error masking**: `get_collections()` now distinguishes `FileNotFoundError` / `JSONDecodeError` / `OSError` instead of catching all exceptions silently.
+
+### Improvements
+
+- **Model cache type safety**: Replaced raw tuple with `_CachedModel` NamedTuple — eviction uses `.last_used` instead of magic index `[4]`.
+- **Edit history bounded**: Supervisor `_edit_history` is now a `deque(maxlen=200)` to prevent memory leaks in long sessions.
+- **ESLint zero errors**: Resolved all 86 ESLint errors across 25+ files — replaced `any` types with proper interfaces, fixed unused variables, added missing hook dependencies.
+- **ESLint config**: Enabled `allowConstantExport` for the Provider+Hook co-export pattern.
+
+---
+
 ## [0.13.0] — 2026-03-24
 
 ### Component Modularization

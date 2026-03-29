@@ -41,6 +41,13 @@ export function apiFetch(url: string, init?: RequestInit): Promise<Response> {
 
 // --- Shared Types ---
 
+export interface FileTreeNode {
+    name: string
+    path: string
+    type: 'file' | 'dir'
+    children?: FileTreeNode[]
+}
+
 export interface SystemStats {
     memory: { total: number; available: number; used: number; percent: number }
     disk: { total: number; free: number; used: number; percent: number }
@@ -951,7 +958,7 @@ export const apiClient = {
         },
     },
     workspace: {
-        tree: async (directory: string, maxDepth: number = 5): Promise<{ name: string; path: string; type: 'file' | 'dir'; children?: any[] }> => {
+        tree: async (directory: string, maxDepth: number = 5): Promise<{ name: string; path: string; type: 'file' | 'dir'; children?: FileTreeNode[] }> => {
             const res = await apiFetch(`${API_BASE}/api/workspace/tree`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

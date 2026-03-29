@@ -27,6 +27,7 @@ export function PreviewPanel({
 
     // Reload iframe when ready state changes
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: derive iframe key from external `ready` prop to force iframe reload
         if (ready) setIframeKey(k => k + 1)
     }, [ready])
 

@@ -11,11 +11,10 @@ interface DpoTabProps {
     setSelectedModel: (id: string) => void
     capturedCount: number
     dpoCount: number
-    setDpoCount: (n: number) => void
     dpoPath: string
 }
 
-export function DpoTab({ models, selectedModel, setSelectedModel, capturedCount, dpoCount, setDpoCount: _setDpoCount, dpoPath }: DpoTabProps) {
+export function DpoTab({ models, selectedModel, setSelectedModel, capturedCount, dpoCount, dpoPath }: DpoTabProps) {
     const { toast } = useToast()
     const [dpoTraining, setDpoTraining] = useState(false)
 
@@ -57,8 +56,8 @@ export function DpoTab({ models, selectedModel, setSelectedModel, capturedCount,
                     setDpoTraining(false)
                 }
             }, 2000)
-        } catch (err: any) {
-            toast(err.message || 'DPO training failed to start', 'error')
+        } catch (err: unknown) {
+            toast(err instanceof Error ? err.message : 'DPO training failed to start', 'error')
             setDpoTraining(false)
         }
     }

@@ -116,6 +116,7 @@ export function Workspace() {
                 }
             } catch { /* ignore */ }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time migration on mount, fetchNotes/setActiveNoteId are stable
     }, [noteLoaded, activeNoteId]);
 
     const editorOptions = useMemo(() => ({

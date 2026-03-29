@@ -53,7 +53,6 @@ export function EngineInterface() {
                     setSelectedModel={setSelectedModel}
                     capturedCount={capturedCount}
                     dpoCount={dpoCount}
-                    setDpoCount={setDpoCount}
                     dpoPath={dpoPath}
                 />
             ) : (

@@ -29,7 +29,7 @@ export function CodeWorkspace() {
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [debugSessionId, setDebugSessionId] = useState<string | null>(null)
-  const [debugState, setDebugState] = useState<any>(null)
+  const [debugState, setDebugState] = useState<{ line?: number } | null>(null)
   const [workspaceDir, setWorkspaceDir] = useState<string | null>(() =>
     localStorage.getItem('silicon-studio-workspace-dir')
   )
@@ -74,9 +74,11 @@ export function CodeWorkspace() {
 
   // Provide active file context to the agent panel (called at submit time via ref)
   const openFilesRef = useRef(openFiles)
-  openFilesRef.current = openFiles
   const activeFileRef = useRef(activeFile)
-  activeFileRef.current = activeFile
+  useEffect(() => {
+    openFilesRef.current = openFiles
+    activeFileRef.current = activeFile
+  }, [openFiles, activeFile])
   const getActiveFile = useCallback(() => {
     const path = activeFileRef.current
     if (!path) return null
@@ -86,7 +88,9 @@ export function CodeWorkspace() {
   }, [])
 
   const workspaceDirRef = useRef(workspaceDir)
-  workspaceDirRef.current = workspaceDir
+  useEffect(() => {
+    workspaceDirRef.current = workspaceDir
+  }, [workspaceDir])
   const getWorkspaceDir = useCallback(() => workspaceDirRef.current, [])
 
   // --- Agent Session ---
@@ -119,7 +123,7 @@ export function CodeWorkspace() {
       handleFileSelect(path)
       handleDiffProposal(path, { ...meta, status: 'pending' })
     },
-    onFileChanged: (_filePath, _isNew) => {
+    onFileChanged: () => {
       // Refresh file tree when agent creates or modifies files
       const dir = workspaceDirRef.current
       if (dir) {
@@ -282,6 +286,7 @@ export function CodeWorkspace() {
   // Load file tree when workspace dir changes
   useEffect(() => {
     if (!workspaceDir) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear tree when workspace is removed; intentional cleanup
       setTree(null)
       return
     }
@@ -312,11 +317,6 @@ export function CodeWorkspace() {
       saveTimerRef.current = setTimeout(() => setSaveStatus(null), 3000)
     }
   }, [openFiles])
-
-  // Called by AgentPanel when a diff proposal arrives — open the target file
-  const handleAgentOpenFile = useCallback((path: string) => {
-    handleFileSelect(path)
-  }, [handleFileSelect])
 
   // Called by AgentPanel when a diff proposal arrives — show in DiffEditor
   const handleDiffProposal = useCallback((filePath: string, meta: DiffMetadata) => {
@@ -358,8 +358,8 @@ export function CodeWorkspace() {
         console.error('Failed to start debugger:', err)
       }
     }
-    window.addEventListener('nanocore-debug', handler as any)
-    return () => window.removeEventListener('nanocore-debug', handler as any)
+    window.addEventListener('nanocore-debug', handler as EventListener)
+    return () => window.removeEventListener('nanocore-debug', handler as EventListener)
   }, [])
 
   // --- Terminal Auto-Iniezione ---
@@ -369,8 +369,8 @@ export function CodeWorkspace() {
       const fixPrompt = `Command failed with exit code ${exitCode}: \`${command}\`\n\nOutput:\n\`\`\`\n${output}\n\`\`\`\n\nPlease analyze and fix.`
       handleSubmit(fixPrompt)
     }
-    window.addEventListener('nanocore-terminal-error', handler as any)
-    return () => window.removeEventListener('nanocore-terminal-error', handler as any)
+    window.addEventListener('nanocore-terminal-error', handler as EventListener)
+    return () => window.removeEventListener('nanocore-terminal-error', handler as EventListener)
   }, [handleSubmit])
 
 
@@ -720,7 +720,7 @@ export function CodeWorkspace() {
             />
             <div style={{ width: agentWidth }} className="border-l border-white/5 shrink-0 overflow-hidden">
               <AgentPanel
-                onOpenFile={handleAgentOpenFile}
+                onOpenFile={handleFileSelect}
                 onDiffProposal={handleDiffProposal}
                 onDiffSynced={handleDiffSynced}
                 onRegisterDiffDecider={handleRegisterDiffDecider}
