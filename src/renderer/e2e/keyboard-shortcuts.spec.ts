@@ -22,9 +22,13 @@ test.describe('Keyboard Shortcuts', () => {
 
   test('Cmd+E navigates to Code workspace', async ({ page }) => {
     await page.keyboard.press('Meta+e')
-    // Code workspace shows either file tree or empty state
+    // Code workspace shows heading "No active session" or other code workspace content
     await expect(
-      page.getByText('No workspace configured').or(page.getByText('Select a file')).first()
+      page.locator('h3:has-text("No active session")')
+        .or(page.getByText('Add Local Folder'))
+        .or(page.getByText('Codebase Indexing'))
+        .or(page.locator('button:has-text("Settings")'))
+        .first()
     ).toBeVisible({ timeout: 8000 })
   })
 

@@ -16,7 +16,8 @@ test.describe('Models Page', () => {
   })
 
   test('shows model size 1.8GB', async ({ page }) => {
-    await expect(page.getByText('1.8GB', { exact: true })).toBeVisible({ timeout: 5000 })
+    // The size appears in the model details area (not just button text)
+    await expect(page.locator('div, span, td, p').filter({ hasText: '1.8GB' }).first()).toBeVisible({ timeout: 5000 })
   })
 
   test('shows search input with Search placeholder', async ({ page }) => {

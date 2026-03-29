@@ -8,17 +8,17 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.describe('Notes Page', () => {
-  test('shows AI Commands area with Continue Writing and Summarize', async ({ page }) => {
+  test('shows AI Commands area with Continue and Summarize', async ({ page }) => {
     await navigateTo(page, 'Notes')
-    await expect(page.getByText('Continue Writing').first()).toBeVisible({ timeout: 5000 })
-    await expect(page.getByText('Summarize', { exact: true }).first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('button:has-text("Continue")').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('button:has-text("Summarize")').first()).toBeVisible({ timeout: 5000 })
   })
 
-  test('shows import button and export buttons', async ({ page }) => {
+  test('shows file management buttons', async ({ page }) => {
     await navigateTo(page, 'Notes')
-    await expect(page.locator('button:has-text("Import")').first()).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('button:has-text(".md")').first()).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('button:has-text(".txt")').first()).toBeVisible({ timeout: 5000 })
+    // "Files" button replaced "Import", "Export" button replaced ".md"/".txt" buttons
+    await expect(page.locator('button:has-text("Files")').or(page.locator('button:has-text("Import")')).first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('button:has-text("Export")').first()).toBeVisible({ timeout: 5000 })
   })
 
   test('has Send to Chat button', async ({ page }) => {

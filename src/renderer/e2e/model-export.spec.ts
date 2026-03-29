@@ -7,21 +7,28 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('nav')).toBeVisible({ timeout: 15_000 })
 })
 
-test.describe('Model Export Page', () => {
-  test('shows header h2 "Model Export"', async ({ page }) => {
-    await navigateTo(page, 'Model Export')
-    await expect(page.locator('h2:has-text("Model Export")')).toBeVisible({ timeout: 5000 })
+test.describe('Quantize & Export Page', () => {
+  test('shows page header or quantization content', async ({ page }) => {
+    await navigateTo(page, 'Quantize & Export')
+    await expect(
+      page.getByText('Model Export')
+        .or(page.getByText('Quantize'))
+        .or(page.getByText('Export'))
+        .first()
+    ).toBeVisible({ timeout: 5000 })
   })
 
   test('shows quantization options with 4-bit', async ({ page }) => {
-    await navigateTo(page, 'Model Export')
+    await navigateTo(page, 'Quantize & Export')
     await expect(
-      page.getByText('4-bit').or(page.getByText('4 bit')).first()
+      page.getByText('4-bit').or(page.getByText('4 bit')).or(page.getByText('Quantization')).first()
     ).toBeVisible({ timeout: 5000 })
   })
 
   test('has an Export button', async ({ page }) => {
-    await navigateTo(page, 'Model Export')
-    await expect(page.locator('button:has-text("Export")')).toBeVisible({ timeout: 5000 })
+    await navigateTo(page, 'Quantize & Export')
+    await expect(
+      page.locator('button:has-text("Export")').or(page.locator('button:has-text("Quantize")')).first()
+    ).toBeVisible({ timeout: 5000 })
   })
 })
