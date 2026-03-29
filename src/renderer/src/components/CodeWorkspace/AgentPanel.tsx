@@ -25,6 +25,10 @@ interface AgentSession {
   agentMode: 'edit' | 'review'
   setAgentMode: (mode: 'edit' | 'review') => void
   clearHistory: () => void
+  pinnedItems: { id: string; type: 'file' | 'text'; name: string; content: string }[]
+  togglePin: (item: { id: string; type: 'file' | 'text'; name: string; content: string }) => void
+  scoutIssues: { file: string; type: 'error' | 'warning'; message: string }[]
+  contextHealth: { used_tokens: number; max_tokens: number } | null
   activeAgencyRole: { role: 'architect' | 'worker' | 'inspector'; status: string } | null
   promptProfile: { intent: string; complexity: string; extracted_paths: string[] } | null
 }
@@ -289,7 +293,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
         <div className="flex-1 flex overflow-hidden min-h-0">
           <MessageFeed
             items={feedItems}
-            sessionId={sessionId}
+            sessionId={sessionId ?? ''}
             onDiffDecided={handleDiffDecided}
             onEscalationResponded={handleEscalationResponded}
             onPlanDecision={handlePlanDecision}
@@ -304,7 +308,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
             <div className="border-l border-white/[0.04]">
               <TimelineRail
                 checkpoints={checkpoints}
-                sessionId={sessionId}
+                sessionId={sessionId ?? ''}
                 onRollback={handleRollback}
               />
             </div>

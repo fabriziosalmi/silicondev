@@ -19,12 +19,13 @@ export function useEnergyManager() {
         }
 
         // The Battery Status API is not in the standard TS lib types
-        (navigator as unknown as { getBattery: () => Promise<typeof battery> }).getBattery().then((batt) => {
+        type BatteryManager = NonNullable<typeof battery>
+        ;(navigator as unknown as { getBattery: () => Promise<BatteryManager> }).getBattery().then((batt) => {
             battery = batt
             updateStatus()
 
-            battery.addEventListener('levelchange', updateStatus)
-            battery.addEventListener('chargingchange', updateStatus)
+            batt.addEventListener('levelchange', updateStatus)
+            batt.addEventListener('chargingchange', updateStatus)
         })
 
         return () => {
