@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.14.0
+
+### Security
+
+- Path traversal fix: agent supervisor validates all relative paths with `Path.resolve()` + workspace bounds check, blocking `../` escapes.
+- Global state mutation fix: removed `os.chdir()` from supervisor — was mutating process-wide working directory, breaking concurrent agents.
+
+### Bug Fixes
+
+- Engine race condition: fixed check-then-act race on `generation_lock` during model switching. Atomic acquire with proper release.
+- React refs-during-render: moved callback ref updates in `MessageFeed.tsx` into `useEffect` hooks.
+- RAG error masking: `get_collections()` now distinguishes `FileNotFoundError` / `JSONDecodeError` / `OSError`.
+
+### Improvements
+
+- Model cache type safety: `_CachedModel` NamedTuple replaces raw tuple — eviction uses `.last_used` instead of magic index.
+- Edit history bounded: `deque(maxlen=200)` prevents memory leaks in long sessions.
+- ESLint zero errors: resolved all 86 ESLint errors across 25+ files — replaced `any` types with proper interfaces.
+- E2E tests fixed: aligned all 87 Playwright tests with current UI. First green CI in project history.
+- CI badge added to README.
+
+### Tests
+
+- 314 backend tests passing.
+- 87 Playwright E2E tests passing.
+- 0 ESLint errors, 0 TypeScript errors.
+
+---
+
 ## v0.13.0
 
 ### Component Modularization

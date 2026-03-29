@@ -19,6 +19,8 @@
 - **Edit history bounded**: Supervisor `_edit_history` is now a `deque(maxlen=200)` to prevent memory leaks in long sessions.
 - **ESLint zero errors**: Resolved all 86 ESLint errors across 25+ files — replaced `any` types with proper interfaces, fixed unused variables, added missing hook dependencies.
 - **ESLint config**: Enabled `allowConstantExport` for the Provider+Hook co-export pattern.
+- **E2E tests fixed**: Aligned all 87 Playwright tests with current UI (tab renames, selector updates). First green CI in project history.
+- **CI badge**: Added GitHub Actions CI status badge to README.
 
 ---
 
