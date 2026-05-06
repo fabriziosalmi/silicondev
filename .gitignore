@@ -47,3 +47,6 @@ silicondev-pareto-opportunities.md
 silicondev-vs-vmlx-roadmap.md
 
 *SOLUTIONS*.mdtest-results/
+
+# Workspace settings
+.pytest_cache/
