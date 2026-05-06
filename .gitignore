@@ -50,3 +50,6 @@ silicondev-vs-vmlx-roadmap.md
 
 # Workspace settings
 .pytest_cache/
+
+# Workspace settings - 2026-05-07
+tmp/
