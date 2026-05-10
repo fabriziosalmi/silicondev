@@ -127,6 +127,8 @@ export function RagKnowledge() {
             {showCreateModal && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+                    tabIndex={-1}
+                    onClick={() => setShowCreateModal(false)}
                     onKeyDown={(e) => { if (e.key === 'Escape') setShowCreateModal(false) }}
                 >
                     <div
@@ -135,6 +137,7 @@ export function RagKnowledge() {
                         aria-labelledby="rag-create-modal-title"
                         ref={modalTrapRef}
                         className="bg-[#18181B] border border-white/10 rounded-2xl max-w-md w-full p-6"
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <h3 id="rag-create-modal-title" className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                             <Plus className="w-5 h-5 text-blue-400" />

@@ -191,14 +191,14 @@ export function PipelinesJobs() {
                                             {(p.nodes?.length || 0)} steps
                                         </div>
                                     </div>
-                                    <span onClick={(e) => { e.stopPropagation(); if (p.id) handleDelete(p.id) }}
-                                        role="button"
-                                        tabIndex={0}
-                                        onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && p.id) { e.stopPropagation(); handleDelete(p.id) } }}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); if (p.id) handleDelete(p.id) }}
                                         aria-label={`Delete pipeline ${p.name}`}
-                                        className="p-2 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer">
+                                        className="p-2 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                                    >
                                         <Trash2 className="w-4 h-4" />
-                                    </span>
+                                    </button>
                                 </button>
                             ))}
                             {pipelines.length === 0 && !loading && (
