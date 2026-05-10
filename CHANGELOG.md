@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.14.2] — 2026-05-10
+
+### Bug Fixes
+
+- **Scout: 353 Risks badge growing without bound**: recommendation rows had timestamped node ids, so every 5-minute reconnaissance added duplicates for the same hotspot. Now deterministic id (`scout_rec_hotspot_<target>`), upserted via existing `ON CONFLICT DO UPDATE`. One-shot purge of legacy timestamped rows runs at scout startup.
+- **`Error: There is no Stream(gpu, 0) in current thread.`**: MLX requires a per-thread default GPU stream; the chat path runs token generation through asyncio's default executor, which spawns arbitrary threads with no stream. Pinned all 9 MLX `loop.run_in_executor` calls to a single dedicated `ThreadPoolExecutor(max_workers=1)` initialized with `mx.set_default_device(mx.gpu)`.
+- **`.gitignore` `models/` matched `src/renderer/src/components/models/`**: anchored with `/` to repo root only.
+
+### Refactor
+
+- **engine/service.py modularization**: split from 2521 → 1783 lines (-29%). Four new cohesive modules (`engine/_helpers.py`, `engine/_messages.py`, `engine/_dpo.py`, `engine/_lora.py`). Public API of `MLXEngineService` unchanged so all callers (api/engine.py, agents, nanocore supervisor) keep working with zero edits.
+
+### UI
+
+- **Models page redesign**: dense list view (~40px rows vs ~140px cards), Discover-first tab order with adaptive default (My Models when any model exists, otherwise Discover for first-time users), family filter chips with live counts, hover-revealed download button, sorted smallest-first.
+- **Catalog refresh**: 21 current mlx-community models added (Qwen 3 / 3.5 / 3.6, Gemma 3 QAT and Gemma 4 family, Devstral Small 2, gpt-oss-20b, Kimi K2.6, LFM2.5).
+- **Notes — global right-click capture**: select any text anywhere → context menu with "Save to new note" + "Copy". Smart formatting fences code blocks with parsed language tag.
+- **LoRA training compaction**: form roughly half the previous height; new 3-region pattern (header / scrolling middle / sticky footer) keeps the "Start Training" button always visible.
+- **DataPreparation tab padding**, **Deployment "Copy all" log button**.
+
+### Release pipeline polish
+
+- **Removed `backend/verify_phase5.py`**: leftover Phase 4/5 verification script, no longer used.
+- **PyInstaller spec**: removed bogus `'app.main'` hidden import (entrypoint is `backend/main.py`, not `app.main`) — kills the noisy "Hidden import 'app.main' not found" warning during analysis.
+- **`presidio_analyzer` import fix**: removed unused `Registry` import that broke `test_shield.py` collection on current presidio versions.
+- **`docs/development/releasing.md`**: full reference for the local-only signed/notarized release pipeline.
+
 ## [0.14.1] — 2026-05-10
 
 ### Release
