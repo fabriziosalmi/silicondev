@@ -1,14 +1,39 @@
 import asyncio
 import logging
-import time
-from typing import List, Dict, Any
+import re
 from app.memory.service import memory_graph
 
 logger = logging.getLogger(__name__)
 
+# Pre-fix recommendation node_id format: "scout_rec_<unix_ts>_<target>".
+# Replaced by deterministic "scout_rec_hotspot_<target>". This regex matches
+# only the legacy timestamped form so the cleanup leaves the new ones alone.
+_LEGACY_REC_PREFIX_RE = re.compile(r"^scout_rec_\d+_")
+
+
+def _purge_legacy_recommendations() -> int:
+    """Remove timestamped duplicates from the knowledge graph.
+
+    Returns count removed. Safe to call repeatedly: matches only the legacy
+    `scout_rec_<digits>_…` ids, never the new deterministic ones.
+    """
+    legacy_ids = [
+        n["id"] for n in memory_graph.get_all_nodes()
+        if n.get("type") == "recommendation" and _LEGACY_REC_PREFIX_RE.match(n.get("id", ""))
+    ]
+    removed = 0
+    for nid in legacy_ids:
+        # delete_nodes_by_id_prefix needs an exact id, so pass the full id as the
+        # "prefix" — LIKE 'id%' still matches the single row.
+        removed += memory_graph.delete_nodes_by_id_prefix(nid)
+    if removed:
+        logger.info(f"Scout Agent: purged {removed} legacy timestamped recommendations from knowledge graph.")
+    return removed
+
+
 class ScoutAgent:
     """Background worker that proactively monitors the Knowledge Graph for project risks and opportunities."""
-    
+
     def __init__(self, workspace_path: str):
         self.workspace_path = workspace_path
         self._stop_event = asyncio.Event()
@@ -17,6 +42,10 @@ class ScoutAgent:
     async def start(self, on_event=None):
         """Starts the background monitoring loop in a background task."""
         self.on_event = on_event
+        try:
+            _purge_legacy_recommendations()
+        except Exception as e:
+            logger.error(f"Scout Agent: legacy recommendation purge failed: {e}")
         self._task = asyncio.create_task(self._run_loop())
         logger.info("Scout Agent active: Monitoring project health...")
 
@@ -56,12 +85,13 @@ class ScoutAgent:
                 file_activity[target_id] = file_activity.get(target_id, 0) + 1
 
         # 2. Flag nodes with high activity (e.g., > 5 mentions in different contexts)
+        # Deterministic node_id per target so reruns upsert the same row instead
+        # of accumulating duplicates on every 5-minute scan.
         for node_id, count in file_activity.items():
             if count > 5:
-                # Add a "Risk/Recommendation" node to the graph
                 recommendation = f"File '{node_id}' is a high-activity hotspot (>5 mentions). Suggest refactoring to decouple logic."
                 memory_graph.add_node(
-                    node_id=f"scout_rec_{int(time.time())}_{node_id}",
+                    node_id=f"scout_rec_hotspot_{node_id}",
                     node_type="recommendation",
                     label="Refactoring Opportunity",
                     content=recommendation,
