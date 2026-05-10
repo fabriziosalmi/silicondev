@@ -38,6 +38,18 @@ code,
   user-select: text;
 }
 
+/* Guarantee textarea/input always receive pointer events and show text cursor.
+   Required in browser mode: parent user-select:none can block focus in some
+   Chromium builds. pointer-events:auto overrides any inherited restriction. */
+textarea,
+input[type="text"],
+input[type="search"],
+input[type="password"],
+input:not([type]) {
+  pointer-events: auto !important;
+  cursor: text !important;
+}
+
 /* Beautiful Selection Color */
 ::selection {
   background: rgba(59, 130, 246, 0.5);
