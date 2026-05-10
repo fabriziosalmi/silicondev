@@ -77,6 +77,7 @@ export function IngestTab({ collections, selectedCollectionId, setSelectedCollec
 
                 <div className="flex items-center gap-4">
                     <button
+                        type="button"
                         onClick={handleIngest}
                         disabled={uploading || collections.length === 0}
                         className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"

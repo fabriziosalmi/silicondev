@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card } from './ui/Card'
 import { useToast } from './ui/Toast'
@@ -175,6 +175,21 @@ export function Evaluations() {
         }
     })
 
+    // H-1: abort controller so eval loop can be cancelled mid-run
+    const evalAbortRef = useRef<AbortController | null>(null)
+    const mountedRef = useRef(true)
+    useEffect(() => {
+        mountedRef.current = true
+        return () => {
+            mountedRef.current = false
+            evalAbortRef.current?.abort()
+        }
+    }, [])
+
+    const handleCancelEval = useCallback(() => {
+        evalAbortRef.current?.abort()
+    }, [])
+
     const benchmarks = [
         { id: 'mmlu', name: 'General Knowledge', type: 'Multiple Choice' },
         { id: 'hellaswag', name: 'Common Sense', type: 'Sentence Completion' },
@@ -191,6 +206,11 @@ export function Evaluations() {
             toast('Please load a model into memory first from the Models tab.', 'warning');
             return;
         }
+
+        // H-1: fresh AbortController per run
+        const abort = new AbortController()
+        evalAbortRef.current = abort
+
         setRunningEval(benchId);
         setProgress(0);
         setProgressLabel('');
@@ -201,6 +221,9 @@ export function Evaluations() {
             let score = 0;
 
             for (let i = 0; i < cases.length; i++) {
+                if (abort.signal.aborted) break;
+                if (!mountedRef.current) break;
+
                 setProgress(Math.floor(((i + 1) / cases.length) * 100));
                 setProgressLabel(`${i + 1} / ${cases.length}`);
 
@@ -212,7 +235,8 @@ export function Evaluations() {
                         messages: [{ role: 'user', content: cases[i].prompt }],
                         temperature: 0.1,
                         max_tokens: 150
-                    })
+                    }),
+                    signal: abort.signal,
                 });
 
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -331,7 +355,7 @@ export function Evaluations() {
                                             <td className="px-5 py-4 text-gray-400">{b.type}</td>
                                             <td className="px-5 py-4 text-right">
                                                 {runningEval === b.id ? (
-                                                    <div className="flex flex-col items-end gap-1">
+                                                    <div className="flex flex-col items-end gap-1.5">
                                                         <span className="text-xs text-blue-400 font-medium flex items-center gap-1">
                                                             <Loader2 className="w-3 h-3 animate-spin" />
                                                             {progressLabel ? `Q ${progressLabel}` : `Running ${progress}%`}
@@ -339,7 +363,15 @@ export function Evaluations() {
                                                         <div className="w-24 h-1.5 bg-black/50 rounded-full overflow-hidden border border-white/10">
                                                             <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
                                                         </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleCancelEval}
+                                                            className="text-[10px] text-red-400/70 hover:text-red-400 transition-colors mt-0.5"
+                                                        >
+                                                            Cancel
+                                                        </button>
                                                     </div>
+
                                                 ) : (
                                                     <button
                                                         type="button"

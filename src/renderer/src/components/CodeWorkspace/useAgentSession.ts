@@ -477,7 +477,7 @@ export function useAgentSession(options?: UseAgentSessionOptions) {
           break
         case 'scout_alert':
           if (options?.lowPowerMode) {
-            console.log("Ignoring Scout Alert due to Low Power Mode")
+            // Low Power Mode active — skip Scout Alert (intentional suppression)
             break
           }
           setScoutIssues((prev: ScoutAlertMetadata['issues']) => [...prev, ...(d.issues as ScoutAlertMetadata['issues'])])

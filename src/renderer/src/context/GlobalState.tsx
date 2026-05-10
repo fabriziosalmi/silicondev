@@ -121,6 +121,8 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
         };
 
         let fastInterval: ReturnType<typeof setInterval> | null = null;
+        // H-2: track safety timeout so it can be cancelled on unmount
+        let safetyTimer: ReturnType<typeof setTimeout> | null = null;
 
         const startSlowPolling = () => {
             clearInterval(interval);
@@ -130,6 +132,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
         const startPolling = () => {
             clearInterval(interval);
             if (fastInterval) clearTimeout(fastInterval as ReturnType<typeof setTimeout>);
+            if (safetyTimer) clearTimeout(safetyTimer);
             poll();
             // Exponential backoff: 500ms → 1s → 2s → 4s (cap) until backend is ready, then slow (5s)
             let backoff = 500;
@@ -151,7 +154,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
             };
             scheduleFastPoll();
             // Safety: stop fast polling after 30s regardless
-            setTimeout(() => {
+            safetyTimer = setTimeout(() => {
                 if (fastInterval) { clearTimeout(fastInterval as ReturnType<typeof setTimeout>); fastInterval = null; startSlowPolling(); }
             }, 30000);
         };
@@ -177,6 +180,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
             mounted = false;
             clearInterval(interval);
             if (fastInterval) clearTimeout(fastInterval as ReturnType<typeof setTimeout>);
+            if (safetyTimer) clearTimeout(safetyTimer);
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- init-once polling, setters are stable

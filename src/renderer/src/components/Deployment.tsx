@@ -177,6 +177,7 @@ print(response.choices[0].message.content)`
                     {/* Server control row */}
                     <div className="flex items-center gap-4">
                         <button
+                            type="button"
                             onClick={toggleServer}
                             disabled={loading}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${serverRunning
@@ -256,6 +257,7 @@ print(response.choices[0].message.content)`
                             <span className="text-xs text-gray-500">{t('deployment.status')}</span>
                             <code className="text-xs font-mono text-gray-300 flex-1">{endpoint}/v1</code>
                             <button
+                                type="button"
                                 onClick={() => handleCopy(`${endpoint}/v1`, 'endpoint')}
                                 className="text-gray-600 hover:text-gray-400 transition-colors"
                                 title="Copy endpoint URL"
@@ -312,6 +314,7 @@ print(response.choices[0].message.content)`
                             {logs.length > 0 && (
                                 <>
                                     <button
+                                        type="button"
                                         onClick={() => {
                                             const text = logs.map(e => `${formatLogTime(e.timestamp)}  ${e.source === 'stderr' ? 'err' : 'out'}  ${e.message}`).join('\n')
                                             handleCopy(text, 'logs')
@@ -323,6 +326,7 @@ print(response.choices[0].message.content)`
                                         <span>{copiedId === 'logs' ? 'Copied' : 'Copy all'}</span>
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => { setLogs([]); setLogSince(0); }}
                                         className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
                                     >

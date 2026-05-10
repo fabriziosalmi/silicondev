@@ -224,6 +224,7 @@ export function Settings() {
                                 {items.map(item => (
                                     <button
                                         key={item.id}
+                                        type="button"
                                         onClick={() => scrollToSection(item.id)}
                                         className={`w-full text-left flex items-center gap-1.5 px-2 py-1.5 rounded text-[13px] transition-colors ${
                                             activeSection === item.id

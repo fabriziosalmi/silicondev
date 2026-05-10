@@ -264,6 +264,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                                 {datasetPath.split('/').pop() || "No file selected"}
                             </div>
                             <button
+                                type="button"
                                 onClick={async () => {
                                     const path = await window.electronAPI?.selectFile?.()
                                     if (path) setDatasetPath(path)
@@ -343,6 +344,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                 {/* Sticky footer CTA — always visible, never scrolls. */}
                 <div className="px-4 py-3 border-t border-white/10 bg-white/[0.02] shrink-0">
                     <button
+                        type="button"
                         onClick={startTraining}
                         disabled={loading || (jobStatus?.status === 'training')}
                         className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold h-10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -400,6 +402,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                                 <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">{t('engine.completed')}</div>
                                 <div className="flex gap-2">
                                     <button
+                                        type="button"
                                         onClick={() => handleExport(4)}
                                         disabled={exporting}
                                         className="flex-1 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -408,6 +411,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                                         {exporting ? 'Fusing model...' : 'Export 4-bit GGUF'}
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => handleExport(8)}
                                         disabled={exporting}
                                         className="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
