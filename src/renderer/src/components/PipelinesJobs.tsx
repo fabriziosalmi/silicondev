@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageHeader } from './ui/PageHeader'
 import { Card } from './ui/Card'
-import { Play, Plus, Trash2, Search, Save, ChevronDown, ChevronRight, Terminal, Bot, Filter, Clock } from 'lucide-react'
+import { Play, Plus, Trash2, Search, Save, ChevronDown, ChevronRight, Terminal, Bot, Filter, Clock, RotateCcw, X } from 'lucide-react'
 import { apiClient } from '../api/client'
 import type { AgentDefinition, AgentExecutionResult } from '../api/client'
 import { useToast } from './ui/Toast'
@@ -56,6 +56,40 @@ export function PipelinesJobs() {
     const { toast } = useToast()
     const { confirm } = useConfirm()
 
+    // ── Undo-delete state ─────────────────────────────────────────────
+    const UNDO_SECONDS = 6
+    const [deletedPipeline, setDeletedPipeline] = useState<{ agent: AgentDefinition; nodes: PipelineNode[] } | null>(null)
+    const [undoCountdown, setUndoCountdown] = useState(0)
+    const undoTimerRef = useRef<ReturnType<typeof setInterval>>(undefined)
+    const undoDeadlineRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+    const clearUndoBanner = useCallback(() => {
+        clearInterval(undoTimerRef.current)
+        clearTimeout(undoDeadlineRef.current)
+        setDeletedPipeline(null)
+        setUndoCountdown(0)
+    }, [])
+
+    const handleUndo = useCallback(async () => {
+        if (!deletedPipeline) return
+        clearUndoBanner()
+        try {
+            const restored = await apiClient.agents.saveAgent(
+                { ...deletedPipeline.agent, nodes: deletedPipeline.nodes as unknown as Record<string, unknown>[], edges: [] }
+            )
+            await fetchPipelines()
+            setActive(restored)
+            setNodes(deletedPipeline.nodes)
+            toast(`"${restored.name}" restored`, 'success')
+        } catch {
+            toast('Undo failed — pipeline could not be restored', 'error')
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [deletedPipeline, clearUndoBanner])
+
+    // Cleanup undo timers on unmount
+    useEffect(() => () => { clearInterval(undoTimerRef.current); clearTimeout(undoDeadlineRef.current) }, [])
+
     useEffect(() => { fetchPipelines() }, [])
 
     const fetchPipelines = async () => {
@@ -94,13 +128,29 @@ export function PipelinesJobs() {
     }
 
     const handleDelete = async (id: string) => {
+        // Capture snapshot BEFORE showing confirm so we always have the data
+        const target = pipelines.find(p => p.id === id)
         const ok = await confirm({ message: t('pipelines.delete') + '?', destructive: true, confirmLabel: 'Delete' })
         if (!ok) return
         try {
             await apiClient.agents.deleteAgent(id)
             if (active?.id === id) { setActive(null); setNodes([]) }
             fetchPipelines()
-            toast('Pipeline deleted', 'success')
+
+            // Start undo window
+            if (target) {
+                clearUndoBanner()
+                const snapshot = { agent: target, nodes: (target.nodes || []) as unknown as PipelineNode[] }
+                setDeletedPipeline(snapshot)
+                setUndoCountdown(UNDO_SECONDS)
+                undoTimerRef.current = setInterval(() => {
+                    setUndoCountdown(prev => {
+                        if (prev <= 1) { clearInterval(undoTimerRef.current); return 0 }
+                        return prev - 1
+                    })
+                }, 1000)
+                undoDeadlineRef.current = setTimeout(clearUndoBanner, UNDO_SECONDS * 1000)
+            }
         } catch {
             toast('Failed to delete', 'error')
         }
@@ -166,6 +216,39 @@ export function PipelinesJobs() {
                     )}
                 </div>
             </PageHeader>
+
+            {/* Undo-delete banner */}
+            {deletedPipeline && (
+                <div className="mx-0 mb-0 animate-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-sm">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <Trash2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span className="text-amber-200 truncate">
+                                <span className="font-semibold">"{deletedPipeline.agent.name}"</span> deleted
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[10px] font-mono text-amber-400/60 tabular-nums w-4 text-right">{undoCountdown}s</span>
+                            <button
+                                type="button"
+                                onClick={handleUndo}
+                                className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 rounded-lg text-xs font-bold transition-colors"
+                            >
+                                <RotateCcw className="w-3 h-3" />
+                                Undo
+                            </button>
+                            <button
+                                type="button"
+                                onClick={clearUndoBanner}
+                                className="p-1 text-amber-400/40 hover:text-amber-300 transition-colors"
+                                aria-label="Dismiss"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="flex-1 flex gap-6 overflow-hidden">
                 {/* Sidebar — Pipeline List */}

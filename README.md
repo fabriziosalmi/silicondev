@@ -2,7 +2,7 @@
 
 **Local LLM fine-tuning and chat for Apple Silicon.**
 
-![Version](https://img.shields.io/badge/version-0.16.2-blue)
+![Version](https://img.shields.io/badge/version-0.16.3-blue)
 [![CI](https://github.com/fabriziosalmi/silicondev/actions/workflows/ci.yml/badge.svg)](https://github.com/fabriziosalmi/silicondev/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Platform: macOS](https://img.shields.io/badge/Platform-macOS_(Apple_Silicon)-black)
