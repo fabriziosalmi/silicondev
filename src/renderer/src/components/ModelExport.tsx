@@ -28,15 +28,17 @@ export function ModelExport() {
         try {
             const list = await apiClient.engine.listAdapters()
             setAdapters(list)
-            if (list.length > 0 && !selectedId) {
-                setSelectedId(list[0].id)
-            }
+            // Only set the default selection once (on first load when nothing is selected).
+            // Do NOT put `selectedId` in this callback's deps — it would cause
+            // fetchAdapters() to re-run every time the user picks a different model.
+            setSelectedId(prev => (prev || (list.length > 0 ? list[0].id : '')))
         } catch {
             setAdapters([])
         } finally {
             setLoading(false)
         }
-    }, [selectedId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     useEffect(() => {
         fetchAdapters()

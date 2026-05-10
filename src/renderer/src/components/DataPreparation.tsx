@@ -30,17 +30,20 @@ export function DataPreparation() {
     const [mcpPrompt, setMcpPrompt] = useState("Generate question-answer pairs explaining how to use each tool exposed by this MCP server.")
     const [mcpGenerating, setMcpGenerating] = useState(false)
 
-    // Fetch MCP servers when switching to MCP mode
+    // Fetch MCP servers when switching to MCP mode.
+    // Do NOT put `mcpServer` in deps — it would cause an infinite loop
+    // (fetch → setMcpServer(servers[0]) → re-fetch → …).
     useEffect(() => {
         if (dataMode === 'mcp') {
             apiClient.mcp.listServers().then(servers => {
                 setMcpServers(servers)
-                if (servers.length > 0 && !mcpServer) {
-                    setMcpServer(servers[0].id)
+                if (servers.length > 0) {
+                    setMcpServer(prev => prev || servers[0].id)
                 }
             }).catch(err => { console.error('Failed to load MCP servers:', err); setMcpServers([]) })
         }
-    }, [dataMode, mcpServer])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dataMode])
 
     const handleFileSelect = async () => {
         try {

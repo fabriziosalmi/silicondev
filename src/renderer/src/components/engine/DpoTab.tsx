@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { ModelEntry } from '../../api/client'
 import { apiClient } from '../../api/client'
 import { useToast } from '../ui/Toast'
@@ -17,6 +17,16 @@ interface DpoTabProps {
 export function DpoTab({ models, selectedModel, setSelectedModel, capturedCount, dpoCount, dpoPath }: DpoTabProps) {
     const { toast } = useToast()
     const [dpoTraining, setDpoTraining] = useState(false)
+    const dpoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+    const mountedRef = useRef(true)
+
+    useEffect(() => {
+        mountedRef.current = true
+        return () => {
+            mountedRef.current = false
+            if (dpoIntervalRef.current) clearInterval(dpoIntervalRef.current)
+        }
+    }, [])
 
     const startDpoTraining = async () => {
         if (dpoCount < 20) {
@@ -39,21 +49,28 @@ export function DpoTab({ models, selectedModel, setSelectedModel, capturedCount,
                 job_name: `dpo-${Date.now()}`
             })
             toast('DPO training started', 'success')
-            const dpoInterval = setInterval(async () => {
+            dpoIntervalRef.current = setInterval(async () => {
                 try {
                     const s = await apiClient.engine.getJobStatus(data.job_id)
                     if (s.status === 'completed') {
-                        clearInterval(dpoInterval)
-                        setDpoTraining(false)
-                        toast('DPO training complete! Model registered.', 'success')
+                        clearInterval(dpoIntervalRef.current!)
+                        dpoIntervalRef.current = null
+                        if (mountedRef.current) {
+                            setDpoTraining(false)
+                            toast('DPO training complete! Model registered.', 'success')
+                        }
                     } else if (s.status === 'failed') {
-                        clearInterval(dpoInterval)
-                        setDpoTraining(false)
-                        toast(`DPO training failed: ${s.error || 'unknown'}`, 'error')
+                        clearInterval(dpoIntervalRef.current!)
+                        dpoIntervalRef.current = null
+                        if (mountedRef.current) {
+                            setDpoTraining(false)
+                            toast(`DPO training failed: ${s.error || 'unknown'}`, 'error')
+                        }
                     }
                 } catch {
-                    clearInterval(dpoInterval)
-                    setDpoTraining(false)
+                    clearInterval(dpoIntervalRef.current!)
+                    dpoIntervalRef.current = null
+                    if (mountedRef.current) setDpoTraining(false)
                 }
             }, 2000)
         } catch (err: unknown) {

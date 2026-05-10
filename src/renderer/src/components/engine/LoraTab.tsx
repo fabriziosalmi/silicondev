@@ -443,10 +443,12 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                                         const csv = 'step,loss\n' + chartData.map(d => `${d.step},${d.loss}`).join('\n')
                                         const blob = new Blob([csv], { type: 'text/csv' })
                                         const a = document.createElement('a')
-                                        a.href = URL.createObjectURL(blob)
+                                        const objectUrl = URL.createObjectURL(blob)
+                                        a.href = objectUrl
                                         a.download = `loss-${jobStatus?.job_name || 'training'}.csv`
                                         a.click()
-                                        URL.revokeObjectURL(a.href)
+                                        // Revoke after 60s to avoid aborting the download.
+                                        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
                                     }}
                                     className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-gray-400"
                                 >

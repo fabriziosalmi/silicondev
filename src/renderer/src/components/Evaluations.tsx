@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card } from './ui/Card'
 import { useToast } from './ui/Toast'
+import { useConfirm } from './ui/ConfirmDialog'
 import { TestTube, Play, BarChart2, Loader2 } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
 import { apiClient, cleanModelName } from '../api/client'
@@ -159,6 +160,7 @@ function sampleCases(cases: TestCase[], n: number): TestCase[] {
 export function Evaluations() {
     const { t } = useTranslation()
     const { toast } = useToast()
+    const { confirm } = useConfirm()
     const { activeModel } = useGlobalState()
     const [runningEval, setRunningEval] = useState<string | null>(null)
     const [progress, setProgress] = useState(0)
@@ -363,7 +365,17 @@ export function Evaluations() {
                             {history.length > 0 && (
                                 <button
                                     type="button"
-                                    onClick={() => { setHistory([]); localStorage.removeItem(EVAL_HISTORY_KEY); }}
+                                    onClick={async () => {
+                                        const ok = await confirm({
+                                            title: t('evaluations.clearTitle', { defaultValue: 'Clear results' }),
+                                            message: t('evaluations.clearConfirm', { defaultValue: 'Delete all evaluation history? This cannot be undone.' }),
+                                            confirmLabel: t('common.delete', { defaultValue: 'Delete' }),
+                                            destructive: true,
+                                        });
+                                        if (!ok) return;
+                                        setHistory([]);
+                                        localStorage.removeItem(EVAL_HISTORY_KEY);
+                                    }}
                                     className="text-xs text-gray-500 hover:text-red-400 transition-colors"
                                 >
                                     Clear
