@@ -304,12 +304,25 @@ print(response.choices[0].message.content)`
                                 Auto-scroll
                             </label>
                             {logs.length > 0 && (
-                                <button
-                                    onClick={() => { setLogs([]); setLogSince(0); }}
-                                    className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
-                                >
-                                    Clear
-                                </button>
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            const text = logs.map(e => `${formatLogTime(e.timestamp)}  ${e.source === 'stderr' ? 'err' : 'out'}  ${e.message}`).join('\n')
+                                            handleCopy(text, 'logs')
+                                        }}
+                                        title="Copy all log entries"
+                                        className="flex items-center gap-1 text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
+                                    >
+                                        {copiedId === 'logs' ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                                        <span>{copiedId === 'logs' ? 'Copied' : 'Copy all'}</span>
+                                    </button>
+                                    <button
+                                        onClick={() => { setLogs([]); setLogSince(0); }}
+                                        className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
+                                    >
+                                        Clear
+                                    </button>
+                                </>
                             )}
                         </div>
                     </div>
