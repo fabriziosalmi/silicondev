@@ -15,9 +15,10 @@ build/
 __pycache__/
 *.pyc
 
-# Local Data & Models
-models/
-adapters/
+# Local Data & Models  (root-level only — leading slash anchors the pattern
+# so src/renderer/src/components/models/ is NOT ignored)
+/models/
+/adapters/
 *.safetensors
 *.jsonl
 *.csv

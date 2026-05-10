@@ -118,5 +118,14 @@ class KnowledgeGraph:
             cursor.execute("SELECT * FROM edges")
             return [dict(row) for row in cursor.fetchall()]
 
+    def delete_nodes_by_id_prefix(self, prefix: str) -> int:
+        """Bulk-delete nodes whose id starts with the given prefix. Returns count removed."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM nodes WHERE id LIKE ?", (f"{prefix}%",))
+            removed = cursor.rowcount
+            conn.commit()
+            return removed
+
 # Global instance
 memory_graph = KnowledgeGraph()

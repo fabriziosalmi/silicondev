@@ -111,7 +111,7 @@ export function MyModelsTab({
                         <div className="text-center text-gray-500">No models match your search.</div>
                     </div>
                 ) : (
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                         {sortedArchKeys.map(arch => {
                             const groupModels = archGroups.get(arch)!.slice().sort((a, b) => {
                                 const aActive = activeModelId === a.id ? 0 : 1
@@ -122,13 +122,13 @@ export function MyModelsTab({
                             const colors = archColor(arch)
                             return (
                                 <div key={arch}>
-                                    <div className="flex items-center gap-2 mb-3">
+                                    <div className="flex items-center gap-2 mb-1.5 px-2">
                                         <div className={`w-2 h-2 rounded-full ${colors.dot}`} />
                                         <span className={`text-[11px] font-bold uppercase tracking-wider ${colors.text}`}>{arch}</span>
                                         <span className="text-[10px] text-gray-600">{groupModels.length} model{groupModels.length !== 1 ? 's' : ''}</span>
                                         <div className="flex-1 h-px bg-white/5" />
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                    <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] overflow-hidden divide-y divide-white/[0.04]">
                                         {groupModels.map(model => {
                                             const isActive = activeModelId === model.id
                                             const isLoading = loadingModelId === model.id
@@ -136,52 +136,49 @@ export function MyModelsTab({
                                             return (
                                                 <div
                                                     key={model.id}
-                                                    className={`group relative rounded-xl border p-4 transition-all ${
+                                                    className={`group flex items-center gap-2 px-2.5 h-10 transition-colors ${
                                                         isActive
-                                                            ? `${colors.bg} ${colors.border} ring-1 ring-emerald-500/20`
-                                                            : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/10'
+                                                            ? `${colors.bg}`
+                                                            : 'hover:bg-white/[0.025]'
                                                     }`}
                                                 >
-                                                    {isActive && (
-                                                        <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                                            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400">{t('models.active')}</span>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex items-start gap-3 mb-3">
-                                                        <div className={`w-10 h-10 rounded-lg ${colors.bg} border ${colors.border} flex items-center justify-center shrink-0`}>
-                                                            <Zap size={16} className={colors.text} />
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="font-semibold text-[13px] text-white truncate leading-tight flex items-center gap-2">
-                                                                {cleanModelName(model.name)}
-                                                                {model.is_finetuned && (
-                                                                    <span className="text-[8px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/20 uppercase tracking-wide font-bold shrink-0">Tuned</span>
-                                                                )}
-                                                            </div>
-                                                            <div className="text-[10px] text-gray-600 font-mono mt-0.5 truncate">{model.id.split('/').pop()}</div>
-                                                        </div>
+                                                    <div className={`w-6 h-6 rounded ${colors.bg} border ${colors.border} flex items-center justify-center shrink-0`}>
+                                                        <Zap size={11} className={colors.text} />
                                                     </div>
-                                                    <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+                                                    <div className="min-w-0 flex-1 flex items-center gap-2">
+                                                        <span className="font-semibold text-[12px] text-white truncate" title={model.id}>
+                                                            {cleanModelName(model.name)}
+                                                        </span>
+                                                        {model.is_finetuned && (
+                                                            <span className="text-[8px] px-1 py-px rounded bg-blue-500/20 text-blue-300 uppercase tracking-wide font-bold shrink-0">Tuned</span>
+                                                        )}
+                                                        {isActive && (
+                                                            <span className="flex items-center gap-1 shrink-0">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                                <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400">{t('models.active')}</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-1 shrink-0">
                                                         {model.size && model.size !== '0.00GB' && (
-                                                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 border border-white/[0.06] text-gray-400">{model.size}</span>
+                                                            <span className="text-[10px] font-mono text-gray-400 tabular-nums w-14 text-right">{model.size}</span>
                                                         )}
                                                         {quant && (
-                                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${colors.bg} border ${colors.border} ${colors.text} uppercase tracking-wide`}>{quant}</span>
+                                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${colors.bg} ${colors.text} uppercase tracking-wide w-12 text-center`}>{quant}</span>
                                                         )}
                                                         {model.context_window && model.context_window !== 'Unknown' && (
-                                                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 border border-white/[0.06] text-gray-500">{model.context_window} ctx</span>
+                                                            <span className="text-[10px] font-mono text-gray-500 tabular-nums w-16 text-right">{model.context_window} ctx</span>
                                                         )}
                                                     </div>
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-1 shrink-0 ml-2">
                                                         {isActive ? (
                                                             <button
                                                                 type="button"
                                                                 onClick={onEject}
                                                                 aria-label="Eject model"
-                                                                className="flex-1 h-8 flex items-center justify-center gap-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors text-[11px] font-bold uppercase tracking-wide"
+                                                                className="h-7 px-2.5 flex items-center justify-center gap-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors text-[10px] font-bold uppercase tracking-wide"
                                                             >
-                                                                <LogOut size={12} />
+                                                                <LogOut size={11} />
                                                                 {t('models.eject')}
                                                             </button>
                                                         ) : (
@@ -190,12 +187,12 @@ export function MyModelsTab({
                                                                 onClick={() => onLoad(model)}
                                                                 disabled={isLoading}
                                                                 aria-label={`Load ${cleanModelName(model.name)}`}
-                                                                className="flex-1 h-8 flex items-center justify-center gap-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-colors text-[11px] font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                className="h-7 px-2.5 flex items-center justify-center gap-1 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-colors text-[10px] font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
                                                             >
                                                                 {isLoading ? (
-                                                                    <><Loader2 size={12} className="animate-spin" /> {t('common.loading')}</>
+                                                                    <><Loader2 size={11} className="animate-spin" /> {t('common.loading')}</>
                                                                 ) : (
-                                                                    <><Play size={12} className="fill-current" /> {t('models.load')}</>
+                                                                    <><Play size={11} className="fill-current" /> {t('models.load')}</>
                                                                 )}
                                                             </button>
                                                         )}
@@ -204,10 +201,10 @@ export function MyModelsTab({
                                                             onClick={() => onDelete(model.id)}
                                                             disabled={isActive || downloading.has(model.id)}
                                                             aria-label={`Delete ${cleanModelName(model.name)}`}
-                                                            className="h-8 w-8 flex items-center justify-center rounded-lg border border-white/[0.06] text-gray-600 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            className="h-7 w-7 flex items-center justify-center rounded border border-white/[0.06] text-gray-600 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                                             title={downloading.has(model.id) ? t('models.downloading') : t('models.delete')}
                                                         >
-                                                            <Trash2 size={13} />
+                                                            <Trash2 size={12} />
                                                         </button>
                                                     </div>
                                                 </div>
