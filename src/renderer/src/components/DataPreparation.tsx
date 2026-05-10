@@ -42,7 +42,6 @@ export function DataPreparation() {
                 }
             }).catch(err => { console.error('Failed to load MCP servers:', err); setMcpServers([]) })
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataMode])
 
     const loadFilePath = async (path: string) => {

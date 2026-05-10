@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- intentional: SLASH_COMMANDS, detectTrigger and OverlayTrigger are tightly coupled to this overlay component */
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Command, FileText, Trash2, Settings2, Plus, HelpCircle, BookOpen, Hash } from 'lucide-react'

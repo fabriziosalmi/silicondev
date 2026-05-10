@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- intentional: shared settings utilities and components in one file */
 import React from 'react'
 
 export interface SettingsNavItem {

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- intentional: redactPII is co-located as it operates on code block content */
 import { useState, useEffect, useRef, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Copy, Check, Play, Loader2, ChevronLeft, ChevronRight, Square, CircleCheck, CircleX, Wand2, Shield, Zap, FileText, TestTube2 } from 'lucide-react'

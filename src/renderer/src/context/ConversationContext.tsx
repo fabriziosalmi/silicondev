@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- intentional: useConversations hook co-located with ConversationProvider (standard context pattern) */
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import { apiClient, type ConversationSummary } from '../api/client'
 import { useToast } from '../components/ui/Toast'

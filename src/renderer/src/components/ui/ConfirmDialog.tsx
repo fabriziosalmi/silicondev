@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- intentional: useConfirm hook co-located with ConfirmProvider (standard context pattern) */
 import { useEffect, useCallback, useState, createContext, useContext } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useFocusTrap } from '../../hooks/useFocusTrap'

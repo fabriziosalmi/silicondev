@@ -134,8 +134,7 @@ export function Workspace() {
                 saveTimerRef.current = null;
             }
         };
-    // N-2: run cleanup both on note switch AND on full component unmount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // N-2: run cleanup on note switch AND on full component unmount (saveTimerRef is a ref, not a dep)
     }, [activeNoteId]);
 
     // Additional cleanup: cancel timer on full unmount regardless of activeNoteId
@@ -172,7 +171,7 @@ export function Workspace() {
                 }
             }
         }, 800);
-    }, [activeNoteId, setActiveNoteId, fetchNotes]);
+    }, [activeNoteId, setActiveNoteId, fetchNotes, toast]);
 
     const handleNewNote = useCallback(() => {
         setActiveNoteId(null);

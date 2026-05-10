@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- intentional: useNotes hook co-located with NotesProvider (standard context pattern) */
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import { apiClient } from '../api/client'
 import type { NoteSummary } from '../api/client'

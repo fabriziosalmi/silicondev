@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- intentional: useToast hook co-located with ToastProvider (standard context pattern) */
 import { useState, useCallback, createContext, useContext } from 'react'
 import { X, CheckCircle2, AlertTriangle, XCircle, Info } from 'lucide-react'
 

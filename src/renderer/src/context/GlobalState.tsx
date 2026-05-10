@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- intentional: useGlobalState hook co-located with GlobalStateProvider (standard context pattern) */
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { apiClient, initApiBase } from '../api/client';
 

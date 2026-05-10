@@ -691,7 +691,7 @@ export function ChatInterface() {
                 return [];
             });
         }
-    }, [activeModel?.is_vision]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [activeModel?.is_vision]);
 
     // ── Workspace file loading for @mentions ──
     useEffect(() => {
@@ -828,7 +828,7 @@ export function ChatInterface() {
         }
     }, [activeModel?.is_vision])
 
-    const handleSend = async (directPrompt?: string, displayContent?: string, actionType?: string) => {
+    const handleSend = useCallback(async (directPrompt?: string, displayContent?: string, actionType?: string) => {
         const text = directPrompt ?? input;
         if ((!text.trim() && pendingImages.length === 0) || !currentModelId || isGenerating || sendingRef.current) return
         sendingRef.current = true
@@ -1051,7 +1051,8 @@ export function ChatInterface() {
             setIsGenerating(false)
             sendingRef.current = false
         }
-    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleDeleteMessage = (msgIndex: number) => {
         if (isGenerating) return;
