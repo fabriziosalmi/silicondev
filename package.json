@@ -1,94 +1,94 @@
 {
-    "name": "silicondev",
+  "name": "silicondev",
+  "productName": "SiliconDev",
+  "version": "0.16.14",
+  "description": "Local AI development environment for Apple Silicon",
+  "main": "dist/main/main.js",
+  "author": "SiliconDev",
+  "license": "MIT",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "dev:renderer": "cd src/renderer && npm run dev",
+    "dev:electron": "wait-on tcp:5173 && tsc -p src/main/tsconfig.json && electron .",
+    "build": "npm run build:renderer && npm run build:main",
+    "build:renderer": "cd src/renderer && npm run build",
+    "build:main": "tsc -p src/main/tsconfig.json",
+    "start": "electron .",
+    "package": "npm run build && npm run build:backend && electron-builder build --mac",
+    "build:backend": "cd backend && .venv/bin/python -m PyInstaller spec/silicon_server.spec --clean --noconfirm"
+  },
+  "build": {
+    "appId": "com.silicondev.app",
     "productName": "SiliconDev",
-    "version": "0.16.13",
-    "description": "Local AI development environment for Apple Silicon",
-    "main": "dist/main/main.js",
-    "author": "SiliconDev",
-    "license": "MIT",
-    "scripts": {
-        "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
-        "dev:renderer": "cd src/renderer && npm run dev",
-        "dev:electron": "wait-on tcp:5173 && tsc -p src/main/tsconfig.json && electron .",
-        "build": "npm run build:renderer && npm run build:main",
-        "build:renderer": "cd src/renderer && npm run build",
-        "build:main": "tsc -p src/main/tsconfig.json",
-        "start": "electron .",
-        "package": "npm run build && npm run build:backend && electron-builder build --mac",
-        "build:backend": "cd backend && .venv/bin/python -m PyInstaller spec/silicon_server.spec --clean --noconfirm"
+    "directories": {
+      "output": "release"
     },
-    "build": {
-        "appId": "com.silicondev.app",
-        "productName": "SiliconDev",
-        "directories": {
-            "output": "release"
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      "backend/dist/silicon_server"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "fabriziosalmi",
+      "repo": "silicondev"
+    },
+    "mac": {
+      "icon": "resources/icon.icns",
+      "defaultArch": "arm64",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
         },
-        "files": [
-            "dist/**/*",
-            "package.json"
-        ],
-        "extraResources": [
-            "backend/dist/silicon_server"
-        ],
-        "publish": {
-            "provider": "github",
-            "owner": "fabriziosalmi",
-            "repo": "silicondev"
-        },
-        "mac": {
-            "icon": "resources/icon.icns",
-            "defaultArch": "arm64",
-            "target": [
-                {
-                    "target": "dmg",
-                    "arch": [
-                        "arm64"
-                    ]
-                },
-                {
-                    "target": "zip",
-                    "arch": [
-                        "arm64"
-                    ]
-                }
-            ],
-            "hardenedRuntime": true,
-            "gatekeeperAssess": false,
-            "entitlements": "resources/entitlements.mac.plist",
-            "entitlementsInherit": "resources/entitlements.mac.plist",
-            "identity": "Fabrizio Salmi (7FC7ZTYMYU)",
-            "notarize": true,
-            "extendInfo": {
-                "NSCameraUsageDescription": "Application requires access to camera for vision features",
-                "NSMicrophoneUsageDescription": "Application requires access to microphone for voice features"
-            }
-        },
-        "dmg": {
-            "size": "2g",
-            "contents": [
-                {
-                    "x": 130,
-                    "y": 220
-                },
-                {
-                    "x": 410,
-                    "y": 220,
-                    "type": "link",
-                    "path": "/Applications"
-                }
-            ]
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
         }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "resources/entitlements.mac.plist",
+      "entitlementsInherit": "resources/entitlements.mac.plist",
+      "identity": "Fabrizio Salmi (7FC7ZTYMYU)",
+      "notarize": true,
+      "extendInfo": {
+        "NSCameraUsageDescription": "Application requires access to camera for vision features",
+        "NSMicrophoneUsageDescription": "Application requires access to microphone for voice features"
+      }
     },
-    "dependencies": {
-        "electron-log": "^5.3.0",
-        "electron-updater": "^6.6.2",
-        "rehype-sanitize": "^6.0.0"
-    },
-    "devDependencies": {
-        "concurrently": "^8.2.2",
-        "electron": "^35.0.0",
-        "electron-builder": "^26.8.1",
-        "typescript": "^5.3.3",
-        "wait-on": "^7.2.0"
+    "dmg": {
+      "size": "2g",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     }
+  },
+  "dependencies": {
+    "electron-log": "^5.3.0",
+    "electron-updater": "^6.6.2",
+    "rehype-sanitize": "^6.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^35.0.0",
+    "electron-builder": "^26.8.1",
+    "typescript": "^5.3.3",
+    "wait-on": "^7.2.0"
+  }
 }
