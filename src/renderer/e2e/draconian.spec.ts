@@ -291,8 +291,7 @@ test.describe('DRACONIAN — Settings', () => {
   })
 
   test('PII Redaction toggle is interactive', async ({ page }) => {
-    const toggle = page.locator('button[role="switch"][id*="pii"], label:has-text("PII") ~ button, [id*="pii"]').first()
-    // Just verify the privacy section is there and clickable
+    // Verify the privacy section is present
     await expect(page.getByText('PII Redaction').first()).toBeVisible({ timeout: 5000 })
   })
 

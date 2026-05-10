@@ -51,9 +51,6 @@ test.describe('Chat Send Flow', () => {
     const ta = await getTextarea(page)
 
     await ta.fill('Hello from send button')
-
-    // Send button must NOT have cursor-not-allowed
-    const sendBtn = page.locator('button[title]').filter({ hasText: '' }).last()
     await ta.press('Enter')
 
     await expect(page.getByText('Hello from send button').first()).toBeVisible({ timeout: 10_000 })
