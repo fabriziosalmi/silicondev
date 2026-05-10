@@ -24,6 +24,7 @@ adapters/
 
 # Runtime-generated config
 backend/models.json
+models.json
 
 # Logs
 *.log
@@ -36,7 +37,6 @@ release/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 docs/node_modules/
-docs/package-lock.json
 
 # Internal planning
 PLAN.md
@@ -45,8 +45,10 @@ PLAN_v*.md
 silicondev-coder-agent-analysis.md
 silicondev-pareto-opportunities.md
 silicondev-vs-vmlx-roadmap.md
+*SOLUTIONS*.md
 
-*SOLUTIONS*.mdtest-results/
+# Testing
+test-results/
 
 # Workspace settings
 .pytest_cache/
