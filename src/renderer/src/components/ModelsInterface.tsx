@@ -15,7 +15,10 @@ export function ModelsInterface() {
     const { t } = useTranslation()
     const { toast } = useToast()
     const [models, setModels] = useState<ModelEntry[]>([])
-    const [activeTab, setActiveTab] = useState<'my-models' | 'discover'>('my-models')
+    // Default tab is "my-models" once the user has any; first-time users land
+    // on "discover" so the first thing they see is models they can install.
+    const [activeTab, setActiveTab] = useState<'my-models' | 'discover'>('discover')
+    const [tabAutoSwitched, setTabAutoSwitched] = useState(false)
     const [loading, setLoading] = useState(false)
     const [downloading, setDownloading] = useState<Set<string>>(new Set())
     const [error, setError] = useState<string | null>(null)
@@ -126,6 +129,17 @@ export function ModelsInterface() {
         [models, downloading]
     )
 
+    // Once we know the user has at least one model, switch the default tab to
+    // My Models — but only on first load, never after the user has manually
+    // navigated.
+    useEffect(() => {
+        if (tabAutoSwitched) return
+        if (downloadedModels.length > 0 && activeTab === 'discover') {
+            setActiveTab('my-models')
+        }
+        if (models.length > 0) setTabAutoSwitched(true)
+    }, [models.length, downloadedModels.length, activeTab, tabAutoSwitched])
+
     const discoverableModels = useMemo(() =>
         models.filter(m => !m.is_custom && !m.downloaded && !downloading.has(m.id)),
         [models, downloading]
@@ -154,19 +168,19 @@ export function ModelsInterface() {
                 <div className="flex gap-6">
                     <button
                         type="button"
-                        onClick={() => { setActiveTab('my-models'); setSearchQuery('') }}
-                        className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'my-models' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
-                    >
-                        {t('models.myModels')} ({downloadedModels.length})
-                        {activeTab === 'my-models' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400 rounded-full" />}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('discover')}
+                        onClick={() => { setActiveTab('discover'); setSearchQuery(''); setTabAutoSwitched(true) }}
                         className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'discover' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
                     >
                         {t('models.discover')}
                         {activeTab === 'discover' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400 rounded-full" />}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { setActiveTab('my-models'); setSearchQuery(''); setTabAutoSwitched(true) }}
+                        className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'my-models' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        {t('models.myModels')} ({downloadedModels.length})
+                        {activeTab === 'my-models' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400 rounded-full" />}
                     </button>
                 </div>
                 <div className="flex items-center gap-4 pb-3 text-[11px] text-gray-500">

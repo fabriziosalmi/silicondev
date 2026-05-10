@@ -142,16 +142,18 @@ export function DataPreparation() {
             <div className="flex gap-6 border-b border-white/10 px-1">
                 <button
                     onClick={() => { setDataMode('file'); setPreview([]); }}
-                    className={`pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 ${dataMode === 'file' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
+                    className={`px-2 pb-3 text-sm font-medium transition-colors relative flex items-center gap-2.5 ${dataMode === 'file' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
                 >
-                    <FileText className="w-4 h-4" /> Import from File
+                    <FileText className="w-4 h-4 shrink-0" />
+                    <span>Import from File</span>
                     {dataMode === 'file' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>}
                 </button>
                 <button
                     onClick={() => { setDataMode('mcp'); setPreview([]); }}
-                    className={`pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 ${dataMode === 'mcp' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
+                    className={`px-2 pb-3 text-sm font-medium transition-colors relative flex items-center gap-2.5 ${dataMode === 'mcp' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
                 >
-                    <Server className="w-4 h-4" /> Generate via MCP
+                    <Server className="w-4 h-4 shrink-0" />
+                    <span>Generate via MCP</span>
                     {dataMode === 'mcp' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>}
                 </button>
             </div>

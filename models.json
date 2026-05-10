@@ -11,11 +11,158 @@
         "context_window": "32k"
     },
     {
+        "id": "mlx-community/Qwen3.6-35B-A3B-4bit",
+        "name": "Qwen 3.6 35B A3B (MoE, 4-bit)",
+        "size": "20.0GB",
+        "family": "Qwen",
+        "url": "https://huggingface.co/mlx-community/Qwen3.6-35B-A3B-4bit"
+    },
+    {
+        "id": "mlx-community/Qwen3.6-27B-4bit",
+        "name": "Qwen 3.6 27B (4-bit)",
+        "size": "15.5GB",
+        "family": "Qwen",
+        "url": "https://huggingface.co/mlx-community/Qwen3.6-27B-4bit"
+    },
+    {
+        "id": "mlx-community/Qwen3.5-27B-4bit",
+        "name": "Qwen 3.5 27B (4-bit)",
+        "size": "15.5GB",
+        "family": "Qwen",
+        "url": "https://huggingface.co/mlx-community/Qwen3.5-27B-4bit"
+    },
+    {
+        "id": "mlx-community/Qwen3.5-9B-MLX-4bit",
+        "name": "Qwen 3.5 9B (4-bit)",
+        "size": "5.5GB",
+        "family": "Qwen",
+        "url": "https://huggingface.co/mlx-community/Qwen3.5-9B-MLX-4bit"
+    },
+    {
+        "id": "mlx-community/Qwen3.5-27B-Claude-4.6-Opus-Distilled-MLX-4bit",
+        "name": "Qwen 3.5 27B (Claude 4.6 Opus distilled, 4-bit)",
+        "size": "15.5GB",
+        "family": "Qwen",
+        "url": "https://huggingface.co/mlx-community/Qwen3.5-27B-Claude-4.6-Opus-Distilled-MLX-4bit"
+    },
+    {
+        "id": "mlx-community/Qwen3-30B-A3B-4bit",
+        "name": "Qwen 3 30B A3B (MoE, 4-bit)",
+        "size": "17.5GB",
+        "family": "Qwen",
+        "url": "https://huggingface.co/mlx-community/Qwen3-30B-A3B-4bit"
+    },
+    {
+        "id": "mlx-community/Qwen3-8B-MLX-4bit",
+        "name": "Qwen 3 8B (4-bit)",
+        "size": "4.3GB",
+        "family": "Qwen",
+        "url": "https://huggingface.co/mlx-community/Qwen3-8B-MLX-4bit"
+    },
+    {
+        "id": "mlx-community/Qwen3-4B-Instruct-2507-MLX-4bit",
+        "name": "Qwen 3 4B Instruct (4-bit)",
+        "size": "2.1GB",
+        "family": "Qwen",
+        "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-MLX-4bit"
+    },
+    {
+        "id": "mlx-community/Qwen3-1.7B-MLX-4bit",
+        "name": "Qwen 3 1.7B (4-bit)",
+        "size": "1.0GB",
+        "family": "Qwen",
+        "url": "https://huggingface.co/mlx-community/Qwen3-1.7B-MLX-4bit"
+    },
+    {
         "id": "mlx-community/Qwen3-0.6B-4bit",
         "name": "Qwen 3 0.6B (4-bit)",
         "size": "0.4GB",
         "family": "Qwen",
         "url": "https://huggingface.co/mlx-community/Qwen3-0.6B-4bit"
+    },
+    {
+        "id": "mlx-community/gemma-4-31b-it-4bit",
+        "name": "Gemma 4 31B Instruct (4-bit)",
+        "size": "17.5GB",
+        "family": "Gemma",
+        "url": "https://huggingface.co/mlx-community/gemma-4-31b-it-4bit"
+    },
+    {
+        "id": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "name": "Gemma 4 26B A4B (MoE, 4-bit)",
+        "size": "15.0GB",
+        "family": "Gemma",
+        "url": "https://huggingface.co/mlx-community/gemma-4-26b-a4b-it-4bit"
+    },
+    {
+        "id": "mlx-community/gemma-4-e4b-it-4bit",
+        "name": "Gemma 4 E4B Instruct (4-bit)",
+        "size": "2.5GB",
+        "family": "Gemma",
+        "url": "https://huggingface.co/mlx-community/gemma-4-e4b-it-4bit"
+    },
+    {
+        "id": "mlx-community/gemma-4-e2b-it-4bit",
+        "name": "Gemma 4 E2B Instruct (4-bit)",
+        "size": "1.4GB",
+        "family": "Gemma",
+        "url": "https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit"
+    },
+    {
+        "id": "mlx-community/gemma-3-27b-it-qat-4bit",
+        "name": "Gemma 3 27B Instruct QAT (4-bit)",
+        "size": "16.0GB",
+        "family": "Gemma",
+        "url": "https://huggingface.co/mlx-community/gemma-3-27b-it-qat-4bit"
+    },
+    {
+        "id": "mlx-community/gemma-3-12b-it-qat-4bit",
+        "name": "Gemma 3 12B Instruct QAT (4-bit)",
+        "size": "7.8GB",
+        "family": "Gemma",
+        "url": "https://huggingface.co/mlx-community/gemma-3-12b-it-qat-4bit"
+    },
+    {
+        "id": "mlx-community/gemma-3-4b-it-qat-4bit",
+        "name": "Gemma 3 4B Instruct QAT (4-bit)",
+        "size": "2.6GB",
+        "family": "Gemma",
+        "url": "https://huggingface.co/mlx-community/gemma-3-4b-it-qat-4bit"
+    },
+    {
+        "id": "mlx-community/gemma-3-1b-it-qat-4bit",
+        "name": "Gemma 3 1B Instruct QAT (4-bit)",
+        "size": "0.7GB",
+        "family": "Gemma",
+        "url": "https://huggingface.co/mlx-community/gemma-3-1b-it-qat-4bit"
+    },
+    {
+        "id": "mlx-community/Devstral-Small-2-24B-Instruct-2512-4bit",
+        "name": "Devstral Small 2 24B (Mistral, 4-bit)",
+        "size": "13.5GB",
+        "family": "Mistral",
+        "url": "https://huggingface.co/mlx-community/Devstral-Small-2-24B-Instruct-2512-4bit"
+    },
+    {
+        "id": "mlx-community/gpt-oss-20b-MXFP4-Q8",
+        "name": "GPT-OSS 20B (MXFP4 Q8)",
+        "size": "12.0GB",
+        "family": "Other",
+        "url": "https://huggingface.co/mlx-community/gpt-oss-20b-MXFP4-Q8"
+    },
+    {
+        "id": "mlx-community/Kimi-K2.6-mlx-DQ3_K_M-q8",
+        "name": "Kimi K2.6 (DQ3 K_M, q8)",
+        "size": "8.0GB",
+        "family": "Other",
+        "url": "https://huggingface.co/mlx-community/Kimi-K2.6-mlx-DQ3_K_M-q8"
+    },
+    {
+        "id": "mlx-community/LFM2.5-1.2B-Instruct-4bit",
+        "name": "LFM2.5 1.2B Instruct (4-bit)",
+        "size": "0.7GB",
+        "family": "LFM",
+        "url": "https://huggingface.co/mlx-community/LFM2.5-1.2B-Instruct-4bit"
     },
     {
         "id": "mlx-community/Llama-4-Scout-17B-16E-Instruct-4bit",

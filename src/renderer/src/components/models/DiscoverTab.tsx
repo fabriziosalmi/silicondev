@@ -6,7 +6,24 @@ import { Search, Download, FileText, Loader2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
-import { archColor, guessPublisher, RECOMMENDED_MODELS } from './ModelsUtils'
+import { archColor, parseSizeGB, RECOMMENDED_MODELS } from './ModelsUtils'
+
+// Order of family chips in the Discover filter bar — most popular first.
+const FAMILY_ORDER = ['Qwen', 'Llama', 'Gemma', 'Mistral', 'Phi', 'NanoCoder', 'LFM', 'Other'] as const
+type Family = typeof FAMILY_ORDER[number] | 'All'
+
+function familyOf(model: ModelEntry): Exclude<Family, 'All'> {
+    const arch = (model.architecture || '').toLowerCase()
+    const id = model.id.toLowerCase()
+    if (arch.includes('qwen') || id.includes('qwen')) return 'Qwen'
+    if (arch.includes('llama') || id.includes('llama')) return 'Llama'
+    if (arch.includes('gemma') || id.includes('gemma')) return 'Gemma'
+    if (arch.includes('mistral') || arch.includes('mixtral') || id.includes('mistral') || id.includes('devstral')) return 'Mistral'
+    if (arch.includes('phi') || id.includes('phi')) return 'Phi'
+    if (arch.includes('lfm') || id.includes('lfm')) return 'LFM'
+    if (id.includes('nanocoder')) return 'NanoCoder'
+    return 'Other'
+}
 
 interface DiscoverTabProps {
     models: ModelEntry[]
@@ -26,18 +43,34 @@ export function DiscoverTab({
     const [readmeContent, setReadmeContent] = useState("")
     const [readmeLoading, setReadmeLoading] = useState(false)
     const readmeAbortRef = useRef<AbortController | null>(null)
+    const [familyFilter, setFamilyFilter] = useState<Family>('All')
 
-    const displayedModels = useMemo(() =>
-        models.filter(m => {
-            const q = searchQuery.toLowerCase()
-            const matchesSearch = m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q)
-            if (!matchesSearch) return false
-            const sizeGB = parseFloat(m.size.match(/([\d.]+)\s*GB/i)?.[1] || '0')
-            if (sizeGB > 0 && availableRamBytes > 0 && sizeGB * 1.07e9 > availableRamBytes) return false
-            return true
-        }),
-        [models, searchQuery, availableRamBytes]
-    )
+    // Family chip counts for the filter bar (excludes models that won't fit RAM)
+    const familyCounts = useMemo(() => {
+        const counts = new Map<string, number>()
+        for (const m of models) {
+            const sizeGB = parseSizeGB(m.size)
+            if (sizeGB > 0 && availableRamBytes > 0 && sizeGB * 1.07e9 > availableRamBytes) continue
+            const fam = familyOf(m)
+            counts.set(fam, (counts.get(fam) ?? 0) + 1)
+        }
+        return counts
+    }, [models, availableRamBytes])
+
+    const displayedModels = useMemo(() => {
+        const q = searchQuery.toLowerCase()
+        return models
+            .filter(m => {
+                const matchesSearch = m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q)
+                if (!matchesSearch) return false
+                const sizeGB = parseSizeGB(m.size)
+                if (sizeGB > 0 && availableRamBytes > 0 && sizeGB * 1.07e9 > availableRamBytes) return false
+                if (familyFilter !== 'All' && familyOf(m) !== familyFilter) return false
+                return true
+            })
+            // Smaller models first — easier to pick when looking by RAM budget.
+            .sort((a, b) => parseSizeGB(a.size) - parseSizeGB(b.size))
+    }, [models, searchQuery, availableRamBytes, familyFilter])
 
     const fetchReadme = async (id: string) => {
         readmeAbortRef.current?.abort()
@@ -79,26 +112,50 @@ export function DiscoverTab({
     return (
         <div className="h-full flex gap-4 overflow-hidden">
 
-            {/* Left Side: Search & List */}
-            <div className="w-1/3 flex flex-col bg-black/20 border border-white/10 rounded-xl overflow-hidden shrink-0">
-                <div className="p-4 border-b border-white/10 bg-white/[0.02]">
+            {/* Left Side: Search, Family filter, Recommended, Dense list */}
+            <div className="w-2/5 flex flex-col bg-black/20 border border-white/10 rounded-xl overflow-hidden shrink-0">
+                <div className="p-3 border-b border-white/10 bg-white/[0.02] space-y-2">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
                         <input
                             type="text"
                             placeholder={t('models.search')}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-white outline-none focus:border-blue-500 text-sm transition-colors"
+                            className="w-full bg-black/40 border border-white/10 rounded-md pl-8 pr-3 h-8 text-white text-[12px] outline-none focus:border-blue-500 transition-colors"
                         />
+                    </div>
+                    {/* Family filter chips */}
+                    <div className="flex flex-wrap gap-1">
+                        {(['All', ...FAMILY_ORDER] as const).map(fam => {
+                            const count = fam === 'All'
+                                ? Array.from(familyCounts.values()).reduce((a, b) => a + b, 0)
+                                : (familyCounts.get(fam) ?? 0)
+                            if (fam !== 'All' && count === 0) return null
+                            const isActive = familyFilter === fam
+                            return (
+                                <button
+                                    key={fam}
+                                    type="button"
+                                    onClick={() => setFamilyFilter(fam)}
+                                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                                        isActive
+                                            ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
+                                            : 'bg-white/[0.03] border-white/10 text-gray-500 hover:text-gray-300'
+                                    }`}
+                                >
+                                    {fam} <span className="opacity-50">{count}</span>
+                                </button>
+                            )
+                        })}
                     </div>
                 </div>
                 <div className="flex-1 overflow-y-auto no-scrollbar">
-                    {/* Recommended section */}
-                    {!searchQuery && (
-                        <div className="p-4 border-b border-white/10">
-                            <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">{t('models.recommended')}</h3>
-                            <div className="grid grid-cols-2 gap-2">
+                    {/* Recommended section — only when no filter is active */}
+                    {!searchQuery && familyFilter === 'All' && (
+                        <div className="p-3 border-b border-white/10">
+                            <h3 className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">{t('models.recommended')}</h3>
+                            <div className="grid grid-cols-2 gap-1.5">
                                 {RECOMMENDED_MODELS.filter(rec => {
                                     if (availableRamBytes > 0 && rec.sizeGB * 1.07e9 > availableRamBytes) return false
                                     return true
@@ -108,50 +165,65 @@ export function DiscoverTab({
                                     const isDownloading = downloading.has(rec.id)
                                     const colors = archColor(catalogModel.architecture)
                                     return (
-                                        <div key={rec.id} className={`${colors.bg} border ${colors.border} rounded-lg p-3 flex flex-col gap-1.5`}>
-                                            <div className="text-xs font-semibold text-white truncate">{cleanModelName(catalogModel.name)}</div>
-                                            <div className="flex items-center gap-1.5">
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${colors.text} font-medium`}>{rec.label}</span>
-                                                <span className="text-[10px] text-gray-500">{catalogModel.size}</span>
+                                        <button
+                                            key={rec.id}
+                                            type="button"
+                                            onClick={() => onDownload(rec.id)}
+                                            disabled={isDownloading}
+                                            className={`${colors.bg} border ${colors.border} rounded-md p-2 flex flex-col gap-0.5 text-left hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed`}
+                                            title={`${cleanModelName(catalogModel.name)} — ${catalogModel.size}`}
+                                        >
+                                            <div className="text-[11px] font-semibold text-white truncate">{cleanModelName(catalogModel.name)}</div>
+                                            <div className="flex items-center justify-between gap-1">
+                                                <span className={`text-[9px] ${colors.text} font-medium truncate`}>{rec.label}</span>
+                                                <span className="text-[9px] text-gray-500 font-mono shrink-0">{catalogModel.size}</span>
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => onDownload(rec.id)}
-                                                disabled={isDownloading}
-                                                className="mt-1 w-full text-center text-[10px] font-bold uppercase tracking-wide py-1.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isDownloading ? t('models.downloading') : t('models.download')}
-                                            </button>
-                                        </div>
+                                        </button>
                                     )
                                 })}
                             </div>
                         </div>
                     )}
-                    {displayedModels.map(model => {
-                        const colors = archColor(model.architecture)
-                        return (
-                            <button
-                                type="button"
-                                key={model.id}
-                                onClick={() => selectModelForDetails(model)}
-                                className={`w-full text-left p-4 border-b border-white/5 hover:bg-white/5 transition-colors ${
-                                    selectedModel?.id === model.id ? `${colors.bg} border-l-2 ${colors.border}` : ''
-                                }`}
-                            >
-                                <div className="font-semibold text-white truncate text-sm mb-1">{cleanModelName(model.name)}</div>
-                                <div className="flex items-center gap-2 mt-1.5">
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${colors.bg} border ${colors.border} ${colors.text} font-medium`}>
-                                        {model.architecture || guessPublisher(model.id)}
-                                    </span>
-                                    <span className="text-[10px] px-1.5 py-0.5 bg-white/5 rounded text-gray-400 border border-white/5">{model.size}</span>
-                                    {model.context_window && model.context_window !== 'Unknown' && (
-                                        <span className="text-[10px] text-gray-600">{model.context_window}</span>
-                                    )}
-                                </div>
-                            </button>
-                        )
-                    })}
+                    {/* Dense list — one ~32px row per model, smallest first */}
+                    {displayedModels.length === 0 ? (
+                        <div className="p-6 text-center text-[11px] text-gray-600">No models match.</div>
+                    ) : (
+                        <div className="divide-y divide-white/[0.04]">
+                            {displayedModels.map(model => {
+                                const colors = archColor(model.architecture)
+                                const isSelected = selectedModel?.id === model.id
+                                const isDownloading = downloading.has(model.id)
+                                return (
+                                    <div
+                                        key={model.id}
+                                        className={`group flex items-center gap-2 px-3 h-9 transition-colors ${
+                                            isSelected ? colors.bg : 'hover:bg-white/[0.025]'
+                                        }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() => selectModelForDetails(model)}
+                                            className="flex-1 min-w-0 flex items-center gap-2 text-left h-full"
+                                        >
+                                            <div className={`w-1.5 h-1.5 rounded-full ${colors.dot} shrink-0`} />
+                                            <span className="text-[12px] font-medium text-gray-200 truncate">{cleanModelName(model.name)}</span>
+                                            <span className="text-[10px] text-gray-500 font-mono ml-auto tabular-nums shrink-0">{model.size}</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDownload(model.id)}
+                                            disabled={isDownloading}
+                                            aria-label={`Download ${cleanModelName(model.name)}`}
+                                            className="h-6 w-6 flex items-center justify-center rounded text-gray-600 opacity-0 group-hover:opacity-100 hover:bg-blue-500/20 hover:text-blue-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                                            title={isDownloading ? t('models.downloading') : t('models.download')}
+                                        >
+                                            {isDownloading ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+                                        </button>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
 

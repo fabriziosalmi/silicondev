@@ -1,8 +1,12 @@
+// Curated picks shown on the Discover page above the full catalog.
+// Order matters: the first card is what a brand-new user sees first.
 export const RECOMMENDED_MODELS = [
-    { id: 'mlx-community/Qwen3-0.6B-4bit', label: 'Tiny, fast', sizeGB: 0.4 },
-    { id: 'mlx-community/Qwen2.5-3B-Instruct-4bit', label: 'Good default', sizeGB: 1.8 },
-    { id: 'mlx-community/Llama-3.2-3B-Instruct-4bit', label: 'Meta Llama', sizeGB: 1.8 },
-    { id: 'mlx-community/Gemma-3-4b-it-4bit', label: 'Google Gemma', sizeGB: 2.6 },
+    { id: 'mlx-community/Qwen3.5-9B-MLX-4bit', label: 'Best 8GB pick', sizeGB: 5.5 },
+    { id: 'mlx-community/Qwen3-30B-A3B-4bit', label: 'MoE — 32GB+', sizeGB: 17.5 },
+    { id: 'mlx-community/gemma-3-12b-it-qat-4bit', label: 'Google Gemma', sizeGB: 7.8 },
+    { id: 'mlx-community/Devstral-Small-2-24B-Instruct-2512-4bit', label: 'Coding', sizeGB: 13.5 },
+    { id: 'mlx-community/Qwen3-1.7B-MLX-4bit', label: 'Tiny, fast', sizeGB: 1.0 },
+    { id: 'mlx-community/Llama-3.3-70B-Instruct-4bit', label: 'Llama, big', sizeGB: 40.0 },
 ]
 
 export function parseSizeGB(size: string): number {
