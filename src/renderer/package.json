@@ -1,7 +1,7 @@
 {
   "name": "renderer",
   "private": true,
-  "version": "0.16.12",
+  "version": "0.16.13",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,8 @@
     "generate:types": "openapi-typescript http://127.0.0.1:8000/openapi.json -o src/api/generated-types.ts"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@monaco-editor/react": "^4.7.0",
     "@types/diff": "^7.0.2",
     "d3-force": "^3.0.0",

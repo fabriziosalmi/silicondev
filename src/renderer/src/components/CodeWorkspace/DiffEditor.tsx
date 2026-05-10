@@ -64,7 +64,7 @@ export function DiffEditor({ filePath, originalContent, modifiedContent, languag
             options={{
               readOnly: true,
               fontSize: 13,
-              fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', monospace",
+              fontFamily: "'JetBrains Mono Variable', 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace",
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               padding: { top: 8 },

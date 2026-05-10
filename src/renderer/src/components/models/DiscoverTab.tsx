@@ -88,6 +88,11 @@ export function DiscoverTab({
         setReadmeLoading(true)
         try {
             if (id.startsWith('mlx-community/') || id.includes('/')) {
+                // Air-gap guard: skip network request when offline
+                if (!navigator.onLine) {
+                    setReadmeContent('⚡ Offline mode — README not available without internet access.\n\nThe local catalog and already-downloaded models work fully offline.')
+                    return
+                }
                 const controller = new AbortController()
                 readmeAbortRef.current = controller
                 const timeout = setTimeout(() => controller.abort(), 5000)
@@ -97,19 +102,19 @@ export function DiscoverTab({
                     if (response.ok) {
                         setReadmeContent(await response.text())
                     } else {
-                        setReadmeContent("README not found or model is private.")
+                        setReadmeContent('README not found or model is private.')
                     }
                 } catch {
                     clearTimeout(timeout)
                     if (!controller.signal.aborted) {
-                        setReadmeContent("Unable to fetch README. You may be offline.")
+                        setReadmeContent('Unable to fetch README. You may be offline.')
                     }
                 }
             } else {
-                setReadmeContent("No README available for custom local models.")
+                setReadmeContent('No README available for custom local models.')
             }
         } catch {
-            setReadmeContent("Unable to fetch README. Check your internet connection.")
+            setReadmeContent('Unable to fetch README. Check your internet connection.')
         } finally {
             setReadmeLoading(false)
         }
@@ -131,6 +136,12 @@ export function DiscoverTab({
 
     const searchHuggingFace = useCallback(async (q: string) => {
         if (!q.trim()) { setHfResults([]); return; }
+        // Air-gap guard: if offline, show banner immediately without a failing fetch
+        if (!navigator.onLine) {
+            setHfError('Offline mode — HuggingFace search requires an internet connection. The local Catalog works fully offline.')
+            setHfLoading(false)
+            return
+        }
         hfAbortRef.current?.abort();
         const ctrl = new AbortController();
         hfAbortRef.current = ctrl;

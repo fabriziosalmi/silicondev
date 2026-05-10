@@ -1104,8 +1104,12 @@ export function ChatInterface() {
         const ta = e.currentTarget
         setCursorPosition(ta.selectionStart)
 
-        // If overlay is visible, let it handle arrow keys, Tab, Enter, Escape
-        if (overlayVisible) {
+        // If overlay is visible AND has an active trigger (i.e., items would be shown),
+        // defer arrow/tab/enter/escape to InputOverlay's capture-phase listener.
+        // Re-evaluate the trigger at keydown time to avoid stale `overlayVisible` state
+        // where the flag is true but the overlay renders nothing (zero matching items).
+        const liveTrigger = detectTrigger(input, ta.selectionStart)
+        if (overlayVisible && liveTrigger !== null) {
             if (['ArrowUp', 'ArrowDown', 'Tab', 'Escape'].includes(e.key)) return // handled by InputOverlay
             if (e.key === 'Enter') return // handled by InputOverlay (selects item)
         }

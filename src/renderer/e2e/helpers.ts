@@ -799,3 +799,32 @@ export async function setupWorkspace(page: Page) {
     window.dispatchEvent(new CustomEvent('workspace-dir-changed', { detail: '/mock/project' }))
   })
 }
+
+/**
+ * Override the active-model mock to return a loaded model.
+ * Call this BEFORE page.goto() (or after, then reload) so the app sees a model.
+ * The chat SSE mock in mockBackendAPIs already returns tokens, so messages will appear.
+ */
+export async function mockActiveModel(page: Page, modelId = 'mlx-community/Llama-3.2-3B-Instruct-4bit') {
+  await page.route('**/api/engine/models/active', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        model: {
+          id: modelId,
+          name: 'Llama 3.2 3B Instruct',
+          size: '1.8GB',
+          family: 'Llama',
+          architecture: 'LlamaForCausalLM',
+          context_window: '4096',
+          quantization: '4-bit',
+          downloaded: true,
+          downloading: false,
+          local_path: '/mock/models/llama',
+          is_vision: false,
+        },
+      }),
+    })
+  )
+}
