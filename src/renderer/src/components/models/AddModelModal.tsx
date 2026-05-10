@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { apiClient } from '../../api/client'
 import type { ModelEntry } from '../../api/client'
 import { HardDrive, Loader2 } from 'lucide-react'
-import { useFocusTrap } from '../../../hooks/useFocusTrap'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 interface AddModelModalProps {
     onClose: () => void
