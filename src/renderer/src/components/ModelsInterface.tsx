@@ -227,7 +227,7 @@ export function ModelsInterface() {
                 </div>
             )}
             <PageHeader>
-                {(window as Window & { electronAPI?: { openGguf?: unknown } }).electronAPI?.openGguf && (
+                {!!(window as Window & { electronAPI?: { openGguf?: unknown } }).electronAPI?.openGguf && (
                     <button
                         type="button"
                         onClick={handleOpenGguf}
