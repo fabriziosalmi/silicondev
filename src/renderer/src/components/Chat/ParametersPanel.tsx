@@ -49,8 +49,9 @@ export function ParametersPanel({
     const { t } = useTranslation()
     const [showLibrary, setShowLibrary] = useState(false)
 
-    // B-7: /library slash command trigger
+    // B-7: /library slash command trigger — parent increments counter to open library
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: responding to external trigger prop, not an internal side-effect
         if (openLibraryTrigger && openLibraryTrigger > 0) setShowLibrary(true)
     }, [openLibraryTrigger])
 

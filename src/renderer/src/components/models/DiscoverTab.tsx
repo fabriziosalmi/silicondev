@@ -252,6 +252,7 @@ export function DiscoverTab({
                         </div>
                     </div>
                 ) : (
+                <>
                 <div className="p-3 border-b border-white/10 bg-white/[0.02] space-y-2">
                     <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
@@ -389,6 +390,7 @@ export function DiscoverTab({
                         </div>
                     )}
                 </div>
+                </>
                 )}
             </div>
 
