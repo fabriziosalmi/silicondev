@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import List, Dict
 
-from presidio_analyzer import AnalyzerEngine, Registry
+from presidio_analyzer import AnalyzerEngine
 from presidio_anonymizer import AnonymizerEngine
 import spacy
 
