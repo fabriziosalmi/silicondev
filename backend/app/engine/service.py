@@ -41,6 +41,9 @@ class MLXEngineService:
     def __init__(self):
         self.active_jobs = {}
         self.active_downloads = set()
+        # Maps model_id -> int (0-100) progress during download.
+        # Populated by _track_download_progress; read by get_models().
+        self.download_progress: dict[str, int] = {}
         self.active_model_id = None
         self.active_model = None
         self.active_tokenizer = None
@@ -1594,7 +1597,8 @@ class MLXEngineService:
             entry = {
                 **m,
                 "downloaded": is_downloaded,
-                "downloading": is_downloading, 
+                "downloading": is_downloading,
+                "download_progress": self.download_progress.get(m["id"], 0) if is_downloading else 0,
                 "local_path": model_path
             }
             
@@ -1626,6 +1630,7 @@ class MLXEngineService:
             return
 
         self.active_downloads.add(model_id)
+        self.download_progress[model_id] = 0
         try:
             from huggingface_hub import snapshot_download
 
@@ -1640,6 +1645,46 @@ class MLXEngineService:
             marker_file = local_dir / ".completed"
             if marker_file.exists():
                 os.remove(marker_file)
+
+            # ── Progress tracking thread ───────────────────────────────────────
+            # HF snapshot_download doesn't expose a progress callback,
+            # so we approximate progress by polling the partial directory size
+            # against a known reference size from the model config.
+            import threading
+
+            _model_cfg = next((m for m in self.models_config if m["id"] == model_id), {})
+            _known_size_str = _model_cfg.get("size", "")
+
+            def _parse_size_gb(s: str) -> float:
+                """Parse '4.2GB' → 4.2 (returns 0 on failure)."""
+                try:
+                    import re
+                    m = re.search(r"([\d.]+)\s*GB", s or "", re.I)
+                    return float(m.group(1)) if m else 0.0
+                except Exception:
+                    return 0.0
+
+            _total_bytes = _parse_size_gb(_known_size_str) * 1024 ** 3
+            _stop_event = threading.Event()
+
+            def _track_progress() -> None:
+                while not _stop_event.is_set():
+                    try:
+                        if local_dir.exists() and _total_bytes > 0:
+                            done = sum(
+                                f.stat().st_size
+                                for f in local_dir.rglob("*")
+                                if f.is_file() and not f.name.startswith(".")
+                            )
+                            pct = min(int(done / _total_bytes * 100), 98)
+                            self.download_progress[model_id] = pct
+                    except Exception:
+                        pass
+                    _stop_event.wait(timeout=3.0)
+
+            _prog_thread = threading.Thread(target=_track_progress, daemon=True)
+            _prog_thread.start()
+            # ─────────────────────────────────────────────────────────────────
 
             snapshot_download(
                 repo_id=model_id,
@@ -1659,6 +1704,7 @@ class MLXEngineService:
                 json.dump({"status": "ok", "model_id": model_id, "timestamp": time.time()}, f)
 
             logger.info(f"Successfully downloaded {model_id}")
+            self.download_progress[model_id] = 100
             return True
         except PermissionError as e:
             logger.error(f"Permission denied downloading {model_id}: {e}")
@@ -1669,8 +1715,10 @@ class MLXEngineService:
             logger.error(f"Failed to download {model_id}: {e}")
             raise
         finally:
+            _stop_event.set()
             self.active_downloads.discard(model_id)
-            
+            self.download_progress.pop(model_id, None)
+
     def delete_model(self, model_id: str):
         """
         Deletes a local model from disk.

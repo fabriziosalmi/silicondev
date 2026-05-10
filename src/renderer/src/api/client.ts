@@ -75,6 +75,8 @@ export interface ModelEntry {
     is_vision?: boolean
     downloaded: boolean
     downloading: boolean
+    /** 0-100 during active download; 0 when not downloading */
+    download_progress?: number
     local_path: string | null
     path?: string
     base_model?: string

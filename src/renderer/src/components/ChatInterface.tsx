@@ -2013,9 +2013,20 @@ Return exactly this JSON structure (no other text):
                                     onPaste={(e) => { handleTextPaste(e); handleImagePaste(e) }}
                                     onClick={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
                                     placeholder={activeModel?.is_vision ? t('chat.sendPlaceholderVision') : t('chat.sendPlaceholder')}
+                                    maxLength={32000}
                                     className={`w-full bg-transparent px-4 py-3 ${activeModel?.is_vision ? 'pr-24' : 'pr-14'} text-sm text-gray-200 placeholder-gray-500 outline-none resize-none min-h-[44px] max-h-[200px]`}
                                     rows={1}
                                 />
+                                {/* Character counter — only shown when nearing the limit */}
+                                {input.length > 25600 && (
+                                    <div className={`absolute left-3 bottom-2 text-[10px] font-mono tabular-nums ${
+                                        input.length >= 32000 ? 'text-red-400' :
+                                        input.length >= 28800 ? 'text-amber-400' :
+                                        'text-gray-600'
+                                    }`}>
+                                        {input.length.toLocaleString()}/32,000
+                                    </div>
+                                )}
                                 <div className="absolute right-2 bottom-2 flex items-center gap-1">
                                     {activeModel?.is_vision && !isGenerating && (
                                         <button

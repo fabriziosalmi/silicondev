@@ -1,5 +1,6 @@
-import { useEffect, useRef, useCallback, useState, createContext, useContext } from 'react'
+import { useEffect, useCallback, useState, createContext, useContext } from 'react'
 import { AlertTriangle } from 'lucide-react'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 interface ConfirmOptions {
     title?: string
@@ -21,7 +22,7 @@ export function useConfirm() {
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     const [pending, setPending] = useState<(ConfirmOptions & { resolve: (v: boolean) => void }) | null>(null)
-    const dialogRef = useRef<HTMLDivElement>(null)
+    const trapRef = useFocusTrap(pending !== null)
 
     const confirm = useCallback((options: ConfirmOptions): Promise<boolean> => {
         return new Promise(resolve => {
@@ -44,10 +45,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
         return () => window.removeEventListener('keydown', onKey)
     }, [pending, handleResolve])
 
-    // Focus trap
-    useEffect(() => {
-        if (pending) dialogRef.current?.focus()
-    }, [pending])
+    // Focus trap is handled by useFocusTrap above.
 
     return (
         <ConfirmContext.Provider value={{ confirm }}>
@@ -55,7 +53,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             {pending && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-150">
                     <div
-                        ref={dialogRef}
+                        ref={trapRef}
                         tabIndex={-1}
                         className="w-full max-w-sm mx-4 bg-[#1c1c1f] border border-white/10 rounded-xl shadow-2xl p-5 outline-none animate-in zoom-in-95 duration-150"
                         role="alertdialog"
@@ -82,12 +80,14 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                         </div>
                         <div className="flex justify-end gap-2">
                             <button
+                                type="button"
                                 onClick={() => handleResolve(false)}
                                 className="px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                             >
                                 {pending.cancelLabel || 'Cancel'}
                             </button>
                             <button
+                                type="button"
                                 onClick={() => handleResolve(true)}
                                 className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                                     pending.destructive

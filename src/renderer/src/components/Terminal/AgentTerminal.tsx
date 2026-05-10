@@ -79,6 +79,18 @@ export function AgentTerminal() {
     sessionStorage.removeItem(STORAGE_KEY_FEED)
   }, [])
 
+  // Ctrl+L / Cmd+L — Unix convention: clear terminal
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'l' && !isRunning) {
+        e.preventDefault()
+        clearHistory()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [clearHistory, isRunning])
+
   const addFeedItem = useCallback((item: FeedItem) => {
     setFeedItems((prev) => [...prev, item])
   }, [])

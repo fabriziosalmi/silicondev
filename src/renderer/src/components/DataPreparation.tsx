@@ -45,33 +45,39 @@ export function DataPreparation() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataMode])
 
-    const handleFileSelect = async () => {
+    const loadFilePath = async (path: string) => {
+        setFilePath(path);
+        const name = path.split(/[/\\]/).pop() || path;
+        setFileName(name);
+        const defaultOut = path.replace(/\.csv$/i, '_train.jsonl');
+        setOutputPath(defaultOut);
+        setLoading(true);
+        setError(null);
         try {
-            const path = await window.electronAPI?.selectFile?.();
-            if (path) {
-                setFilePath(path);
-                const name = path.split(/[/\\]/).pop() || path;
-                setFileName(name);
-                const defaultOut = path.replace(/\.csv$/i, '_train.jsonl');
-                setOutputPath(defaultOut);
-                setLoading(true);
-                setError(null);
-
-                const res = await apiClient.preparation.previewCsv(path);
-                setPreview(res.data);
-
-                if (res.data.length > 0) {
-                    const cols = Object.keys(res.data[0]);
-                    setColumns(cols);
-                    setInstructionCol(cols.find(c => c.toLowerCase().includes('instruct') || c.toLowerCase().includes('prompt')) || cols[0] || "");
-                    setInputCol(cols.find(c => c.toLowerCase().includes('input') || c.toLowerCase().includes('context')) || "");
-                    setOutputCol(cols.find(c => c.toLowerCase().includes('output') || c.toLowerCase().includes('response') || c.toLowerCase().includes('answer')) || cols[cols.length - 1] || "");
-                }
+            const res = await apiClient.preparation.previewCsv(path);
+            setPreview(res.data);
+            if (res.data.length > 0) {
+                const cols = Object.keys(res.data[0]);
+                setColumns(cols);
+                setInstructionCol(cols.find(c => c.toLowerCase().includes('instruct') || c.toLowerCase().includes('prompt')) || cols[0] || "");
+                setInputCol(cols.find(c => c.toLowerCase().includes('input') || c.toLowerCase().includes('context')) || "");
+                setOutputCol(cols.find(c => c.toLowerCase().includes('output') || c.toLowerCase().includes('response') || c.toLowerCase().includes('answer')) || cols[cols.length - 1] || "");
             }
         } catch (err: unknown) {
             setError("Failed to load file: " + (err instanceof Error ? err.message : String(err)));
         } finally {
             setLoading(false);
+        }
+    };
+
+    const [dragOver, setDragOver] = useState(false);
+
+    const handleFileSelect = async () => {
+        try {
+            const path = await window.electronAPI?.selectFile?.();
+            if (path) await loadFilePath(path)
+        } catch (err: unknown) {
+            setError("Failed to load file: " + (err instanceof Error ? err.message : String(err)));
         }
     };
 
@@ -169,12 +175,28 @@ export function DataPreparation() {
                             <label className="text-xs font-bold text-gray-500 uppercase">{t('dataPrep.upload')}</label>
                             <button
                                 onClick={handleFileSelect}
-                                className={`flex items-center justify-between px-3 h-10 rounded-lg border text-[13px] font-medium transition-all text-left ${fileName
-                                    ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
-                                    : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20'
-                                    }`}
+                                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                                onDragLeave={() => setDragOver(false)}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    setDragOver(false);
+                                    const file = e.dataTransfer.files[0];
+                                    const droppedPath = (file as (File & { path?: string })).path || '';
+                                    if (droppedPath && /\.(csv|jsonl)$/i.test(droppedPath)) {
+                                        loadFilePath(droppedPath);
+                                    } else if (droppedPath) {
+                                        setError('Only .csv and .jsonl files are supported.');
+                                    }
+                                }}
+                                className={`flex items-center justify-between px-3 h-10 rounded-lg border text-[13px] font-medium transition-all text-left ${
+                                    dragOver
+                                        ? 'bg-blue-500/20 border-blue-400 text-blue-300'
+                                        : fileName
+                                            ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
+                                            : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20'
+                                }`}
                             >
-                                <span className="truncate">{fileName || "Select File..."}</span>
+                                <span className="truncate">{dragOver ? 'Drop CSV here…' : fileName || 'Select or drop CSV…'}</span>
                                 <FolderOpen className="w-4 h-4 opacity-50" />
                             </button>
                         </div>

@@ -6,6 +6,7 @@ import { apiClient } from '../api/client'
 import type { RagCollection } from '../api/client'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { CollectionsTab } from './rag/CollectionsTab'
 import { IngestTab } from './rag/IngestTab'
 import { AnalyticsTab } from './rag/AnalyticsTab'
@@ -19,6 +20,7 @@ export function RagKnowledge() {
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [newCollectionName, setNewCollectionName] = useState("")
     const [selectedCollectionId, setSelectedCollectionId] = useState("")
+    const modalTrapRef = useFocusTrap(showCreateModal)
 
     const fetchCollections = useCallback(async () => {
         try {
@@ -131,6 +133,7 @@ export function RagKnowledge() {
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="rag-create-modal-title"
+                        ref={modalTrapRef}
                         className="bg-[#18181B] border border-white/10 rounded-2xl max-w-md w-full p-6"
                     >
                         <h3 id="rag-create-modal-title" className="text-xl font-bold text-white mb-6 flex items-center gap-2">

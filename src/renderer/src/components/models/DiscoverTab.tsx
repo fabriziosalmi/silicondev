@@ -28,6 +28,7 @@ function familyOf(model: ModelEntry): Exclude<Family, 'All'> {
 interface DiscoverTabProps {
     models: ModelEntry[]
     downloading: Set<string>
+    downloadProgress: Map<string, number>
     availableRamBytes: number
     searchQuery: string
     setSearchQuery: (q: string) => void
@@ -35,7 +36,7 @@ interface DiscoverTabProps {
 }
 
 export function DiscoverTab({
-    models, downloading, availableRamBytes,
+    models, downloading, downloadProgress, availableRamBytes,
     searchQuery, setSearchQuery, onDownload,
 }: DiscoverTabProps) {
     const { t } = useTranslation()
@@ -217,7 +218,13 @@ export function DiscoverTab({
                                             className="h-6 w-6 flex items-center justify-center rounded text-gray-600 opacity-0 group-hover:opacity-100 hover:bg-blue-500/20 hover:text-blue-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                                             title={isDownloading ? t('models.downloading') : t('models.download')}
                                         >
-                                            {isDownloading ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+                                            {isDownloading ? (
+                                                <span className="text-[9px] font-mono text-blue-400 tabular-nums">
+                                                    {(downloadProgress.get(model.id) ?? 0) > 0
+                                                        ? `${downloadProgress.get(model.id)}%`
+                                                        : <Loader2 size={11} className="animate-spin" />}
+                                                </span>
+                                            ) : <Download size={11} />}
                                         </button>
                                     </div>
                                 )
@@ -247,10 +254,15 @@ export function DiscoverTab({
                                 type="button"
                                 onClick={() => onDownload(selectedModel.id)}
                                 disabled={downloading.has(selectedModel.id)}
-                                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px] justify-center"
                             >
                                 {downloading.has(selectedModel.id) ? (
-                                    <><Loader2 size={16} className="animate-spin" /> {t('models.downloading')}</>
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        {(downloadProgress.get(selectedModel.id) ?? 0) > 0
+                                            ? `${downloadProgress.get(selectedModel.id)}%`
+                                            : t('models.downloading')}
+                                    </>
                                 ) : (
                                     <><Download className="w-4 h-4" /> {t('models.download')}</>
                                 )}

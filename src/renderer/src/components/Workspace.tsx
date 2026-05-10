@@ -277,7 +277,7 @@ export function Workspace() {
         return () => document.removeEventListener('keydown', handler)
     }, [insertFormat, handleSave])
 
-    // Export as Excel XML (.xlsx)
+    // Export as SpreadsheetML (.xls — Excel 97-2003 XML format, opens in Excel & Numbers)
     const handleExportXlsx = () => {
         const lines = documentBody.split('\n');
         const xmlRows = lines.map(line => {
@@ -450,7 +450,7 @@ export function Workspace() {
                                     <FileText size={12} /> Plain text (.txt)
                                 </button>
                                 <button type="button" onClick={() => { handleExportXlsx(); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
-                                    <Sheet size={12} /> Excel (.xls)
+                                    <Sheet size={12} /> Excel SpreadsheetML (.xls)
                                 </button>
                                 <button type="button" onClick={() => { handleExportPdf(); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
                                     <Printer size={12} /> PDF (print)

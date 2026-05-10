@@ -164,6 +164,7 @@ export function Evaluations() {
     const { activeModel } = useGlobalState()
     const [runningEval, setRunningEval] = useState<string | null>(null)
     const [progress, setProgress] = useState(0)
+    const [progressLabel, setProgressLabel] = useState('')
     const [sampleCount, setSampleCount] = useState(30)
     const [history, setHistory] = useState<EvalResult[]>(() => {
         try {
@@ -192,6 +193,7 @@ export function Evaluations() {
         }
         setRunningEval(benchId);
         setProgress(0);
+        setProgressLabel('');
 
         try {
             const bench = benchmarks.find(b => b.id === benchId);
@@ -200,6 +202,7 @@ export function Evaluations() {
 
             for (let i = 0; i < cases.length; i++) {
                 setProgress(Math.floor(((i + 1) / cases.length) * 100));
+                setProgressLabel(`${i + 1} / ${cases.length}`);
 
                 const response = await apiClient.apiFetch(`${apiClient.API_BASE}/api/engine/chat`, {
                     method: 'POST',
@@ -257,6 +260,7 @@ export function Evaluations() {
         } finally {
             setRunningEval(null);
             setProgress(0);
+            setProgressLabel('');
         }
     }
 
@@ -330,7 +334,7 @@ export function Evaluations() {
                                                     <div className="flex flex-col items-end gap-1">
                                                         <span className="text-xs text-blue-400 font-medium flex items-center gap-1">
                                                             <Loader2 className="w-3 h-3 animate-spin" />
-                                                            Running {progress}%
+                                                            {progressLabel ? `Q ${progressLabel}` : `Running ${progress}%`}
                                                         </span>
                                                         <div className="w-24 h-1.5 bg-black/50 rounded-full overflow-hidden border border-white/10">
                                                             <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />

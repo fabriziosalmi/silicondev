@@ -359,6 +359,39 @@ print(response.choices[0].message.content)`
     )
 }
 
+/** Tokenise a line of shell/Python code into coloured spans — no deps required. */
+function highlightLine(line: string): React.ReactNode[] {
+    // Strategy: split by regex, emit JSX spans per token.
+    const out: React.ReactNode[] = []
+    // Patterns (order matters — most-specific first)
+    const patterns: [RegExp, string][] = [
+        [/#.*$/,                       'text-gray-500 italic'],   // comments
+        [/"(?:[^"\\]|\\.)*"/,          'text-amber-300/80'],      // double-quoted strings
+        [/'(?:[^'\\]|\\.)*'/,          'text-amber-300/80'],      // single-quoted strings
+        [/\b(curl|python|from|import|client|OpenAI|if|else|for|return|def|class|print|True|False|None)\b/, 'text-purple-300/90'], // keywords
+        [/\b([A-Z_][A-Z0-9_]+)\b/,    'text-yellow-300/70'],     // CONSTANTS
+        [/-[A-Za-z]+|--[A-Za-z-]+/,   'text-cyan-400/80'],       // flags like -H, --header
+        [/\b\d+(\.\d+)?\b/,           'text-emerald-400/80'],    // numbers
+    ]
+
+    let rest = line
+    while (rest.length > 0) {
+        let matched = false
+        for (const [re, cls] of patterns) {
+            const m = rest.match(re)
+            if (m && m.index !== undefined) {
+                if (m.index > 0) out.push(rest.slice(0, m.index))
+                out.push(<span key={out.length} className={cls}>{m[0]}</span>)
+                rest = rest.slice(m.index + m[0].length)
+                matched = true
+                break
+            }
+        }
+        if (!matched) { out.push(rest); break }
+    }
+    return out
+}
+
 function SnippetBlock({ label, code, copied, onCopy }: {
     label: string
     code: string
@@ -370,6 +403,7 @@ function SnippetBlock({ label, code, copied, onCopy }: {
             <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.03] border-b border-white/5">
                 <span className="text-[10px] font-mono text-gray-500">{label}</span>
                 <button
+                    type="button"
                     onClick={onCopy}
                     title={`Copy ${label} snippet`}
                     className="flex items-center gap-1 text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
@@ -378,8 +412,10 @@ function SnippetBlock({ label, code, copied, onCopy }: {
                     <span>{copied ? 'Copied' : 'Copy'}</span>
                 </button>
             </div>
-            <pre className="p-3 text-[11px] font-mono text-blue-300/80 overflow-x-auto max-h-48 overflow-y-auto">
-                {code}
+            <pre className="p-3 text-[11px] font-mono overflow-x-auto max-h-48 overflow-y-auto leading-relaxed">
+                {code.split('\n').map((line, i) => (
+                    <div key={i}>{highlightLine(line)}</div>
+                ))}
             </pre>
         </div>
     )

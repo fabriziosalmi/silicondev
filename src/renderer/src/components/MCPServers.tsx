@@ -201,9 +201,18 @@ export function MCPServers() {
                         <span className="ml-2 text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-bold">{servers.length}</span>
                     </h3>
                     {loading ? (
-                        <Card className="p-8 text-center bg-black/20 border-white/5">
-                            <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto" />
-                        </Card>
+                        <div className="space-y-2">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="rounded-xl border border-white/5 bg-black/20 p-4 flex items-center gap-3 animate-pulse">
+                                    <div className="w-8 h-8 rounded-lg bg-white/5 shrink-0" />
+                                    <div className="flex-1 space-y-1.5">
+                                        <div className="h-3 bg-white/5 rounded w-1/3" />
+                                        <div className="h-2.5 bg-white/5 rounded w-1/2" />
+                                    </div>
+                                    <div className="w-10 h-5 bg-white/5 rounded-full shrink-0" />
+                                </div>
+                            ))}
+                        </div>
                     ) : servers.length === 0 ? (
                         <Card className="p-8 text-center bg-black/20 border-white/5">
                             <Server className="w-8 h-8 text-gray-600 mx-auto mb-2" />

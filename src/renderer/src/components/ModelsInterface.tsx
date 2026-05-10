@@ -241,6 +241,7 @@ export function ModelsInterface() {
                     <DiscoverTab
                         models={discoverableModels}
                         downloading={downloading}
+                        downloadProgress={new Map(models.filter(m => m.downloading).map(m => [m.id, m.download_progress ?? 0]))}
                         availableRamBytes={availableRamBytes}
                         searchQuery={searchQuery}
                         setSearchQuery={setSearchQuery}

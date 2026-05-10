@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { apiClient } from '../../api/client'
 import type { ModelEntry } from '../../api/client'
 import { HardDrive, Loader2 } from 'lucide-react'
+import { useFocusTrap } from '../../../hooks/useFocusTrap'
 
 interface AddModelModalProps {
     onClose: () => void
@@ -18,6 +19,7 @@ export function AddModelModal({ onClose, onModelsAdded }: AddModelModalProps) {
     const [scanning, setScanning] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const trapRef = useFocusTrap(true)
 
     const handleScan = async (path: string) => {
         if (!path) return
@@ -83,6 +85,7 @@ export function AddModelModal({ onClose, onModelsAdded }: AddModelModalProps) {
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="add-model-modal-title"
+                ref={trapRef}
                 className="bg-[#18181B] border border-white/10 rounded-xl max-w-md w-full p-6 max-h-[85vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
             >

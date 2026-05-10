@@ -105,7 +105,14 @@ export function Settings() {
     const handleReset = async () => {
         const ok = await confirm({
             title: t('settings.general.resetTitle', { defaultValue: 'Reset all settings' }),
-            message: t('settings.general.resetConfirm'),
+            message: t('settings.general.resetConfirm', {
+                defaultValue:
+                    `All settings will be restored to defaults:\n` +
+                    `• Temperature: ${defaultChat.temperature}\n` +
+                    `• Max Tokens: ${defaultChat.maxTokens.toLocaleString()}\n` +
+                    `• System Prompt: restored to default\n` +
+                    `This cannot be undone.`
+            }),
             confirmLabel: t('settings.general.resetConfirmBtn', { defaultValue: 'Reset' }),
             destructive: true,
         });

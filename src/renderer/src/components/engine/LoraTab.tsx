@@ -435,7 +435,15 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                             <h3 className="font-bold">{t('engine.loss')}</h3>
                         </div>
                         <div className="text-xs flex gap-4 text-gray-500 items-center">
-                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500" /> Validation Loss</span>
+                            <span className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                Validation Loss
+                                {chartData.length > 0 && (
+                                    <span className="ml-1 font-mono text-blue-300 tabular-nums">
+                                        {chartData[chartData.length - 1].loss}
+                                    </span>
+                                )}
+                            </span>
                             {chartData.length > 0 && (
                                 <button
                                     type="button"
