@@ -83,6 +83,12 @@ export function DiscoverTab({
             .sort((a, b) => parseSizeGB(a.size) - parseSizeGB(b.size))
     }, [models, searchQuery, availableRamBytes, familyFilter])
 
+    // Use the Vite dev proxy (/hf-api/*) when running in a browser to avoid
+    // CSP violations. In Electron, the direct HF URL works fine (no CSP meta).
+    const HF_BASE = (typeof window !== 'undefined' && !window.electronAPI)
+        ? '/hf-api'
+        : 'https://huggingface.co';
+
     const fetchReadme = async (id: string) => {
         readmeAbortRef.current?.abort()
         setReadmeLoading(true)
@@ -97,7 +103,7 @@ export function DiscoverTab({
                 readmeAbortRef.current = controller
                 const timeout = setTimeout(() => controller.abort(), 5000)
                 try {
-                    const response = await fetch(`https://huggingface.co/${id}/raw/main/README.md`, { signal: controller.signal })
+                const response = await fetch(`${HF_BASE}/${id}/raw/main/README.md`, { signal: controller.signal })
                     clearTimeout(timeout)
                     if (response.ok) {
                         setReadmeContent(await response.text())
@@ -149,7 +155,7 @@ export function DiscoverTab({
         setHfError('');
         try {
             const res = await fetch(
-                `https://huggingface.co/api/models?search=${encodeURIComponent(q)}&filter=gguf&sort=downloads&direction=-1&limit=30`,
+                `${HF_BASE}/api/models?search=${encodeURIComponent(q)}&filter=gguf&sort=downloads&direction=-1&limit=30`,
                 { signal: ctrl.signal }
             );
             if (!res.ok) throw new Error(`HF API ${res.status}`);

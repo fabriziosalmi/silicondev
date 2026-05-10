@@ -15,6 +15,27 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
 });
 
+// Block Font Awesome CDN injected by react-simplemde-editor (EasyMDE).
+// The library dynamically inserts a <link> to maxcdn.bootstrapcdn.com which
+// violates the CSP and triggers a console error. We intercept and remove it
+// before it is applied — icons still render via our local fallback CSS.
+if (typeof MutationObserver !== 'undefined') {
+  const faObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (
+          node.nodeType === Node.ELEMENT_NODE &&
+          (node as Element).tagName === 'LINK' &&
+          ((node as HTMLLinkElement).href || '').includes('font-awesome')
+        ) {
+          (node as HTMLLinkElement).remove();
+        }
+      }
+    }
+  });
+  faObserver.observe(document.head, { childList: true });
+}
+
 // Prevent accidental file drops from navigating the Electron webview
 document.addEventListener('dragover', (e) => { e.preventDefault(); });
 document.addEventListener('drop', (e) => { e.preventDefault(); });

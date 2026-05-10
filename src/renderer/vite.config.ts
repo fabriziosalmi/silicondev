@@ -91,6 +91,15 @@ export default defineConfig({
         target: 'http://127.0.0.1:8001',
         changeOrigin: true,
       },
+      // ── HuggingFace proxy: avoids CSP + CORS when running in browser ──────
+      // DiscoverTab fetches are rewritten from /hf-api/* → https://huggingface.co/*
+      // In production Electron the fetch goes directly (no proxy needed).
+      '/hf-api': {
+        target: 'https://huggingface.co',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/hf-api/, ''),
+        secure: true,
+      },
     },
   }
 })
