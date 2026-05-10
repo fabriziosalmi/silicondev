@@ -26,6 +26,7 @@ import { useNotes } from './context/NotesContext'
 import { CodeWorkspace } from './components/CodeWorkspace/CodeWorkspace'
 import { CommandPalette } from './components/CommandPalette'
 import KnowledgeMap from './components/KnowledgeMap'
+import { SelectionMenu } from './components/ui/SelectionMenu'
 import { Database, Cpu, MessageSquare, BarChart2, TestTube, Brain, Rocket, FileText, ChevronsLeft, ChevronsRight, Plus, ChevronDown, ChevronRight, Settings as SettingsIcon, Package, TerminalSquare, Code, BookOpen, Search, Server, Workflow } from 'lucide-react'
 
 function App() {
@@ -558,6 +559,7 @@ function App() {
         isOpen={knowledgeMapOpen}
         onClose={() => setKnowledgeMapOpen(false)}
       />
+      <SelectionMenu />
     </div>
   )
 }
