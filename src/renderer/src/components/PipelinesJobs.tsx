@@ -204,12 +204,12 @@ export function PipelinesJobs() {
                         <input type="text" placeholder="Search pipelines..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                             className="bg-black/40 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white outline-none focus:border-blue-500/50 w-64 transition-all" />
                     </div>
-                    <button onClick={handleNew}
+                    <button type="button" onClick={handleNew}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition-colors">
                         <Plus className="w-4 h-4" /> {t('pipelines.new')}
                     </button>
                     {active && (
-                        <button onClick={handleSave}
+                        <button type="button" onClick={handleSave}
                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition-colors">
                             <Save className="w-4 h-4" /> Save
                         </button>
@@ -260,10 +260,12 @@ export function PipelinesJobs() {
                         </div>
                         <div className="flex-1 overflow-y-auto p-3 space-y-2">
                             {filtered.map(p => (
-                                <button
+                                <div
                                     key={p.id}
-                                    type="button"
+                                    role="button"
+                                    tabIndex={0}
                                     onClick={() => selectPipeline(p)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectPipeline(p) } }}
                                     className={`group w-full flex items-center justify-between p-3 rounded-xl border text-left cursor-pointer transition-all ${active?.id === p.id
                                         ? 'bg-blue-500/10 border-blue-500/40'
                                         : 'bg-[#18181B] border-white/5 hover:border-white/20 hover:bg-white/[0.02]'}`}
@@ -282,7 +284,7 @@ export function PipelinesJobs() {
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
-                                </button>
+                                </div>
                             ))}
                             {pipelines.length === 0 && !loading && (
                                 <div className="p-8 text-center border-2 border-dashed border-white/5 rounded-2xl">
@@ -300,7 +302,7 @@ export function PipelinesJobs() {
                                 {(Object.entries(NODE_TYPE_META) as [NodeType, typeof NODE_TYPE_META[NodeType]][]).map(([type, meta]) => {
                                     const Icon = meta.icon
                                     return (
-                                        <button key={type} onClick={() => addNode(type)}
+                                        <button key={type} type="button" onClick={() => addNode(type)}
                                             className="w-full flex items-center gap-3 p-2.5 bg-[#18181B] border border-white/5 rounded-xl hover:bg-white/[0.05] transition-colors text-left">
                                             <div className="p-1.5 rounded-lg bg-black/40"><Icon className={`w-4 h-4 ${meta.color}`} /></div>
                                             <span className="text-[11px] font-bold text-gray-300">{meta.label}</span>
@@ -338,9 +340,9 @@ export function PipelinesJobs() {
                                             <Card key={node.id} className="bg-black/20 border-white/5 overflow-hidden">
                                                 <div className="flex items-center gap-3 px-4 py-3">
                                                     <div className="flex flex-col gap-0.5">
-                                                        <button onClick={() => moveNode(idx, -1)} disabled={idx === 0}
+                                                        <button type="button" onClick={() => moveNode(idx, -1)} disabled={idx === 0}
                                                             className="text-gray-600 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[10px]" aria-label="Move step up">▲</button>
-                                                        <button onClick={() => moveNode(idx, 1)} disabled={idx === nodes.length - 1}
+                                                        <button type="button" onClick={() => moveNode(idx, 1)} disabled={idx === nodes.length - 1}
                                                             className="text-gray-600 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[10px]" aria-label="Move step down">▼</button>
                                                     </div>
                                                     <span className="text-[10px] text-gray-600 font-bold w-5 text-right">{idx + 1}</span>
@@ -350,11 +352,11 @@ export function PipelinesJobs() {
                                                     <input value={node.data.label} onChange={(e) => updateNode(node.id, { label: e.target.value })}
                                                         className="bg-transparent text-sm font-semibold text-white outline-none border-b border-transparent focus:border-blue-500/50 transition-colors flex-1" />
                                                     <span className="text-[10px] text-gray-600 uppercase font-bold tracking-wide">{meta.label}</span>
-                                                    <button onClick={() => setExpandedNode(isExpanded ? null : node.id)}
+                                                    <button type="button" onClick={() => setExpandedNode(isExpanded ? null : node.id)}
                                                         className="text-gray-500 hover:text-white transition-colors">
                                                         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                                     </button>
-                                                    <button onClick={() => removeNode(node.id)}
+                                                    <button type="button" onClick={() => removeNode(node.id)}
                                                         className="p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all">
                                                         <Trash2 size={12} />
                                                     </button>
@@ -409,7 +411,7 @@ export function PipelinesJobs() {
                             <Card className="px-5 py-3 bg-black/30 border-white/5 flex items-center gap-4">
                                 <input type="text" placeholder="Pipeline input..." value={pipelineInput} onChange={(e) => setPipelineInput(e.target.value)}
                                     disabled={executing} className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500/50 flex-1 disabled:opacity-50 disabled:cursor-not-allowed" />
-                                <button onClick={handleExecute} disabled={executing || !active.id || nodes.length === 0}
+                                <button type="button" onClick={handleExecute} disabled={executing || !active.id || nodes.length === 0}
                                     className="flex items-center gap-2 px-5 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-bold transition-colors">
                                     {executing ? (
                                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
