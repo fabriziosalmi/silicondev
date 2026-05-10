@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { Card } from './ui/Card'
 import { ToggleSwitch } from './ui/ToggleSwitch'
+import { useConfirm } from './ui/ConfirmDialog'
 import { apiClient } from '../api/client'
 import { Settings2, MessageSquare, Brain, RotateCcw, Info, Trash2, Loader2, Gauge, Globe, HardDrive, FolderSearch, Bug, ScrollText, Shield, Bot, ChevronRight } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
@@ -35,6 +36,7 @@ const NAV_GROUPS = ['App', 'Security', 'Integrations', 'System']
 export function Settings() {
     const { t } = useTranslation()
     const { systemStats } = useGlobalState()
+    const { confirm } = useConfirm()
 
     const [chat, setChat] = useState<ChatDefaults>(() => {
         try {
@@ -100,8 +102,14 @@ export function Settings() {
         setChat(prev => ({ ...prev, [key]: value }))
     }
 
-    const handleReset = () => {
-        if (!confirm(t('settings.general.resetConfirm'))) return
+    const handleReset = async () => {
+        const ok = await confirm({
+            title: t('settings.general.resetTitle', { defaultValue: 'Reset all settings' }),
+            message: t('settings.general.resetConfirm'),
+            confirmLabel: t('settings.general.resetConfirmBtn', { defaultValue: 'Reset' }),
+            destructive: true,
+        });
+        if (!ok) return
         setChat({ ...defaultChat })
         setRag({ ...defaultRag })
         setTopBar({ ...defaultTopBar })
@@ -135,7 +143,13 @@ export function Settings() {
 
     const handleCleanup = async (targets: string[]) => {
         const label = targets.join(', ')
-        if (!confirm(`Delete all ${label}? This cannot be undone.`)) return
+        const ok = await confirm({
+            title: t('settings.storage.cleanupTitle', { defaultValue: 'Clear data' }),
+            message: t('settings.storage.cleanupConfirm', { label, defaultValue: `Delete all ${label}? This cannot be undone.` }),
+            confirmLabel: t('common.delete', { defaultValue: 'Delete' }),
+            destructive: true,
+        });
+        if (!ok) return
         setStorageCleaning(true)
         try {
             const result = await apiClient.monitor.cleanupStorage(targets)

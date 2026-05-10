@@ -4,6 +4,7 @@ import { apiClient, cleanModelName } from '../api/client'
 import type { ModelEntry } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
 import { useToast } from './ui/Toast'
+import { useConfirm } from './ui/ConfirmDialog'
 import { HardDrive, FolderOpen } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
 import { parseSizeGB } from './models/ModelsUtils'
@@ -14,6 +15,7 @@ import { AddModelModal } from './models/AddModelModal'
 export function ModelsInterface() {
     const { t } = useTranslation()
     const { toast } = useToast()
+    const { confirm } = useConfirm()
     const [models, setModels] = useState<ModelEntry[]>([])
     // Default tab is "my-models" once the user has any; first-time users land
     // on "discover" so the first thing they see is models they can install.
@@ -74,7 +76,13 @@ export function ModelsInterface() {
     }
 
     const handleDelete = async (modelId: string) => {
-        if (!confirm(t('models.deleteConfirm'))) return
+        const ok = await confirm({
+            title: t('models.deleteTitle', { defaultValue: 'Delete model' }),
+            message: t('models.deleteConfirm'),
+            confirmLabel: t('common.delete', { defaultValue: 'Delete' }),
+            destructive: true,
+        });
+        if (!ok) return
         try {
             setLoading(true)
             if (activeModel?.id === modelId) await handleEject()
@@ -145,8 +153,11 @@ export function ModelsInterface() {
         [models, downloading]
     )
 
+    // Only count models that are actually on disk (exclude in-progress downloads).
     const totalSizeGB = useMemo(() =>
-        downloadedModels.reduce((sum, m) => sum + parseSizeGB(m.size), 0),
+        downloadedModels
+            .filter(m => m.downloaded || m.is_custom)  // exclude downloading-in-progress
+            .reduce((sum, m) => sum + parseSizeGB(m.size), 0),
         [downloadedModels]
     )
 
@@ -159,7 +170,7 @@ export function ModelsInterface() {
                     className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/5 whitespace-nowrap flex items-center gap-2"
                 >
                     <FolderOpen size={14} />
-                    Add Local Folder
+                    {t('models.addLocalFolder', { defaultValue: 'Add Local Folder' })}
                 </button>
             </PageHeader>
 

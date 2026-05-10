@@ -180,7 +180,9 @@ export function Workspace() {
         const titleSlug = (documentBody.split('\n')[0]?.replace(/^#+\s*/, '').trim() || 'note').slice(0, 40).replace(/[^a-zA-Z0-9]+/g, '-').replace(/-+$/, '');
         a.download = `${titleSlug}.${format}`
         a.click()
-        URL.revokeObjectURL(url)
+        // Revoke after 60s — revoking immediately can abort the download
+        // before the browser has had a chance to start it.
+        setTimeout(() => URL.revokeObjectURL(url), 60_000)
     }
 
     // PDF export via print dialog
@@ -290,7 +292,8 @@ export function Workspace() {
         const titleSlug = (documentBody.split('\n')[0]?.replace(/^#+\s*/, '').trim() || 'note').slice(0, 40).replace(/[^a-zA-Z0-9]+/g, '-').replace(/-+$/, '');
         a.download = `${titleSlug}.xls`;
         a.click();
-        URL.revokeObjectURL(url);
+        // Revoke after 60s — revoking immediately can abort the download.
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
     };
 
     // Send selection or full content to chat

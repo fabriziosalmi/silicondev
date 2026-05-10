@@ -571,7 +571,9 @@ export function ChatInterface() {
         a.href = url;
         a.download = `${safeName}.${format === 'md' ? 'md' : 'json'}`;
         a.click();
-        URL.revokeObjectURL(url);
+        // Revoke after 60s — revoking immediately can abort the download
+        // before the browser has had a chance to start it.
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
     }, [conversationList, activeConversationId, messages]);
 
     // PII redaction state
@@ -667,13 +669,20 @@ export function ChatInterface() {
         if (e.dataTransfer.files) addImages(e.dataTransfer.files)
     }, [activeModel?.is_vision, addImages])
 
-    // Clear pending images when switching away from a vision model
+    // Clear pending images when switching away from a vision model.
+    // Only track `activeModel?.is_vision` — NOT `pendingImages` — to avoid
+    // an infinite re-render loop (setPendingImages triggers the effect again).
+    const isVisionRef = useRef(activeModel?.is_vision);
     useEffect(() => {
-        if (!activeModel?.is_vision && pendingImages.length > 0) {
-            pendingImages.forEach(img => URL.revokeObjectURL(img.preview))
-            setPendingImages([])
+        const wasVision = isVisionRef.current;
+        isVisionRef.current = activeModel?.is_vision;
+        if (wasVision && !activeModel?.is_vision) {
+            setPendingImages(prev => {
+                prev.forEach(img => URL.revokeObjectURL(img.preview));
+                return [];
+            });
         }
-    }, [activeModel?.is_vision, pendingImages])
+    }, [activeModel?.is_vision]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Workspace file loading for @mentions ──
     useEffect(() => {
