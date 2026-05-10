@@ -99,6 +99,7 @@ export default defineConfig({
             { text: 'Setup', link: '/development/setup' },
             { text: 'Project Structure', link: '/development/project-structure' },
             { text: 'Contributing', link: '/development/contributing' },
+            { text: 'Releasing', link: '/development/releasing' },
           ],
         },
       ],
