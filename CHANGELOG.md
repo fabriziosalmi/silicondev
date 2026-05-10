@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.1] — 2026-05-10
+
+### Release
+
+- **Signed and notarized macOS builds**: DMG and zip artifacts are now signed with `Developer ID Application` and notarized by Apple. Previous releases (≤ 0.14.0) shipped unsigned and required manual quarantine bypass; v0.14.1 opens with a double click on any Mac with Gatekeeper enabled.
+- **`scripts/release.sh`**: Local release script that runs preflight checks (Apple credentials, keychain identity, notarytool reachability), builds frontend + PyInstaller + electron-builder, notarizes and staples the DMG, and uploads to GitHub. Reads credentials from `.env.local` (gitignored). Supports `--skip-build`, `--replace`, `--no-publish`, `--dry-run`.
+- **`package.json` mac config**: Added `identity` and `notarize: true`. Notarization credentials are passed via env, never via repo secrets.
+
 ## [0.14.0] — 2026-03-29
 
 ### Security

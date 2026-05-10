@@ -1,7 +1,7 @@
 {
     "name": "silicondev",
     "productName": "SiliconDev",
-    "version": "0.14.0",
+    "version": "0.14.1",
     "description": "Local AI development environment for Apple Silicon",
     "main": "dist/main/main.js",
     "author": "SiliconDev",
@@ -56,6 +56,8 @@
             "gatekeeperAssess": false,
             "entitlements": "resources/entitlements.mac.plist",
             "entitlementsInherit": "resources/entitlements.mac.plist",
+            "identity": "Fabrizio Salmi (7FC7ZTYMYU)",
+            "notarize": true,
             "extendInfo": {
                 "NSCameraUsageDescription": "Application requires access to camera for vision features",
                 "NSMicrophoneUsageDescription": "Application requires access to microphone for voice features"

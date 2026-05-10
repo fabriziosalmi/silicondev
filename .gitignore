@@ -53,3 +53,7 @@ silicondev-vs-vmlx-roadmap.md
 
 # Workspace settings - 2026-05-07
 tmp/
+
+# Release credentials (Apple ID, app-specific password)
+.env.local
+.env.local.example.filled
