@@ -77,5 +77,20 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // ── Dev proxy: routes API calls to the Silicon Studio backend ──────────
+    // Fixes CORS errors when running in a browser (not Electron).
+    // Backend uses SILICON_PORT env var (default 8001 when 8000 is in use).
+    // In production Electron, window.electronAPI.getBackendPort() is used.
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8001',
+        changeOrigin: true,
+        ws: true, // needed for SSE chat streaming
+      },
+      '/health': {
+        target: 'http://127.0.0.1:8001',
+        changeOrigin: true,
+      },
+    },
   }
 })

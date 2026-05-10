@@ -1,4 +1,9 @@
-let API_BASE = 'http://127.0.0.1:8000'
+// In Electron: resolved dynamically from the backend port via IPC.
+// In browser dev mode (vite proxy): use relative paths ('') so the Vite
+// proxy at localhost:5173 forwards /api/* and /health to the backend.
+// This avoids CORS errors when opening the app directly in a browser.
+const IS_ELECTRON = typeof window !== 'undefined' && !!window.electronAPI
+let API_BASE = IS_ELECTRON ? 'http://127.0.0.1:8000' : ''
 let AUTH_TOKEN = ''
 
 export function getApiBase(): string {
@@ -16,7 +21,7 @@ export async function initApiBase(): Promise<void> {
             API_BASE = `http://127.0.0.1:${port}`;
         }
     } catch {
-        // Keep default port 8000
+        // Keep current value ('' for browser dev, '127.0.0.1:8000' default for Electron)
     }
     try {
         const token = await window.electronAPI?.getAuthToken?.();
