@@ -239,8 +239,14 @@ print(response.choices[0].message.content)`
 
                     {/* Error message */}
                     {errorMsg && (
-                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-3 py-2 rounded-lg text-xs">
-                            {errorMsg}
+                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-3 py-2 rounded-lg text-xs flex items-center justify-between gap-2">
+                            <span>{errorMsg}</span>
+                            <button
+                                type="button"
+                                onClick={() => setErrorMsg('')}
+                                className="text-red-400/60 hover:text-red-400 shrink-0 transition-colors"
+                                aria-label="Dismiss error"
+                            >✕</button>
                         </div>
                     )}
 

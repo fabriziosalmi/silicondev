@@ -185,8 +185,8 @@ export function MCPServers() {
                             </div>
                         </div>
                         <div className="flex justify-end gap-2">
-                            <button onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors">{t('common.cancel')}</button>
-                            <button onClick={handleAdd} disabled={adding || !newName.trim() || !newCommand.trim()}
+                            <button type="button" onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors">{t('common.cancel')}</button>
+                            <button type="button" onClick={handleAdd} disabled={adding || !newName.trim() || !newCommand.trim()}
                                 className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                                 {adding ? 'Adding...' : 'Add'}
                             </button>

@@ -177,21 +177,29 @@ export function PipelinesJobs() {
                         </div>
                         <div className="flex-1 overflow-y-auto p-3 space-y-2">
                             {filtered.map(p => (
-                                <div key={p.id} onClick={() => selectPipeline(p)}
-                                    className={`group flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${active?.id === p.id
+                                <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => selectPipeline(p)}
+                                    className={`group w-full flex items-center justify-between p-3 rounded-xl border text-left cursor-pointer transition-all ${active?.id === p.id
                                         ? 'bg-blue-500/10 border-blue-500/40'
-                                        : 'bg-[#18181B] border-white/5 hover:border-white/20 hover:bg-white/[0.02]'}`}>
+                                        : 'bg-[#18181B] border-white/5 hover:border-white/20 hover:bg-white/[0.02]'}`}
+                                >
                                     <div className="min-w-0">
                                         <div className="text-sm font-bold text-gray-200 truncate">{p.name}</div>
                                         <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold mt-0.5">
                                             {(p.nodes?.length || 0)} steps
                                         </div>
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); if (p.id) handleDelete(p.id) }}
-                                        className="p-2 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+                                    <span onClick={(e) => { e.stopPropagation(); if (p.id) handleDelete(p.id) }}
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && p.id) { e.stopPropagation(); handleDelete(p.id) } }}
+                                        aria-label={`Delete pipeline ${p.name}`}
+                                        className="p-2 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer">
                                         <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
+                                    </span>
+                                </button>
                             ))}
                             {pipelines.length === 0 && !loading && (
                                 <div className="p-8 text-center border-2 border-dashed border-white/5 rounded-2xl">

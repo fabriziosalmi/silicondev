@@ -74,9 +74,19 @@ export function AddModelModal({ onClose, onModelsAdded }: AddModelModalProps) {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
-            <div className="bg-[#18181B] border border-white/10 rounded-xl max-w-md w-full p-6 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={onClose}
+            onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}
+        >
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="add-model-modal-title"
+                className="bg-[#18181B] border border-white/10 rounded-xl max-w-md w-full p-6 max-h-[85vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h3 id="add-model-modal-title" className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                     <HardDrive className="w-5 h-5 text-blue-400" />
                     Add Local Model Directory
                 </h3>

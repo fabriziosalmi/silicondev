@@ -144,7 +144,7 @@ export function DataPreparation() {
             {/* Top Navigation Tabs */}
             <div className="flex gap-6 border-b border-white/10 px-1">
                 <button
-                    onClick={() => { setDataMode('file'); setPreview([]); }}
+                    onClick={() => { setDataMode('file'); setPreview([]); setError(null); }}
                     className={`px-2 pb-3 text-sm font-medium transition-colors relative flex items-center gap-2.5 ${dataMode === 'file' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
                 >
                     <FileText className="w-4 h-4 shrink-0" />
@@ -152,7 +152,7 @@ export function DataPreparation() {
                     {dataMode === 'file' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>}
                 </button>
                 <button
-                    onClick={() => { setDataMode('mcp'); setPreview([]); }}
+                    onClick={() => { setDataMode('mcp'); setPreview([]); setError(null); }}
                     className={`px-2 pb-3 text-sm font-medium transition-colors relative flex items-center gap-2.5 ${dataMode === 'mcp' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
                 >
                     <Server className="w-4 h-4 shrink-0" />
