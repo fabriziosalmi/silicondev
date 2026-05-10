@@ -6,6 +6,7 @@ import gc
 import re
 import asyncio
 import threading
+import concurrent.futures
 import os
 import sys
 import json
@@ -15,107 +16,25 @@ from app.agents.nanocore.scout import ScoutAgent
 from app.engine.disk_cache import DiskPromptCache
 from app.engine.routing import ModelRouter
 from app.engine.speculative import load_draft_model, can_load_draft
+from app.engine._helpers import (
+    CachedModel as _CachedModel,
+    check_disk_space as _check_disk_space,
+    init_mlx_thread as _init_mlx_thread,
+    patch_transformers_vlm_compat as _patch_transformers_vlm_compat,
+)
+from app.engine._messages import (
+    extract_vision_content as _extract_vision_content,
+    flatten_messages_to_text as _flatten_messages_to_text,
+)
+from app.engine._dpo import run_dpo_training_job as _run_dpo_training_job
+from app.engine._lora import run_training_job as _run_training_job
 import shutil
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, Any, List, NamedTuple
+from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
-
-
-class _CachedModel(NamedTuple):
-    """Typed entry for the multi-model LRU cache."""
-    model: Any
-    tokenizer: Any
-    processor: Any
-    is_vision: bool
-    last_used: float
-
-_vlm_compat_patched = False
-
-
-def _patch_transformers_vlm_compat():
-    """Patch transformers to handle models whose video processor isn't available.
-
-    transformers >= 5.x registers video processor mappings as None for some
-    model types (e.g. qwen3_5).  This causes two crashes:
-    1. ``video_processor_class_from_name`` does ``class_name in None``
-    2. Even after fixing (1), the actual processor class may require
-       PyTorch / Torchvision which aren't present in an MLX-only env.
-    3. ``ProcessorMixin.__init__`` rejects None for the video_processor arg.
-
-    The patches below are no-ops when everything works normally and only
-    activate when the above conditions are hit.
-    """
-    global _vlm_compat_patched
-    if _vlm_compat_patched:
-        return
-    _vlm_compat_patched = True
-
-    try:
-        import importlib
-        import transformers.models.auto.video_processing_auto as vpa
-        import transformers.processing_utils as pu
-
-        # (1) Guard against None in VIDEO_PROCESSOR_MAPPING_NAMES values
-        _orig_mapping = vpa.VIDEO_PROCESSOR_MAPPING_NAMES
-        def _safe_vpcfn(class_name):
-            for module_name, extractors in _orig_mapping.items():
-                if extractors is not None and class_name in extractors:
-                    mn = vpa.model_type_to_module_name(module_name)
-                    module = importlib.import_module(f".{mn}", "transformers.models")
-                    try:
-                        return getattr(module, class_name)
-                    except AttributeError:
-                        continue
-            for extractor in vpa.VIDEO_PROCESSOR_MAPPING._extra_content.values():
-                if getattr(extractor, "__name__", None) == class_name:
-                    return extractor
-            main_module = importlib.import_module("transformers")
-            if hasattr(main_module, class_name):
-                return getattr(main_module, class_name)
-            return None
-        vpa.video_processor_class_from_name = _safe_vpcfn
-
-        # (2) AutoVideoProcessor.from_pretrained -> None when backend missing
-        _orig_avp = vpa.AutoVideoProcessor.from_pretrained.__func__
-        @classmethod
-        def _safe_avp(cls, *args, **kwargs):
-            try:
-                return _orig_avp(cls, *args, **kwargs)
-            except ImportError:
-                return None
-        vpa.AutoVideoProcessor.from_pretrained = _safe_avp
-
-        # (3) Allow None video_processor through type check
-        _orig_check = pu.ProcessorMixin.check_argument_for_proper_class
-        def _safe_check(self, argument_name, arg):
-            if argument_name == "video_processor" and arg is None:
-                return
-            return _orig_check(self, argument_name, arg)
-        pu.ProcessorMixin.check_argument_for_proper_class = _safe_check
-
-        logger.debug("Applied transformers VLM compatibility patches")
-    except (ImportError, AttributeError) as e:
-        logger.debug(f"Skipped transformers VLM compat patches: {e}")
-
-# Minimum free disk space required for heavy I/O operations (1 GB)
-_MIN_DISK_SPACE_BYTES = 1_073_741_824
-
-
-def _check_disk_space(target_path: Path, min_bytes: int = _MIN_DISK_SPACE_BYTES) -> None:
-    """Raise OSError if disk has less than min_bytes free at target_path."""
-    check_path = target_path if target_path.exists() else target_path.parent
-    while not check_path.exists() and check_path != check_path.parent:
-        check_path = check_path.parent
-    usage = shutil.disk_usage(str(check_path))
-    if usage.free < min_bytes:
-        free_gb = usage.free / (1024 ** 3)
-        min_gb = min_bytes / (1024 ** 3)
-        raise OSError(
-            f"Not enough disk space: {free_gb:.1f} GB free, need at least {min_gb:.1f} GB"
-        )
 
 
 class MLXEngineService:
@@ -184,6 +103,17 @@ class MLXEngineService:
         self._model_cache: Dict[str, _CachedModel] = {}
         self._model_cache_max = 2  # max models in cache (besides active)
 
+        # Single-threaded executor pinned to MLX. MLX requires a per-thread GPU
+        # stream; the default asyncio executor pool spawns arbitrary threads,
+        # which triggers "There is no Stream(gpu, 0) in current thread." on
+        # subsequent generations. Pinning all MLX work to one initialized
+        # thread eliminates the issue and keeps generation strictly serial.
+        self._mlx_executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix="mlx-worker",
+            initializer=_init_mlx_thread,
+        )
+
         # Run auto-discovery and predictive loader in background
         threading.Thread(target=self._ensure_embedded_models, daemon=True).start()
         threading.Thread(target=self._run_auto_discovery, daemon=True).start()
@@ -228,7 +158,7 @@ class MLXEngineService:
 
         loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
-            None, load_draft_model, draft_model_id, self.models_dir
+            self._mlx_executor, load_draft_model, draft_model_id, self.models_dir
         )
         if result is None:
             return {"status": "failed", "reason": "Could not load draft model (not found or not enough RAM)"}
@@ -757,7 +687,7 @@ class MLXEngineService:
                     )
                 _patch_transformers_vlm_compat()
                 logger.info(f"Loading vision model via mlx-vlm: {model_id}")
-                model, processor = await loop.run_in_executor(None, vlm_load, path_to_load)
+                model, processor = await loop.run_in_executor(self._mlx_executor, vlm_load, path_to_load)
                 self.active_model = model
                 self.active_tokenizer = None
                 self.active_processor = processor
@@ -771,7 +701,7 @@ class MLXEngineService:
                     self.active_kv_bits = None
 
                 model, tokenizer = await loop.run_in_executor(
-                    None,
+                    self._mlx_executor,
                     lambda: load(path_to_load)
                 )
                 self.active_model = model
@@ -817,12 +747,12 @@ class MLXEngineService:
                 # One-time retry after cleanup
                 try:
                     if is_vision:
-                        model, processor = await loop.run_in_executor(None, vlm_load, path_to_load)
+                        model, processor = await loop.run_in_executor(self._mlx_executor, vlm_load, path_to_load)
                         self.active_model = model
                         self.active_processor = processor
                         self.active_is_vision = True
                     else:
-                        model, tokenizer = await loop.run_in_executor(None, load, path_to_load)
+                        model, tokenizer = await loop.run_in_executor(self._mlx_executor, load, path_to_load)
                         self.active_model = model
                         self.active_tokenizer = tokenizer
                         self.active_is_vision = False
@@ -899,90 +829,6 @@ class MLXEngineService:
         self.stop_event.set()
         logger.info("Stop signal sent to generation loop.")
 
-    def _extract_vision_content(self, messages: list) -> tuple:
-        """
-        Parse messages with OpenAI-style content parts.
-        Returns (image_file_paths, text_messages).
-
-        Handles both:
-        - content: str  (text only, legacy)
-        - content: list[{type: "text", text: "..."}, {type: "image_url", image_url: {url: "data:..."}}]
-        """
-        image_paths = []
-        text_messages = []
-
-        for msg in messages:
-            content = msg.get("content", "")
-            role = msg.get("role", "user")
-
-            if isinstance(content, str):
-                text_messages.append({"role": role, "content": content})
-            elif isinstance(content, list):
-                msg_text = ""
-                for part in content:
-                    if isinstance(part, dict):
-                        if part.get("type") == "text":
-                            msg_text += part.get("text", "")
-                        elif part.get("type") == "image_url":
-                            url = ""
-                            image_url = part.get("image_url")
-                            if isinstance(image_url, dict):
-                                url = image_url.get("url", "")
-                            elif isinstance(image_url, str):
-                                url = image_url
-                            if url.startswith("data:"):
-                                path = self._save_base64_image(url)
-                                if path:
-                                    image_paths.append(path)
-                text_messages.append({"role": role, "content": msg_text})
-            else:
-                text_messages.append({"role": role, "content": str(content)})
-
-        return image_paths, text_messages
-
-    @staticmethod
-    def _save_base64_image(data_url: str) -> str | None:
-        """Decode a data: URL to a temp file, return the file path."""
-        import base64
-        try:
-            header, b64data = data_url.split(",", 1)
-            # Extract extension from mime type: "data:image/png;base64" → "png"
-            mime = header.split(":")[1].split(";")[0] if ":" in header else "image/png"
-            ext = mime.split("/")[1] if "/" in mime else "png"
-            if ext not in ("png", "jpg", "jpeg", "gif", "webp", "bmp"):
-                ext = "png"
-
-            img_bytes = base64.b64decode(b64data)
-            fd, path = tempfile.mkstemp(suffix=f".{ext}", prefix="silicon_vlm_")
-            with os.fdopen(fd, "wb") as f:
-                f.write(img_bytes)
-            return path
-        except (ValueError, OSError) as e:
-            logger.error(f"Failed to decode base64 image: {e}")
-            return None
-
-    @staticmethod
-    def _flatten_messages_to_text(messages: list) -> list:
-        """
-        Ensure all message content is plain strings.
-        Extracts text from multipart content, ignores images.
-        """
-        flat = []
-        for msg in messages:
-            content = msg.get("content", "")
-            role = msg.get("role", "user")
-            if isinstance(content, str):
-                flat.append({"role": role, "content": content})
-            elif isinstance(content, list):
-                text_parts = []
-                for part in content:
-                    if isinstance(part, dict) and part.get("type") == "text":
-                        text_parts.append(part.get("text", ""))
-                flat.append({"role": role, "content": " ".join(text_parts)})
-            else:
-                flat.append({"role": role, "content": str(content)})
-        return flat
-
     def _run_scout_agent(self):
         """Runs the ScoutAgent in a separate thread with its own event loop."""
         # Simple placeholder for workspace path
@@ -1039,7 +885,7 @@ class MLXEngineService:
 
                 if is_vision:
                     # ── Vision model path (mlx-vlm) ──
-                    image_paths, text_messages = self._extract_vision_content(messages)
+                    image_paths, text_messages = _extract_vision_content(messages)
 
                     try:
                         from mlx_vlm import generate as vlm_generate
@@ -1070,7 +916,7 @@ class MLXEngineService:
                         vlm_rep_penalty = repetition_penalty if repetition_penalty and repetition_penalty > 1.0 else 1.15
 
                         response_text = await loop.run_in_executor(
-                            None,
+                            self._mlx_executor,
                             lambda: vlm_generate(
                                 model, processor, formatted_prompt,
                                 image=image_paths if image_paths else None,
@@ -1141,7 +987,7 @@ class MLXEngineService:
 
                     # Generate
                     response_text = await loop.run_in_executor(
-                        None,
+                        self._mlx_executor,
                         lambda: lm_generate(
                             model,
                             tokenizer,
@@ -1214,7 +1060,7 @@ class MLXEngineService:
 
                 if is_vision:
                     # ── Vision model path (mlx-vlm) ──
-                    image_paths, text_messages = self._extract_vision_content(messages)
+                    image_paths, text_messages = _extract_vision_content(messages)
 
                     try:
                         from mlx_vlm import stream_generate as vlm_stream_generate
@@ -1327,7 +1173,7 @@ class MLXEngineService:
                         gen = _vlm_generate_iter()
                         try:
                             while True:
-                                token_text = await loop.run_in_executor(None, _next_token, gen)
+                                token_text = await loop.run_in_executor(self._mlx_executor, _next_token, gen)
                                 if token_text is _SENTINEL:
                                     break
                                 yield {"text": token_text, "done": False}
@@ -1382,7 +1228,7 @@ class MLXEngineService:
 
                     # Prepare prompt with chat template
                     # For text-only path, flatten any multipart content to strings
-                    flat_messages = self._flatten_messages_to_text(messages)
+                    flat_messages = _flatten_messages_to_text(messages)
 
                     if hasattr(tokenizer, "apply_chat_template"):
                         try:
@@ -1539,7 +1385,7 @@ class MLXEngineService:
                     gen = _generate_iter()
                     try:
                         while True:
-                            token_text = await loop.run_in_executor(None, _next_token, gen)
+                            token_text = await loop.run_in_executor(self._mlx_executor, _next_token, gen)
                             if token_text is _SENTINEL:
                                 break
                             yield {"text": token_text, "done": False}
@@ -1580,343 +1426,13 @@ class MLXEngineService:
                 "job_name": job_name,
                 "job_id": job_id
             }
-        
+
         # Spawn a thread for training so we don't block the API
-        thread = threading.Thread(target=self._run_training_job, args=(job_id, config))
+        thread = threading.Thread(target=_run_training_job, args=(self, job_id, config))
         thread.start()
-        
+
         return {"job_id": job_id, "status": "started", "job_name": job_name}
 
-    def _run_training_job(self, job_id: str, config: Dict):
-        """
-        Executed in a separate thread.
-        """
-        try:
-            with self._jobs_lock:
-                self.active_jobs[job_id]["status"] = "training"
-            model_id = config.get("model_id")
-            dataset_path = config.get("dataset_path")
-
-            # Block fine-tuning for vision models (mlx_lm LoRA doesn't support vision_tower)
-            model_path = Path(model_id)
-            if not model_path.is_absolute():
-                sanitized = model_id.replace("/", "--")
-                model_path = self.models_dir / sanitized
-            config_file = model_path / "config.json"
-            if config_file.exists():
-                try:
-                    with open(config_file, "r") as f:
-                        cfg = json.load(f)
-                    if isinstance(cfg, dict):
-                        vision_keys = ["vision_config", "visual", "image_size",
-                                       "vision_tower", "mm_projector_type", "visual_encoder"]
-                        if any(k in cfg and cfg[k] is not None for k in vision_keys):
-                            raise ValueError(
-                                "Fine-tuning vision models is not yet supported. "
-                                "LoRA training requires a text-only model."
-                            )
-                except (json.JSONDecodeError, ValueError) as e:
-                    if "Fine-tuning vision models" in str(e):
-                        raise
-                    pass
-
-            # Pre-check: reject datasets that would OOM when loaded into RAM
-            _MAX_DATASET_MB = 500  # 500 MB limit for in-memory loading
-            try:
-                ds_size = os.path.getsize(dataset_path)
-                ds_mb = ds_size / (1024 * 1024)
-                if ds_mb > _MAX_DATASET_MB:
-                    raise ValueError(
-                        f"Dataset too large ({ds_mb:.0f} MB). "
-                        f"Maximum supported size is {_MAX_DATASET_MB} MB. "
-                        f"Split the file into smaller chunks."
-                    )
-            except OSError as e:
-                raise ValueError(f"Cannot read dataset: {e}")
-
-            epochs = int(config.get("epochs", 3))
-            lr = float(config.get("learning_rate", 1e-4))
-            
-            # New Params
-            batch_size = int(config.get("batch_size", 1))
-            lora_rank = int(config.get("lora_rank", 8))
-            lora_alpha = float(config.get("lora_alpha", 16))
-            max_seq_length = int(config.get("max_seq_length", 512))
-            lora_dropout = float(config.get("lora_dropout", 0.0))
-            lora_layers = int(config.get("lora_layers", 8))
-            seed = config.get("seed")
-            if seed is not None:
-                mx.random.seed(int(seed))
-
-            # Safety clamp: limit max_seq_length based on available unified memory
-            mem_gb = psutil.virtual_memory().total / (1024 ** 3)
-            if mem_gb <= 8:
-                max_safe_seq = 512
-            elif mem_gb <= 16:
-                max_safe_seq = 2048
-            elif mem_gb <= 32:
-                max_safe_seq = 4096
-            else:
-                max_safe_seq = 8192
-            if max_seq_length > max_safe_seq:
-                logger.warning(
-                    f"Clamping max_seq_length from {max_seq_length} to {max_safe_seq} "
-                    f"({mem_gb:.0f} GB unified memory)"
-                )
-                max_seq_length = max_safe_seq
-
-            # Create dedicated directory for this job
-            job_adapter_dir = self.adapters_dir / job_id
-            job_adapter_dir.mkdir(parents=True, exist_ok=True)
-
-            # Pre-flight: check disk space before training
-            _check_disk_space(job_adapter_dir)
-            
-            adapter_file = job_adapter_dir / "adapters.safetensors"
-
-            logger.info(f"Starting training job {job_id} for model {model_id}...")
-            logger.info(f"Params: Epochs={epochs}, BS={batch_size}, Rank={lora_rank}, Alpha={lora_alpha}, LR={lr}, Dropout={lora_dropout}")
-
-            # 1. Load Model (fresh load for training recommended to avoid state issues)
-            # For efficiency we could reuse, but freezing/lora modification happens in-place.
-            # RENAME config -> model_config to avoid shadowing the function argument 'config'
-            model, tokenizer, model_config = load(model_id, return_config=True)
-            
-            # Freeze the base model
-            model.freeze()
-
-            # 2. Setup Training Arguments
-            from mlx_lm.tuner.datasets import load_local_dataset, CacheDataset
-
-            # Fix: load_local_dataset expects a directory containing 'train.jsonl'.
-            # It ignores the filename of dataset_path if we just pass the parent directory.
-            # We must create a temporary directory for this job and copy the user's file to 'train.jsonl' there.
-            
-            job_data_dir = job_adapter_dir / "data"
-            job_data_dir.mkdir(exist_ok=True, parents=True)
-            
-            target_train_path = job_data_dir / "train.jsonl"
-            try:
-                shutil.copy(dataset_path, target_train_path)
-                logger.info(f"Staged dataset {dataset_path} to {target_train_path}")
-            except OSError as e:
-                logger.error(f"Error copying dataset: {e}")
-                # Fallback? No, likely fatal.
-            
-            # Note: load_local_dataset returns (train, val, test) tuple
-            train_set, val_set, test_set = load_local_dataset(job_data_dir, tokenizer, model_config)
-            
-            # --- FIX FOR EMPTY VALIDATION SET ---
-            # If user provides only train.jsonl, val_set is empty list. Train loop crashes.
-            if len(val_set) == 0:
-                logger.info("Validation set empty. Splitting train set...")
-                # Access raw data: load_local_dataset returns [ChatDataset(...), ...]
-                # ChatDataset wraps a list in self._data
-                if hasattr(train_set, "_data"):
-                    raw_data = train_set._data
-                else:
-                    raw_data = train_set # Fallback if list
-                
-                # Split logic
-                if len(raw_data) > 1:
-                    split_idx = int(len(raw_data) * 0.9)
-                    if split_idx == len(raw_data): split_idx = len(raw_data) - 1
-                    
-                    train_raw = raw_data[:split_idx]
-                    val_raw = raw_data[split_idx:]
-                    
-                    # Re-create datasets
-                    from mlx_lm.tuner.datasets import create_dataset
-                    train_set = create_dataset(train_raw, tokenizer, model_config)
-                    val_set = create_dataset(val_raw, tokenizer, model_config)
-                else:
-                    # Too small to split, duplicate
-                    logger.info("Train set too small (<=1). Duplicating for validation.")
-                    # Note: Using same object might cause issues if modified? Safe to reuse for MVP
-                    train_set = train_set
-                    val_set = train_set 
-
-            # IMPORTANT: ChatDataset returns raw dicts. Trainer expects processed tuples.
-            # We must wrap them in CacheDataset which calls .process()
-            train_set = CacheDataset(train_set)
-            val_set = CacheDataset(val_set)
-            
-            # Calculate total iterations
-            # Steps per epoch = len(train_set) / batch_size
-            steps_per_epoch = len(train_set) // batch_size
-            if steps_per_epoch < 1: steps_per_epoch = 1
-            total_iters = steps_per_epoch * epochs
-            
-            logger.info(f"Training Plan: {len(train_set)} samples, {steps_per_epoch} steps/epoch, {total_iters} total iters.")
-
-            args = TrainingArgs(
-                batch_size=batch_size, 
-                iters=total_iters, 
-                adapter_file=str(adapter_file),
-                max_seq_length=max_seq_length
-            )
-
-            # Define a callback class to update progress
-            class ProgressCallback:
-                def on_train_loss_report(self_, train_info):
-                    if "iteration" in train_info:
-                        step = train_info["iteration"]
-                        prog = int((step / args.iters) * 100)
-                        with self._jobs_lock:
-                            self.active_jobs[job_id]["progress"] = prog
-
-                def on_val_loss_report(self_, val_info):
-                    val_loss = val_info.get("val_loss", val_info.get("loss"))
-                    if val_loss is not None:
-                        with self._jobs_lock:
-                            self.active_jobs[job_id]["val_loss"] = round(float(val_loss), 6)
-
-            progress_callback = ProgressCallback()
-
-            # 3. Run Training
-            # Note: mlx_lm.tuner.train signature: 
-            # train(model, optimizer, train_dataset, val_dataset, args, training_callback=...)
-            
-            # We need to construction the optimizer
-            import mlx.optimizers as optim
-            optimizer = optim.Adam(learning_rate=lr)
-            
-            # We need to convert to LoRA
-            from mlx_lm.tuner.utils import linear_to_lora_layers
-
-            # Define LoRA config
-            # Use user-defined layers count
-            
-            lora_config = {
-                "rank": lora_rank,
-                "alpha": lora_alpha,
-                "scale": float(lora_alpha / lora_rank), # alpha / rank
-                "dropout": lora_dropout,
-                "keys": ["self_attn.q_proj", "self_attn.v_proj"], # Common keys for LoRA
-                "num_layers": lora_layers # User defined
-            }
-            
-            # Note: num_layers=N means adapt the last N layers
-            # linear_to_lora_layers modifies model in-place and returns None!
-            linear_to_lora_layers(model, lora_config["num_layers"], lora_config)
-            
-            logger.info("Model converted to LoRA.")
-
-            # Run training with a timeout to prevent runaway jobs.
-            # Default: 6 hours max; scale with iteration count.
-            max_seconds = max(6 * 3600, total_iters * 60)
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(
-                    train,
-                    model=model,
-                    optimizer=optimizer,
-                    train_dataset=train_set,
-                    val_dataset=val_set,
-                    args=args,
-                    training_callback=progress_callback,
-                )
-                try:
-                    future.result(timeout=max_seconds)
-                except concurrent.futures.TimeoutError:
-                    raise RuntimeError(
-                        f"Training job {job_id} timed out after {max_seconds}s "
-                        f"({total_iters} iterations). Job terminated."
-                    )
-
-            with self._jobs_lock:
-                self.active_jobs[job_id]["status"] = "completed"
-                self.active_jobs[job_id]["model_path"] = str(adapter_file)
-                self.active_jobs[job_id]["progress"] = 100
-            
-            # --- Auto-Register Fine-Tuned Model ---
-            job_name = config.get("job_name")
-            if not job_name or not job_name.strip():
-                job_name = f"Fine-Tune {job_id[:8]}"
-            
-            # --- SAVE METADATA TO ADAPTER DIR (User Request) ---
-            metadata_path = job_adapter_dir / "metadata.json"
-            metadata = {
-                "job_name": job_name,
-                "job_id": job_id,
-                "base_model": model_id,
-                "params": config
-            }
-            
-            # --- SAVE ADAPTER CONFIG (Required for Inference) ---
-            adapter_config_path = job_adapter_dir / "adapter_config.json"
-            
-            # Enrich lora_config with base model info
-            base_model_type = "llama" # Default
-            if hasattr(model_config, "model_type"):
-                base_model_type = model_config.model_type
-            elif isinstance(model_config, dict) and "model_type" in model_config:
-                base_model_type = model_config["model_type"]
-
-            # MLX-LM expects a specific structure for adapter config
-            # Based on errors: needs 'num_layers' and 'lora_parameters'
-            final_adapter_config = {
-                "num_layers": lora_config["num_layers"],
-                "model_type": base_model_type,
-                "base_model_name_or_path": model_id,
-                "lora_parameters": {
-                    "rank": lora_config["rank"],
-                    "alpha": lora_config["alpha"],
-                    "scale": lora_config["scale"],
-                    "dropout": lora_config["dropout"],
-                    "keys": lora_config["keys"]
-                }
-            }
-
-            try:
-                # Save metadata
-                with open(metadata_path, 'w') as f:
-                    json.dump(metadata, f, indent=4)
-                    
-                # Save adapter config
-                with open(adapter_config_path, 'w') as f:
-                    json.dump(final_adapter_config, f, indent=4)
-                    
-            except OSError as e:
-                logger.error(f"Failed to save metadata or adapter config: {e}")
-
-            ft_model_entry = {
-                "id": f"ft-{job_id}", # Unique ID for the fine-tuned model
-                "name": job_name,
-                "base_model": model_id,
-                "adapter_path": str(job_adapter_dir), # Point to directory for MLX load
-                "size": "Adapter", # Or calculate size?
-                "family": "Custom",
-                "is_custom": True,
-                "is_finetuned": True,
-                "params": {
-                    "epochs": epochs,
-                    "batch_size": batch_size,
-                    "lora_rank": lora_rank,
-                    "lora_alpha": lora_alpha,
-                    "learning_rate": lr,
-                    "max_seq_len": max_seq_length,
-                    "dropout": lora_dropout,
-                    "lora_layers": lora_layers
-                }
-            }
-            with self._config_lock:
-                self.models_config.append(ft_model_entry)
-                self._save_models_config()
-            logger.info(f"Registered fine-tuned model: {ft_model_entry['name']}")
-
-        except Exception as e:  # Training involves MLX ops, data loading, LoRA — many failure modes
-            logger.error(f"Training failed: {e}", exc_info=True)
-            with self._jobs_lock:
-                self.active_jobs[job_id]["status"] = "failed"
-                self.active_jobs[job_id]["error"] = str(e)
-            # Clean up partial adapter directory so retries don't collide
-            try:
-                if job_adapter_dir.exists() and not (job_adapter_dir / "adapters.safetensors").exists():
-                    shutil.rmtree(job_adapter_dir)
-                    logger.info(f"Cleaned up partial adapter dir: {job_adapter_dir}")
-            except OSError as cleanup_err:
-                logger.warning(f"Failed to clean up adapter dir: {cleanup_err}")
 
     # ------------------------------------------------------------------
     # DPO Training (Direct Preference Optimization)
@@ -1932,239 +1448,10 @@ class MLXEngineService:
                 "job_name": job_name,
                 "job_id": job_id,
             }
-        thread = threading.Thread(target=self._run_dpo_training_job, args=(job_id, config))
+        thread = threading.Thread(target=_run_dpo_training_job, args=(self, job_id, config))
         thread.start()
         return {"job_id": job_id, "status": "started", "job_name": job_name}
 
-    def _run_dpo_training_job(self, job_id: str, config: Dict):
-        """Run DPO training in a background thread.
-
-        Implements the DPO sigmoid loss directly on MLX without external
-        dependencies (sillm).  The approach:
-        1. Load the base model twice (policy + frozen reference).
-        2. For each (prompt, chosen, rejected) triple, compute log-probs
-           under both policy and reference.
-        3. Apply sigmoid loss on the log-ratio difference.
-        4. Save LoRA adapters.
-        """
-        import mlx.nn as nn
-        import mlx.optimizers as optim
-        from mlx_lm.tuner.utils import linear_to_lora_layers
-
-        job_adapter_dir = self.adapters_dir / job_id
-        try:
-            with self._jobs_lock:
-                self.active_jobs[job_id]["status"] = "training"
-
-            model_id = config["model_id"]
-            dataset_path = config["dataset_path"]
-            beta = float(config.get("dpo_beta", 0.1))
-            lr = float(config.get("learning_rate", 1e-5))
-            epochs = int(config.get("epochs", 1))
-            batch_size = int(config.get("batch_size", 1))
-            lora_rank = int(config.get("lora_rank", 16))
-            lora_alpha = float(config.get("lora_alpha", 32))
-            lora_layers = int(config.get("lora_layers", 8))
-            max_seq_length = int(config.get("max_seq_length", 2048))
-            job_name = config.get("job_name", f"dpo-{job_id[:8]}")
-
-            # Memory safety clamp
-            mem_gb = psutil.virtual_memory().total / (1024 ** 3)
-            max_safe = 512 if mem_gb <= 8 else 2048 if mem_gb <= 16 else 4096 if mem_gb <= 32 else 8192
-            if max_seq_length > max_safe:
-                logger.warning(f"DPO: clamping max_seq_length {max_seq_length} -> {max_safe}")
-                max_seq_length = max_safe
-
-            # Load DPO pairs
-            pairs = []
-            with open(dataset_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    entry = json.loads(line.strip())
-                    if entry.get("prompt") and entry.get("chosen") and entry.get("rejected"):
-                        pairs.append(entry)
-            if len(pairs) < 5:
-                raise ValueError(f"Need at least 5 DPO pairs, got {len(pairs)}")
-
-            logger.info(f"DPO: loaded {len(pairs)} preference pairs")
-
-            # Load model + tokenizer
-            model, tokenizer, model_config = load(model_id, return_config=True)
-
-            # Create reference model (frozen copy)
-            ref_model, _, _ = load(model_id, return_config=True)
-            ref_model.freeze()
-
-            # Apply LoRA to policy model
-            model.freeze()
-            lora_config = {
-                "rank": lora_rank,
-                "alpha": lora_alpha,
-                "scale": float(lora_alpha / lora_rank),
-                "dropout": 0.0,
-                "keys": ["self_attn.q_proj", "self_attn.v_proj"],
-                "num_layers": lora_layers,
-            }
-            linear_to_lora_layers(model, lora_config["num_layers"], lora_config)
-            logger.info("DPO: model converted to LoRA")
-
-            # Setup
-            job_adapter_dir.mkdir(parents=True, exist_ok=True)
-            optimizer = optim.Adam(learning_rate=lr)
-            loss_and_grad_fn = nn.value_and_grad(model, self._dpo_loss_fn)
-
-            total_steps = (len(pairs) // batch_size) * epochs
-            if total_steps < 1:
-                total_steps = 1
-            step = 0
-
-            for epoch in range(epochs):
-                import random
-                random.shuffle(pairs)
-                for i in range(0, len(pairs) - batch_size + 1, batch_size):
-                    batch = pairs[i:i + batch_size]
-
-                    # Tokenize batch
-                    all_chosen_ids = []
-                    all_rejected_ids = []
-                    for p in batch:
-                        text_chosen = p["prompt"] + "\n" + p["chosen"]
-                        text_rejected = p["prompt"] + "\n" + p["rejected"]
-                        chosen_ids = tokenizer.encode(text_chosen)[:max_seq_length]
-                        rejected_ids = tokenizer.encode(text_rejected)[:max_seq_length]
-                        all_chosen_ids.append(chosen_ids)
-                        all_rejected_ids.append(rejected_ids)
-
-                    # Pad to same length within batch
-                    def _pad(seqs):
-                        max_len = max(len(s) for s in seqs)
-                        padded = []
-                        masks = []
-                        for s in seqs:
-                            pad_len = max_len - len(s)
-                            padded.append(s + [0] * pad_len)
-                            masks.append([1.0] * len(s) + [0.0] * pad_len)
-                        return mx.array(padded), mx.array(masks)
-
-                    chosen_tokens, chosen_masks = _pad(all_chosen_ids)
-                    rejected_tokens, rejected_masks = _pad(all_rejected_ids)
-
-                    # Compute reference log-probs (no grad)
-                    ref_chosen_lp = self._sequence_log_probs(ref_model, chosen_tokens, chosen_masks)
-                    ref_rejected_lp = self._sequence_log_probs(ref_model, rejected_tokens, rejected_masks)
-                    mx.eval(ref_chosen_lp, ref_rejected_lp)
-
-                    # Compute loss + gradients on policy model
-                    (loss_val, _), grads = loss_and_grad_fn(
-                        model, chosen_tokens, chosen_masks,
-                        rejected_tokens, rejected_masks,
-                        ref_chosen_lp, ref_rejected_lp, beta,
-                    )
-                    optimizer.update(model, grads)
-                    mx.eval(model.parameters(), optimizer.state, loss_val)
-
-                    step += 1
-                    progress = int((step / total_steps) * 100)
-                    with self._jobs_lock:
-                        self.active_jobs[job_id]["progress"] = min(progress, 99)
-                        self.active_jobs[job_id]["loss"] = round(float(loss_val), 6)
-
-                    if step % 10 == 0:
-                        logger.info(f"DPO step {step}/{total_steps} loss={float(loss_val):.4f}")
-
-            # Save adapters
-            adapter_file = job_adapter_dir / "adapters.safetensors"
-            mx.savez(str(adapter_file), **dict(model.trainable_parameters()))
-
-            # Save adapter config
-            base_model_type = "llama"
-            if hasattr(model_config, "model_type"):
-                base_model_type = model_config.model_type
-            elif isinstance(model_config, dict) and "model_type" in model_config:
-                base_model_type = model_config["model_type"]
-
-            adapter_config_path = job_adapter_dir / "adapter_config.json"
-            with open(adapter_config_path, "w") as f:
-                json.dump({
-                    "num_layers": lora_config["num_layers"],
-                    "model_type": base_model_type,
-                    "base_model_name_or_path": model_id,
-                    "training_type": "dpo",
-                    "dpo_beta": beta,
-                    "lora_parameters": {
-                        "rank": lora_config["rank"],
-                        "alpha": lora_config["alpha"],
-                        "scale": lora_config["scale"],
-                        "dropout": lora_config["dropout"],
-                        "keys": lora_config["keys"],
-                    }
-                }, f, indent=4)
-
-            # Save metadata
-            with open(job_adapter_dir / "metadata.json", "w") as f:
-                json.dump({"job_name": job_name, "job_id": job_id, "base_model": model_id, "params": config, "type": "dpo", "num_pairs": len(pairs)}, f, indent=4)
-
-            # Register fine-tuned model
-            ft_entry = {
-                "id": f"ft-{job_id}",
-                "name": job_name,
-                "base_model": model_id,
-                "adapter_path": str(job_adapter_dir),
-                "size": "Adapter",
-                "family": "Custom",
-                "is_custom": True,
-                "is_finetuned": True,
-                "training_type": "dpo",
-                "params": config,
-            }
-            with self._config_lock:
-                self.models_config.append(ft_entry)
-                self._save_models_config()
-
-            with self._jobs_lock:
-                self.active_jobs[job_id]["status"] = "completed"
-                self.active_jobs[job_id]["model_path"] = str(adapter_file)
-                self.active_jobs[job_id]["progress"] = 100
-
-            logger.info(f"DPO training completed: {job_name} ({len(pairs)} pairs, {step} steps)")
-
-            # Free reference model — unconditional, this is a large allocation
-            del ref_model
-            self._maybe_gc(force=True)
-
-        except Exception as e:
-            logger.error(f"DPO training failed: {e}", exc_info=True)
-            with self._jobs_lock:
-                self.active_jobs[job_id]["status"] = "failed"
-                self.active_jobs[job_id]["error"] = str(e)
-            try:
-                if job_adapter_dir.exists() and not (job_adapter_dir / "adapters.safetensors").exists():
-                    shutil.rmtree(job_adapter_dir)
-            except OSError:
-                pass
-
-    @staticmethod
-    def _sequence_log_probs(model, tokens, masks):
-        """Compute per-sequence mean log-probabilities."""
-        import mlx.nn as nn
-        logits = model(tokens[:, :-1])
-        targets = tokens[:, 1:]
-        log_probs = -nn.losses.cross_entropy(logits, targets, reduction="none")
-        # Mask padding (shift mask to match targets)
-        m = masks[:, 1:]
-        masked = log_probs * m
-        return masked.sum(axis=-1) / mx.maximum(m.sum(axis=-1), mx.array(1.0))
-
-    @staticmethod
-    def _dpo_loss_fn(model, chosen_tokens, chosen_masks, rejected_tokens, rejected_masks, ref_chosen_lp, ref_rejected_lp, beta):
-        """DPO sigmoid loss: -log(sigmoid(beta * (log_ratio_chosen - log_ratio_rejected)))."""
-        import mlx.nn as nn
-        policy_chosen_lp = MLXEngineService._sequence_log_probs(model, chosen_tokens, chosen_masks)
-        policy_rejected_lp = MLXEngineService._sequence_log_probs(model, rejected_tokens, rejected_masks)
-
-        # Log-ratio differences
-        logits = beta * ((policy_chosen_lp - ref_chosen_lp) - (policy_rejected_lp - ref_rejected_lp))
-        loss = -nn.log_sigmoid(logits).mean()
-        return loss, policy_chosen_lp.mean()
 
     def get_job_status(self, job_id: str):
         with self._jobs_lock:
@@ -2486,7 +1773,7 @@ class MLXEngineService:
             }
             if q_bits and q_bits > 0:
                 fuse_kwargs["q_bits"] = q_bits
-            await loop.run_in_executor(None, lambda: fuse(**fuse_kwargs))
+            await loop.run_in_executor(self._mlx_executor, lambda: fuse(**fuse_kwargs))
             logger.info(f"Model exported successfully to {output_path}")
             return {"status": "success", "path": output_path}
         except PermissionError as e:
