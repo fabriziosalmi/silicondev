@@ -107,8 +107,8 @@ class AgentService:
                     run = json.load(fh)
                     if run.get("agent_id") == agent_id:
                         runs.append(run)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to read run file %s: %s", f, e)
         return sorted(runs, key=lambda r: r.get("start_time", 0), reverse=True)
 
     async def execute_agent(self, agent_id: str, input_data: str, run_id: Optional[str] = None) -> Dict[str, Any]:
@@ -120,7 +120,8 @@ class AgentService:
 
         nodes = agent.get("nodes", [])
         edges = agent.get("edges", [])
-        config = agent.get("config", {})
+        # Use `or {}` to handle JSON null (when config was serialized as null)
+        config = agent.get("config") or {}
 
         if len(nodes) > MAX_AGENT_NODES:
             raise ValueError(f"Agent has {len(nodes)} nodes (max {MAX_AGENT_NODES})")

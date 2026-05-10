@@ -219,6 +219,7 @@ async def stop_preview():
 @router.get("/status")
 async def preview_status():
     """Return current preview server status."""
+    global _preview_process  # required: status endpoint may mutate (clear crashed process)
     with _lock:
         running = _preview_process is not None and _preview_process.poll() is None
 

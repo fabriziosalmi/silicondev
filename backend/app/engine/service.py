@@ -953,7 +953,6 @@ class MLXEngineService:
                     from mlx_lm import generate as lm_generate
                     from mlx_lm.utils import get_model_path, load, generate_step, get_chat_template
 
-                    model_path = get_model_path(self.active_model_id)
                     model_config = self.active_model.config
                     
                     # Detect model's max context from config

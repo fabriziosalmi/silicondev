@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import AsyncGenerator
 
 from .types import AgentState
-from .context import ContextManager, count_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -230,8 +229,8 @@ class PlannerEditor:
                     try:
                         with open(abs_path, "r", encoding="utf-8", errors="replace") as f:
                             file_cache[step["file"]] = f.read()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Prefetch failed for %s: %s", abs_path, e)
 
         # ── Phase 2: Execute Each Step ──────────────────────────
 
@@ -416,8 +415,8 @@ class PlannerEditor:
                     tree_lines.append(f"  {entry.name}")
             if tree_lines:
                 parts.append("File tree:\n" + "\n".join(tree_lines[:100]) + "\n")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("File tree generation failed for %s: %s", self.workspace_dir, e)
 
         parts.append(f"Task:\n{user_prompt}")
         return "\n".join(parts)
@@ -433,8 +432,8 @@ class PlannerEditor:
                     await asyncio.wait_for(event.wait(), timeout=5.0)
                 except asyncio.TimeoutError:
                     continue
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Diff wait interrupted: %s", e)
 
         pending = self._pending_diffs.pop(call_id, {})
         return pending.get("approved", False)

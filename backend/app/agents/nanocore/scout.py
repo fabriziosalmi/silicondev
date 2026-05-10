@@ -73,7 +73,6 @@ class ScoutAgent:
 
     async def perform_reconnaissance(self):
         """Analyzes the graph to find 'Hot-Spots' or 'Code Smells'."""
-        nodes = memory_graph.get_all_nodes()
         edges = memory_graph.get_all_edges()
 
         # 1. Identify "Hot-Spots": Files modified across many conversations

@@ -29,7 +29,7 @@ from app.memory.service import memory_graph
 from .validators import validate_content, detect_lazy_edit, run_lint_check, scan_security, scan_performance
 from .dataset_engine import dataset_engine
 from .guardrails import LoopGuardrails
-from .context import HierarchicalContextManager, count_tokens
+from .context import HierarchicalContextManager
 from .repomap import RepoMapCache
 from .process_manager import ProcessManager
 
@@ -529,6 +529,8 @@ class SupervisorAgent:
             env_lines.append(f"Active file (open in editor): {active_file_path}")
             env_lines.append(f"IMPORTANT: When the user asks to modify a file, use this path: {active_file_path}")
         system_content = base_prompt + user_rules + linter_addition + "\n\n## Environment\n\n" + "\n".join(env_lines) + "\n"
+        if memory_context:
+            system_content += memory_context + "\n"
         if repo_map:
             system_content += f"\n\n## Repository Map\n\n{repo_map}\n"
 
@@ -1492,8 +1494,8 @@ class SupervisorAgent:
                     try:
                         swarm_events: list[dict] = []
 
-                        async def _swarm_progress(phase: str, expert_id: str, status: str):
-                            swarm_events.append({"phase": phase, "expert": expert_id, "status": status})
+                        async def _swarm_progress(phase: str, expert_id: str, status: str, _events: list = swarm_events):
+                            _events.append({"phase": phase, "expert": expert_id, "status": status})
 
                         swarm = MapReduceSwarm(self._model_for("reviewer"), on_progress=_swarm_progress, router=self._router)
                         result = await swarm.run_swarm(topic=topic, context=context)
@@ -1576,9 +1578,8 @@ class SupervisorAgent:
 
             # Phase 4: Knowledge Extraction (Non-blocking background task)
             try:
-                import asyncio
                 asyncio.create_task(self.extractor.process_interaction(
-                    self.session_id, user_prompt, cleaned
+                    self.session_id, prompt, cleaned
                 ))
             except Exception as e:
                 logger.error(f"Failed to trigger extraction: {e}")

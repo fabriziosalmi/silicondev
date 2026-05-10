@@ -321,8 +321,8 @@ class RagService:
             try:
                 with open(analytics_file, "r") as f:
                     analytics = json.load(f)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to load analytics for collection: %s", e)
 
         # Load usage stats
         usage_file = self.rag_dir / f"{collection_id}_usage.json"
@@ -331,8 +331,8 @@ class RagService:
             try:
                 with open(usage_file, "r") as f:
                     usage = json.load(f)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to load usage stats for collection: %s", e)
 
         total_chunk_hits = sum(v.get("hits", 0) for v in usage.values())
         unique_chunks_used = len(usage)
@@ -353,8 +353,8 @@ class RagService:
             try:
                 with open(analytics_file, "r") as f:
                     analytics = json.load(f)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to read analytics file: %s", e)
 
         analytics["total_queries"] = analytics.get("total_queries", 0) + 1
         analytics["queries"].append({
