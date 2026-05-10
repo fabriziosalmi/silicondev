@@ -37,6 +37,8 @@ interface DiscoverTabProps {
     models: ModelEntry[]
     downloading: Set<string>
     downloadProgress: Map<string, number>
+    /** F-5: speed (bytes/sec) + ETA (seconds) per model during download */
+    downloadStats?: Map<string, { speed: number; eta: number }>
     availableRamBytes: number
     searchQuery: string
     setSearchQuery: (q: string) => void
@@ -44,7 +46,7 @@ interface DiscoverTabProps {
 }
 
 export function DiscoverTab({
-    models, downloading, downloadProgress, availableRamBytes,
+    models, downloading, downloadProgress, downloadStats, availableRamBytes,
     searchQuery, setSearchQuery, onDownload,
 }: DiscoverTabProps) {
     const { t } = useTranslation()
@@ -428,9 +430,13 @@ export function DiscoverTab({
                                 {downloading.has(selectedModel.id) ? (
                                     <>
                                         <Loader2 size={16} className="animate-spin" />
-                                        {(downloadProgress.get(selectedModel.id) ?? 0) > 0
-                                            ? `${downloadProgress.get(selectedModel.id)}%`
-                                            : t('models.downloading')}
+                                        {(downloadProgress.get(selectedModel.id) ?? 0) > 0 ? (() => {
+                                            const pct = downloadProgress.get(selectedModel.id) ?? 0
+                                            const st = downloadStats?.get(selectedModel.id)
+                                            const spdStr = st && st.speed > 0 ? ` · ${(st.speed / 1e6).toFixed(1)} MB/s` : ''
+                                            const etaStr = st && st.eta > 60 ? ` · ${Math.round(st.eta / 60)}m` : st && st.eta > 0 ? ` · ${Math.round(st.eta)}s` : ''
+                                            return `${pct}%${spdStr}${etaStr}`
+                                        })() : t('models.downloading')}
                                     </>
                                 ) : (
                                     <><Download className="w-4 h-4" /> {t('models.download')}</>

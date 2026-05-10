@@ -28,6 +28,7 @@ import { CommandPalette } from './components/CommandPalette'
 import KnowledgeMap from './components/KnowledgeMap'
 import { SelectionMenu } from './components/ui/SelectionMenu'
 import { Database, Cpu, MessageSquare, BarChart2, TestTube, Brain, Rocket, FileText, ChevronsLeft, ChevronsRight, Plus, ChevronDown, ChevronRight, Settings as SettingsIcon, Package, TerminalSquare, Code, BookOpen, Search, Server, Workflow } from 'lucide-react'
+import { ShortcutsOverlay } from './components/ui/ShortcutsOverlay'
 
 function App() {
   const [activeTab, setActiveTab] = useState('chat')
@@ -37,6 +38,7 @@ function App() {
   const [notesExpanded, setNotesExpanded] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [knowledgeMapOpen, setKnowledgeMapOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const { t } = useTranslation()
   const { backendReady, pendingChatInput } = useGlobalState()
   const conversations = useConversations()
@@ -124,6 +126,12 @@ function App() {
             setActiveTab('settings');
           }
           break;
+        case '/': // Cmd+/ — shortcuts overlay
+          if (!isInput) {
+            e.preventDefault();
+            setShortcutsOpen(prev => !prev);
+          }
+          break;
         case 'p': // Alt+Shift+P — command palette
           if (e.altKey && e.shiftKey) {
             e.preventDefault();
@@ -135,6 +143,13 @@ function App() {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [conversations, toggleSidebar]);
+
+  // silicon-studio:open-model-picker → jump to Models tab
+  useEffect(() => {
+    const handler = () => setActiveTab('models');
+    window.addEventListener('silicon-studio:open-model-picker', handler);
+    return () => window.removeEventListener('silicon-studio:open-model-picker', handler);
+  }, []);
 
   // Fake progress bar — fast start, slows down, never reaches 100 until ready
   useEffect(() => {
@@ -560,6 +575,7 @@ function App() {
         onClose={() => setKnowledgeMapOpen(false)}
       />
       <SelectionMenu />
+      {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
     </div>
   )
 }

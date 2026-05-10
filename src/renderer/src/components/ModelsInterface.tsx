@@ -310,6 +310,7 @@ export function ModelsInterface() {
                         models={discoverableModels}
                         downloading={downloading}
                         downloadProgress={new Map(models.filter(m => m.downloading).map(m => [m.id, m.download_progress ?? 0]))}
+                        downloadStats={new Map(models.filter(m => m.downloading && (m.download_speed ?? 0) > 0).map(m => [m.id, { speed: m.download_speed ?? 0, eta: m.download_eta ?? 0 }]))}
                         availableRamBytes={availableRamBytes}
                         searchQuery={searchQuery}
                         setSearchQuery={setSearchQuery}

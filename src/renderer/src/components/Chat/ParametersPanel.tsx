@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, Save, ChevronDown, Trash2 } from 'lucide-react'
 import { ParameterSlider } from './ParameterSlider'
 import { ToggleSwitch } from '../ui/ToggleSwitch'
 import { PromptLibraryPanel } from './PromptLibraryPanel'
@@ -39,6 +39,30 @@ export function ParametersPanel({
 }: ParametersPanelProps) {
     const { t } = useTranslation()
     const [showLibrary, setShowLibrary] = useState(false)
+
+    // F-3: System prompt presets (localStorage)
+    const PRESETS_KEY = 'silicon-studio-system-prompt-presets'
+    type Preset = { name: string; prompt: string }
+    const loadPresets = (): Preset[] => {
+        try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]') } catch { return [] }
+    }
+    const [presets, setPresets] = useState<Preset[]>(loadPresets)
+    const [showPresetsMenu, setShowPresetsMenu] = useState(false)
+
+    const savePreset = useCallback(() => {
+        const prompt = settings.systemPrompt.trim()
+        if (!prompt) return
+        const name = prompt.slice(0, 30).replace(/\n/g, ' ') + (prompt.length > 30 ? '…' : '')
+        const next = [{ name, prompt }, ...presets.filter(p => p.prompt !== prompt)].slice(0, 5)
+        setPresets(next)
+        try { localStorage.setItem(PRESETS_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+    }, [settings.systemPrompt, presets])
+
+    const deletePreset = useCallback((idx: number) => {
+        const next = presets.filter((_, i) => i !== idx)
+        setPresets(next)
+        try { localStorage.setItem(PRESETS_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+    }, [presets])
     return (
         <>
         <div className="shrink-0 mx-3 mb-2 rounded-xl border border-white/5 bg-black/20 transition-all">
@@ -141,15 +165,62 @@ export function ParametersPanel({
                         <div className="pt-2">
                             <div className="flex items-center justify-between mb-3">
                                 <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase">{t('params.systemPrompt')}</div>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowLibrary(true)}
-                                    title={t('promptLibrary.title')}
-                                    className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-400 transition-colors"
-                                >
-                                    <BookOpen size={11} />
-                                    {t('promptLibrary.button')}
-                                </button>
+                                <div className="flex items-center gap-1.5">
+                                    {/* F-3: Save preset */}
+                                    <button
+                                        type="button"
+                                        onClick={savePreset}
+                                        disabled={!settings.systemPrompt.trim()}
+                                        title="Save as preset"
+                                        className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-emerald-400 transition-colors disabled:opacity-30"
+                                    >
+                                        <Save size={10} /> Save
+                                    </button>
+                                    {/* F-3: Load preset dropdown */}
+                                    {presets.length > 0 && (
+                                        <div className="relative">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPresetsMenu(p => !p)}
+                                                title="Load preset"
+                                                className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-400 transition-colors"
+                                            >
+                                                Presets <ChevronDown size={9} />
+                                            </button>
+                                            {showPresetsMenu && (
+                                                <div className="absolute right-0 top-full mt-1 z-50 bg-[#111] border border-white/10 rounded-lg shadow-xl min-w-[200px] py-1">
+                                                    {presets.map((p, i) => (
+                                                        <div key={i} className="flex items-center group">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setSettings({ ...settings, systemPrompt: p.prompt }); setShowPresetsMenu(false); }}
+                                                                className="flex-1 px-3 py-1.5 text-left text-[10px] text-gray-300 hover:text-white hover:bg-white/5 transition-colors truncate"
+                                                            >
+                                                                {p.name}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => deletePreset(i)}
+                                                                className="px-2 py-1.5 text-gray-700 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
+                                                            >
+                                                                <Trash2 size={10} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowLibrary(true)}
+                                        title={t('promptLibrary.title')}
+                                        className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-400 transition-colors"
+                                    >
+                                        <BookOpen size={11} />
+                                        {t('promptLibrary.button')}
+                                    </button>
+                                </div>
                             </div>
                             <textarea
                                 value={settings.systemPrompt}

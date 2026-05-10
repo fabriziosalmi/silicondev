@@ -77,6 +77,10 @@ export interface ModelEntry {
     downloading: boolean
     /** 0-100 during active download; 0 when not downloading */
     download_progress?: number
+    /** F-5: bytes per second during active download */
+    download_speed?: number
+    /** F-5: estimated seconds remaining during active download */
+    download_eta?: number
     local_path: string | null
     path?: string
     base_model?: string

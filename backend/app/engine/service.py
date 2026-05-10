@@ -44,6 +44,9 @@ class MLXEngineService:
         # Maps model_id -> int (0-100) progress during download.
         # Populated by _track_download_progress; read by get_models().
         self.download_progress: dict[str, int] = {}
+        # F-5: speed in bytes/sec and ETA in seconds during download.
+        self.download_speed: dict[str, float] = {}
+        self.download_eta: dict[str, float] = {}
         self.active_model_id = None
         self.active_model = None
         self.active_tokenizer = None
@@ -1599,6 +1602,9 @@ class MLXEngineService:
                 "downloaded": is_downloaded,
                 "downloading": is_downloading,
                 "download_progress": self.download_progress.get(m["id"], 0) if is_downloading else 0,
+                # F-5: speed (bytes/sec) and ETA (seconds) during active download
+                "download_speed": self.download_speed.get(m["id"], 0.0) if is_downloading else 0.0,
+                "download_eta": self.download_eta.get(m["id"], 0.0) if is_downloading else 0.0,
                 "local_path": model_path
             }
             
@@ -1668,6 +1674,9 @@ class MLXEngineService:
             _stop_event = threading.Event()
 
             def _track_progress() -> None:
+                from collections import deque
+                import time as _time
+                _samples: deque = deque(maxlen=5)  # (timestamp, bytes_done)
                 while not _stop_event.is_set():
                     try:
                         if local_dir.exists() and _total_bytes > 0:
@@ -1678,6 +1687,17 @@ class MLXEngineService:
                             )
                             pct = min(int(done / _total_bytes * 100), 98)
                             self.download_progress[model_id] = pct
+                            # F-5: rolling speed + ETA
+                            now = _time.monotonic()
+                            _samples.append((now, done))
+                            if len(_samples) >= 2:
+                                dt = _samples[-1][0] - _samples[0][0]
+                                db = _samples[-1][1] - _samples[0][1]
+                                speed = db / dt if dt > 0 else 0.0
+                                remaining = _total_bytes - done
+                                eta = remaining / speed if speed > 0 else 0.0
+                                self.download_speed[model_id] = round(speed, 1)
+                                self.download_eta[model_id] = round(eta, 1)
                     except Exception:
                         pass
                     _stop_event.wait(timeout=3.0)
@@ -1718,6 +1738,8 @@ class MLXEngineService:
             _stop_event.set()
             self.active_downloads.discard(model_id)
             self.download_progress.pop(model_id, None)
+            self.download_speed.pop(model_id, None)
+            self.download_eta.pop(model_id, None)
 
     def delete_model(self, model_id: str):
         """
