@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { apiClient, cleanModelName } from '../api/client'
 import type { ModelEntry } from '../api/client'
 import { PageHeader } from './ui/PageHeader'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
-import { HardDrive, FolderOpen } from 'lucide-react'
+import { HardDrive, FolderOpen, FileDown } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
 import { parseSizeGB } from './models/ModelsUtils'
 import { MyModelsTab } from './models/MyModelsTab'
@@ -28,8 +28,46 @@ export function ModelsInterface() {
     const [loadingModelId, setLoadingModelId] = useState<string | null>(null)
     const [showAddModal, setShowAddModal] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
+    const [pendingGgufPath, setPendingGgufPath] = useState<string | null>(null)
+    // F-1: GGUF drag-and-drop state
+    const [isDragging, setIsDragging] = useState(false)
+    const dragCounterRef = useRef(0)
 
     useEffect(() => { fetchModels() }, [])
+
+    // F-1: GGUF drop via native drag-and-drop
+    const handleDragEnter = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        dragCounterRef.current++;
+        if (e.dataTransfer.types.includes('Files')) setIsDragging(true);
+    }, []);
+    const handleDragLeave = useCallback(() => {
+        dragCounterRef.current--;
+        if (dragCounterRef.current === 0) setIsDragging(false);
+    }, []);
+    const handleDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        dragCounterRef.current = 0;
+        setIsDragging(false);
+        const files = Array.from(e.dataTransfer.files);
+        const gguf = files.find(f => f.name.toLowerCase().endsWith('.gguf'));
+        if (gguf) {
+            // On Electron, File.path gives the real FS path
+            const p = (gguf as File & { path?: string }).path || gguf.name;
+            setPendingGgufPath(p);
+            setShowAddModal(true);
+        }
+    }, []);
+    // F-1: "Open GGUF…" via native file picker
+    const handleOpenGguf = useCallback(async () => {
+        const api = (window as Window & { electronAPI?: { openGguf?: () => Promise<string | null> } }).electronAPI;
+        if (!api?.openGguf) return;
+        const filePath = await api.openGguf();
+        if (filePath) {
+            setPendingGgufPath(filePath);
+            setShowAddModal(true);
+        }
+    }, []);
 
     useEffect(() => {
         if (downloading.size === 0) return
@@ -168,8 +206,32 @@ export function ModelsInterface() {
     )
 
     return (
-        <div className="h-full flex flex-col text-white overflow-hidden pb-4">
+        <div
+            className="h-full flex flex-col text-white overflow-hidden pb-4 relative"
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={e => e.preventDefault()}
+            onDrop={handleDrop}
+        >
+            {/* F-1: GGUF drop overlay */}
+            {isDragging && (
+                <div className="absolute inset-0 z-50 bg-blue-500/10 border-2 border-blue-500/50 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 pointer-events-none">
+                    <FileDown className="w-12 h-12 text-blue-400" />
+                    <p className="text-blue-300 font-semibold text-sm">Drop .gguf to add model</p>
+                </div>
+            )}
             <PageHeader>
+                {(window as Window & { electronAPI?: { openGguf?: unknown } }).electronAPI?.openGguf && (
+                    <button
+                        type="button"
+                        onClick={handleOpenGguf}
+                        className="bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors border border-white/5 whitespace-nowrap flex items-center gap-2"
+                        title="Open a local .gguf file"
+                    >
+                        <FileDown size={14} />
+                        Open GGUF…
+                    </button>
+                )}
                 <button
                     type="button"
                     onClick={() => setShowAddModal(true)}
@@ -258,8 +320,9 @@ export function ModelsInterface() {
 
             {showAddModal && (
                 <AddModelModal
-                    onClose={() => setShowAddModal(false)}
+                    onClose={() => { setShowAddModal(false); setPendingGgufPath(null); }}
                     onModelsAdded={fetchModels}
+                    initialPath={pendingGgufPath ?? undefined}
                 />
             )}
         </div>

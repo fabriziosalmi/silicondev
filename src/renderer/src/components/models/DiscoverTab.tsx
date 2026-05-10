@@ -329,6 +329,14 @@ export function DiscoverTab({
                                 const colors = archColor(model.architecture)
                                 const isSelected = selectedModel?.id === model.id
                                 const isDownloading = downloading.has(model.id)
+                                // F-2: VRAM/RAM fit badge
+                                const sizeGB = parseSizeGB(model.size)
+                                const vramGB = sizeGB * 1.15
+                                const ramGB = availableRamBytes / 1e9
+                                const fitLabel = ramGB <= 0 ? null
+                                    : vramGB <= ramGB * 0.75 ? { label: 'Fits', cls: 'text-green-500/70' }
+                                    : vramGB <= ramGB ? { label: 'Tight', cls: 'text-amber-500/70' }
+                                    : { label: 'Too large', cls: 'text-red-500/60' }
                                 return (
                                     <div
                                         key={model.id}
@@ -344,6 +352,12 @@ export function DiscoverTab({
                                             <div className={`w-1.5 h-1.5 rounded-full ${colors.dot} shrink-0`} />
                                             <span className="text-[12px] font-medium text-gray-200 truncate">{cleanModelName(model.name)}</span>
                                             <span className="text-[10px] text-gray-500 font-mono ml-auto tabular-nums shrink-0">{model.size}</span>
+                                            {/* F-2: fit badge */}
+                                            {fitLabel && (
+                                                <span className={`text-[9px] font-bold uppercase tabular-nums shrink-0 ${fitLabel.cls}`}>
+                                                    {fitLabel.label}
+                                                </span>
+                                            )}
                                         </button>
                                         <button
                                             type="button"
@@ -384,6 +398,25 @@ export function DiscoverTab({
                                         </span>
                                     ); })()}
                                     <span className="text-sm text-gray-400 font-mono">{selectedModel.size}</span>
+                                    {/* F-2: VRAM estimate in detail panel */}
+                                    {(() => {
+                                        const sizeGB = parseSizeGB(selectedModel.size)
+                                        const vramGB = sizeGB * 1.15
+                                        const ramGB = availableRamBytes / 1e9
+                                        if (ramGB <= 0 || sizeGB <= 0) return null
+                                        const pct = Math.round((vramGB / ramGB) * 100)
+                                        const { label, cls } = vramGB <= ramGB * 0.75
+                                            ? { label: '✓ Fits in RAM', cls: 'text-green-400 bg-green-500/10 border-green-500/20' }
+                                            : vramGB <= ramGB
+                                            ? { label: '⚡ Tight fit', cls: 'text-amber-400 bg-amber-500/10 border-amber-500/20' }
+                                            : { label: '✗ Too large', cls: 'text-red-400 bg-red-500/10 border-red-500/20' }
+                                        return (
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded border font-bold ${cls}`}
+                                                title={`~${vramGB.toFixed(1)} GB RAM needed / ${ramGB.toFixed(1)} GB available (${pct}%)`}>
+                                                {label}
+                                            </span>
+                                        )
+                                    })()}
                                 </div>
                             </div>
                             <button

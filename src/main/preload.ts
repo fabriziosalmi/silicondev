@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ping: () => ipcRenderer.invoke('ping'),
     selectFile: () => ipcRenderer.invoke('dialog:openFile'),
     selectDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
+    openGguf: () => ipcRenderer.invoke('dialog:openGguf'),
     getBackendPort: () => ipcRenderer.invoke('get-backend-port'),
     getLogPath: () => ipcRenderer.invoke('get-log-path'),
     getAuthToken: () => ipcRenderer.invoke('get-auth-token'),

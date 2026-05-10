@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { apiClient } from '../../api/client'
 import type { ModelEntry } from '../../api/client'
@@ -8,18 +8,27 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 interface AddModelModalProps {
     onClose: () => void
     onModelsAdded: () => void
+    initialPath?: string
 }
 
-export function AddModelModal({ onClose, onModelsAdded }: AddModelModalProps) {
+export function AddModelModal({ onClose, onModelsAdded, initialPath }: AddModelModalProps) {
     const { t } = useTranslation()
-    const [customName, setCustomName] = useState("")
-    const [customPath, setCustomPath] = useState("")
+    const [customName, setCustomName] = useState(initialPath ? (initialPath.split('/').pop()?.replace('.gguf', '') ?? '') : '')
+    const [customPath, setCustomPath] = useState(initialPath ?? '')
     const [foundModels, setFoundModels] = useState<ModelEntry[]>([])
     const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
     const [scanning, setScanning] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const trapRef = useFocusTrap(true)
+
+    // F-1: auto-scan if opened from a dropped/picked GGUF file
+    useEffect(() => {
+        if (initialPath) {
+            setTimeout(() => handleScan(initialPath), 80)
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     const handleScan = async (path: string) => {
         if (!path) return

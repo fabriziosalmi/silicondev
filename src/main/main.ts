@@ -224,6 +224,20 @@ app.whenReady().then(() => {
         return result.filePaths[0];
     });
 
+    // F-1: Open a GGUF model file via dialog
+    ipcMain.handle('dialog:openGguf', async (event) => {
+        if (!event.senderFrame) {
+            log.warn('Blocked unauthorized dialog:openGguf request');
+            return null;
+        }
+        const result = await dialog.showOpenDialog({
+            properties: ['openFile'],
+            filters: [{ name: 'GGUF Models', extensions: ['gguf'] }]
+        });
+        if (result.canceled) return null;
+        return result.filePaths[0];
+    });
+
     ipcMain.handle('dialog:openDirectory', async (event) => {
         if (!event.senderFrame) {
             log.warn('Blocked unauthorized dialog:openDirectory request');

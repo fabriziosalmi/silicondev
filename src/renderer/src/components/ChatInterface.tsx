@@ -1554,6 +1554,28 @@ Return exactly this JSON structure (no other text):
                         <Settings2 className="w-3.5 h-3.5" />
                         {t('chat.parameters')}
                     </button>
+                    {/* F-4: Active model chip — click to switch model */}
+                    {currentModelName ? (
+                        <button
+                            type="button"
+                            onClick={() => window.dispatchEvent(new CustomEvent('silicon-studio:open-model-picker'))}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-colors border border-white/5 hover:border-white/15 max-w-[180px]"
+                            title="Switch model"
+                        >
+                            <Cpu className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{currentModelName}</span>
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => window.dispatchEvent(new CustomEvent('silicon-studio:open-model-picker'))}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-500/70 hover:text-amber-400 hover:bg-amber-500/5 transition-colors border border-amber-500/20"
+                            title="No model loaded"
+                        >
+                            <Cpu className="w-3.5 h-3.5 shrink-0" />
+                            No model
+                        </button>
+                    )}
                 </div>
             </PageHeader>
 
@@ -1912,13 +1934,19 @@ Return exactly this JSON structure (no other text):
 
                                                     {/* Response */}
                                                     {!visibleContent && !thinkingContent && isGenerating && idx === messages.length - 1 ? (
-                                                        <div className="flex items-center gap-1.5 py-2">
+                                                        <div className="flex items-center gap-2 py-2">
                                                             <div className="flex gap-1">
                                                                 <div className="w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-bounce [animation-delay:0ms]" />
                                                                 <div className="w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-bounce [animation-delay:150ms]" />
                                                                 <div className="w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-bounce [animation-delay:300ms]" />
                                                             </div>
                                                             <span className="text-xs text-gray-500 ml-1">{t('chat.thinking')}</span>
+                                                            {/* F-6: live tok/s during generation */}
+                                                            {msg.stats && msg.stats.tokensPerSecond > 0 && (
+                                                                <span className="text-[10px] font-mono text-blue-400/60 ml-1 tabular-nums">
+                                                                    {msg.stats.tokensPerSecond} tok/s
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     ) : (
                                                         <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0 prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 prose-hr:border-transparent">
