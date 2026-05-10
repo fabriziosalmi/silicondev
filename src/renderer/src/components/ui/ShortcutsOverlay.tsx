@@ -10,24 +10,29 @@ const SHORTCUTS = [
         { keys: ['Enter'], desc: 'Send message' },
         { keys: ['Shift', 'Enter'], desc: 'New line in message' },
         { keys: ['↑'], desc: 'Edit last user message' },
-        { keys: ['Escape'], desc: 'Cancel / close' },
-        { keys: ['Cmd', 'K'], desc: 'New conversation' },
-        { keys: ['Cmd', '/'], desc: 'Show this keyboard shortcuts panel' },
+        { keys: ['Escape'], desc: 'Cancel / close dialog' },
     ]},
     { section: 'Model', items: [
+        { keys: ['click model chip'], desc: 'Open model picker' },
         { keys: ['/model'], desc: 'Switch active model (slash command)' },
         { keys: ['/clear'], desc: 'Clear conversation' },
-        { keys: ['/help'], desc: 'Show slash commands' },
-        { keys: ['Cmd', 'click model chip'], desc: 'Open model picker' },
+        { keys: ['/help'], desc: 'Show all slash commands' },
     ]},
     { section: 'Navigation', items: [
-        { keys: ['1–9'], desc: 'Jump to tab (in nav sidebar)' },
-        { keys: ['Tab'], desc: 'Move focus between interactive elements' },
+        { keys: ['Cmd', 'K'], desc: 'Jump to Chat tab' },
+        { keys: ['Cmd', 'N'], desc: 'New conversation' },
+        { keys: ['Cmd', 'B'], desc: 'Toggle sidebar' },
+        { keys: ['Cmd', 'E'], desc: 'Code workspace' },
+        { keys: ['Cmd', ','], desc: 'Settings' },
+        { keys: ['Cmd', '/'], desc: 'This shortcuts panel' },
+        { keys: ['Alt', 'Shift', 'P'], desc: 'Command palette' },
+        { keys: ['Alt', 'Shift', 'K'], desc: 'Knowledge map' },
+        { keys: ['Tab'], desc: 'Move focus between elements' },
     ]},
     { section: 'Terminal', items: [
         { keys: ['Ctrl', 'L'], desc: 'Clear terminal history' },
         { keys: ['Ctrl', 'C'], desc: 'Stop running command' },
-        { keys: ['↑', '↓'], desc: 'History navigation' },
+        { keys: ['↑', '↓'], desc: 'Command history navigation' },
     ]},
 ]
 
@@ -56,6 +61,7 @@ export function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
                     <button
                         type="button"
                         onClick={onClose}
+                        aria-label="Close shortcuts panel"
                         className="text-gray-500 hover:text-white transition-colors p-1"
                     >
                         <X size={16} />

@@ -22,14 +22,6 @@ export function AddModelModal({ onClose, onModelsAdded, initialPath }: AddModelM
     const [error, setError] = useState<string | null>(null)
     const trapRef = useFocusTrap(true)
 
-    // F-1: auto-scan if opened from a dropped/picked GGUF file
-    useEffect(() => {
-        if (initialPath) {
-            setTimeout(() => handleScan(initialPath), 80)
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-
     const handleScan = async (path: string) => {
         if (!path) return
         setScanning(true)
@@ -44,6 +36,16 @@ export function AddModelModal({ onClose, onModelsAdded, initialPath }: AddModelM
             setScanning(false)
         }
     }
+
+    // B-1: useEffect AFTER handleScan is declared
+    // U-4: setScanning(true) immediately so modal shows spinner right away
+    useEffect(() => {
+        if (initialPath) {
+            setScanning(true)
+            setTimeout(() => handleScan(initialPath), 80)
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     const handleRegister = async () => {
         if (foundModels.length > 0) {

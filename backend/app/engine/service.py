@@ -1675,7 +1675,6 @@ class MLXEngineService:
 
             def _track_progress() -> None:
                 from collections import deque
-                import time as _time
                 _samples: deque = deque(maxlen=5)  # (timestamp, bytes_done)
                 while not _stop_event.is_set():
                     try:
@@ -1688,13 +1687,13 @@ class MLXEngineService:
                             pct = min(int(done / _total_bytes * 100), 98)
                             self.download_progress[model_id] = pct
                             # F-5: rolling speed + ETA
-                            now = _time.monotonic()
+                            now = time.monotonic()
                             _samples.append((now, done))
                             if len(_samples) >= 2:
                                 dt = _samples[-1][0] - _samples[0][0]
                                 db = _samples[-1][1] - _samples[0][1]
                                 speed = db / dt if dt > 0 else 0.0
-                                remaining = _total_bytes - done
+                                remaining = max(0, _total_bytes - done)
                                 eta = remaining / speed if speed > 0 else 0.0
                                 self.download_speed[model_id] = round(speed, 1)
                                 self.download_eta[model_id] = round(eta, 1)

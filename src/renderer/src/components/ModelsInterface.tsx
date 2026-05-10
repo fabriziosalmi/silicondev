@@ -35,6 +35,12 @@ export function ModelsInterface() {
 
     useEffect(() => { fetchModels() }, [])
 
+    // B-6: Reset drag state on unmount (prevents stale counter on remount)
+    useEffect(() => () => {
+        dragCounterRef.current = 0
+        setIsDragging(false)
+    }, [])
+
     // F-1: GGUF drop via native drag-and-drop
     const handleDragEnter = useCallback((e: React.DragEvent) => {
         e.preventDefault();

@@ -133,6 +133,7 @@ export function ChatInterface() {
     }, []);
 
     const [paramsExpanded, setParamsExpanded] = useState(() => localStorage.getItem('paramsExpanded') === 'true')
+    const [openLibraryTrigger, setOpenLibraryTrigger] = useState(0)  // B-7: /library command
     const toggleParams = () => {
         setParamsExpanded(prev => {
             const next = !prev;
@@ -763,8 +764,9 @@ export function ChatInterface() {
                 window.dispatchEvent(new CustomEvent('silicon-studio:open-model-picker'))
                 break
             case 'library':
-                // Toggle prompt library panel via custom event
-                window.dispatchEvent(new CustomEvent('silicon-studio:open-prompt-library'))
+                // B-7: open params panel first, then library (no dead custom event)
+                setParamsExpanded(true)
+                setOpenLibraryTrigger(prev => prev + 1)
                 break
             case 'export':
                 handleExport('md')
@@ -1587,6 +1589,7 @@ Return exactly this JSON structure (no other text):
                     maxContextWindow={activeModel?.context_window || 32768}
                     ragCollections={ragCollections}
                     fetchRagCollections={fetchRagCollections}
+                    openLibraryTrigger={openLibraryTrigger}
                 />
             )}
 

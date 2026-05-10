@@ -366,16 +366,22 @@ export function DiscoverTab({
                                             onClick={() => onDownload(model.id)}
                                             disabled={isDownloading}
                                             aria-label={`Download ${cleanModelName(model.name)}`}
-                                            className="h-6 w-6 flex items-center justify-center rounded text-gray-600 opacity-0 group-hover:opacity-100 hover:bg-blue-500/20 hover:text-blue-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                                            className={`h-6 flex items-center justify-center rounded text-gray-600 hover:bg-blue-500/20 hover:text-blue-400 transition-all disabled:cursor-not-allowed shrink-0 ${
+                                                isDownloading ? 'opacity-100 w-auto px-1' : 'opacity-0 group-hover:opacity-100 w-6'
+                                            }`}
                                             title={isDownloading ? t('models.downloading') : t('models.download')}
                                         >
-                                            {isDownloading ? (
-                                                <span className="text-[9px] font-mono text-blue-400 tabular-nums">
-                                                    {(downloadProgress.get(model.id) ?? 0) > 0
-                                                        ? `${downloadProgress.get(model.id)}%`
-                                                        : <Loader2 size={11} className="animate-spin" />}
-                                                </span>
-                                            ) : <Download size={11} />}
+                                            {isDownloading ? (() => {
+                                                const pct = downloadProgress.get(model.id) ?? 0
+                                                const st = downloadStats?.get(model.id)
+                                                const spdStr = st && st.speed > 0 ? ` ${(st.speed / 1e6).toFixed(1)}` : ''
+                                                return (
+                                                    <span className="text-[9px] font-mono text-blue-400 tabular-nums flex items-center gap-0.5">
+                                                        {pct > 0 ? `${pct}%${spdStr}` : <Loader2 size={11} className="animate-spin" />}
+                                                        {pct > 0 && spdStr && <span className="text-[8px] text-blue-500">MB/s</span>}
+                                                    </span>
+                                                )
+                                            })() : <Download size={11} />}
                                         </button>
                                     </div>
                                 )

@@ -1,9 +1,16 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BookOpen, Save, ChevronDown, Trash2 } from 'lucide-react'
+import { BookOpen, Save, Check, ChevronDown, Trash2 } from 'lucide-react'
 import { ParameterSlider } from './ParameterSlider'
 import { ToggleSwitch } from '../ui/ToggleSwitch'
 import { PromptLibraryPanel } from './PromptLibraryPanel'
+
+// B-2: module-level constants (not re-created per render)
+const PRESETS_KEY = 'silicon-studio-system-prompt-presets'
+type Preset = { name: string; prompt: string }
+const loadStoredPresets = (): Preset[] => {
+    try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]') } catch { return [] }
+}
 
 export interface ChatSettings {
     systemPrompt: string
@@ -32,22 +39,38 @@ interface ParametersPanelProps {
     maxContextWindow: number
     ragCollections: { id: string; name: string; chunks: number }[]
     fetchRagCollections: () => void
+    /** B-7: incremented by /library slash command to auto-open the library */
+    openLibraryTrigger?: number
 }
 
 export function ParametersPanel({
-    settings, setSettings, maxContextWindow, ragCollections, fetchRagCollections
+    settings, setSettings, maxContextWindow, ragCollections, fetchRagCollections, openLibraryTrigger
 }: ParametersPanelProps) {
     const { t } = useTranslation()
     const [showLibrary, setShowLibrary] = useState(false)
 
-    // F-3: System prompt presets (localStorage)
-    const PRESETS_KEY = 'silicon-studio-system-prompt-presets'
-    type Preset = { name: string; prompt: string }
-    const loadPresets = (): Preset[] => {
-        try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]') } catch { return [] }
-    }
-    const [presets, setPresets] = useState<Preset[]>(loadPresets)
+    // B-7: /library slash command trigger
+    useEffect(() => {
+        if (openLibraryTrigger && openLibraryTrigger > 0) setShowLibrary(true)
+    }, [openLibraryTrigger])
+
+    // F-3: System prompt presets
+    const [presets, setPresets] = useState<Preset[]>(loadStoredPresets)
     const [showPresetsMenu, setShowPresetsMenu] = useState(false)
+    const [savedFlash, setSavedFlash] = useState(false)  // U-1: visual save feedback
+    const presetsMenuRef = useRef<HTMLDivElement>(null)   // B-3: click-outside ref
+
+    // B-3: Close presets dropdown on outside click
+    useEffect(() => {
+        if (!showPresetsMenu) return
+        const handler = (e: MouseEvent) => {
+            if (presetsMenuRef.current && !presetsMenuRef.current.contains(e.target as Node)) {
+                setShowPresetsMenu(false)
+            }
+        }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [showPresetsMenu])
 
     const savePreset = useCallback(() => {
         const prompt = settings.systemPrompt.trim()
@@ -56,6 +79,9 @@ export function ParametersPanel({
         const next = [{ name, prompt }, ...presets.filter(p => p.prompt !== prompt)].slice(0, 5)
         setPresets(next)
         try { localStorage.setItem(PRESETS_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+        // U-1: flash feedback
+        setSavedFlash(true)
+        setTimeout(() => setSavedFlash(false), 1500)
     }, [settings.systemPrompt, presets])
 
     const deletePreset = useCallback((idx: number) => {
@@ -63,6 +89,7 @@ export function ParametersPanel({
         setPresets(next)
         try { localStorage.setItem(PRESETS_KEY, JSON.stringify(next)) } catch { /* ignore */ }
     }, [presets])
+
     return (
         <>
         <div className="shrink-0 mx-3 mb-2 rounded-xl border border-white/5 bg-black/20 transition-all">
@@ -166,19 +193,22 @@ export function ParametersPanel({
                             <div className="flex items-center justify-between mb-3">
                                 <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase">{t('params.systemPrompt')}</div>
                                 <div className="flex items-center gap-1.5">
-                                    {/* F-3: Save preset */}
+                                    {/* F-3: Save preset — U-1: flash feedback */}
                                     <button
                                         type="button"
                                         onClick={savePreset}
                                         disabled={!settings.systemPrompt.trim()}
                                         title="Save as preset"
-                                        className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-emerald-400 transition-colors disabled:opacity-30"
+                                        className={`flex items-center gap-1 text-[10px] transition-colors disabled:opacity-30 ${
+                                            savedFlash ? 'text-emerald-400' : 'text-gray-500 hover:text-emerald-400'
+                                        }`}
                                     >
-                                        <Save size={10} /> Save
+                                        {savedFlash ? <Check size={10} /> : <Save size={10} />}
+                                        {savedFlash ? 'Saved!' : 'Save'}
                                     </button>
-                                    {/* F-3: Load preset dropdown */}
+                                    {/* F-3: Load preset dropdown — B-3: click-outside via ref */}
                                     {presets.length > 0 && (
-                                        <div className="relative">
+                                        <div className="relative" ref={presetsMenuRef}>
                                             <button
                                                 type="button"
                                                 onClick={() => setShowPresetsMenu(p => !p)}
