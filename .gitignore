@@ -61,3 +61,4 @@ tmp/
 # Release credentials (Apple ID, app-specific password)
 .env.local
 .env.local.example.filled
+.env.local
