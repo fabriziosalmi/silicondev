@@ -8,11 +8,15 @@ test.beforeEach(async ({ page }) => {
   // Default tab is Chat — navigate to Models for these tests
   await navigateTo(page, 'Models')
   await expect(page.getByText('My Models').first()).toBeVisible({ timeout: 5000 })
+  // Discover is now the default tab; jump to My Models for the assertions below.
+  await page.getByText('My Models').first().click()
 })
 
 test.describe('Models Page', () => {
   test('shows downloaded model name', async ({ page }) => {
-    await expect(page.getByText('Llama 3.2 3B Instruct', { exact: true })).toBeVisible({ timeout: 5000 })
+    // data-testid scopes the selector to the My Models row, ignoring any
+    // <option> with the same text inside hidden <select> elsewhere.
+    await expect(page.getByTestId('my-model-name').filter({ hasText: 'Llama 3.2 3B Instruct' })).toBeVisible({ timeout: 5000 })
   })
 
   test('shows model size 1.8GB', async ({ page }) => {
@@ -25,15 +29,16 @@ test.describe('Models Page', () => {
   })
 
   test('search filters models — matching and non-matching', async ({ page }) => {
-    const searchInput = page.locator('input[placeholder*="Search"]')
+    const searchInput = page.locator('input[placeholder*="Search"]').first()
+    const llamaRow = page.getByTestId('my-model-name').filter({ hasText: 'Llama 3.2 3B Instruct' })
 
     // "llama" matches the downloaded model
     await searchInput.fill('llama')
-    await expect(page.getByText('Llama 3.2 3B Instruct', { exact: true })).toBeVisible({ timeout: 5000 })
+    await expect(llamaRow).toBeVisible({ timeout: 5000 })
 
     // nonsense query hides the model
     await searchInput.fill('xyznonexistent')
-    await expect(page.getByText('Llama 3.2 3B Instruct', { exact: true })).toBeHidden({ timeout: 5000 })
+    await expect(llamaRow).toBeHidden({ timeout: 5000 })
   })
 
   test('has My Models and Discover tabs', async ({ page }) => {

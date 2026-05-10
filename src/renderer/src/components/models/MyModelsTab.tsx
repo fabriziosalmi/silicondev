@@ -146,7 +146,7 @@ export function MyModelsTab({
                                                         <Zap size={11} className={colors.text} />
                                                     </div>
                                                     <div className="min-w-0 flex-1 flex items-center gap-2">
-                                                        <span className="font-semibold text-[12px] text-white truncate" title={model.id}>
+                                                        <span data-testid="my-model-name" className="font-semibold text-[12px] text-white truncate" title={model.id}>
                                                             {cleanModelName(model.name)}
                                                         </span>
                                                         {model.is_finetuned && (
