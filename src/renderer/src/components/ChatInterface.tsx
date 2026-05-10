@@ -154,6 +154,22 @@ export function ChatInterface() {
     const skipLoadRef = useRef(false)
     const creatingConvRef = useRef(false)
 
+    // ── Ref mirrors for handleSend stale-closure fix ──────────────────────
+    // handleSend uses useCallback([]) — refs let it read the latest values
+    // without re-creating the callback on every keystroke.
+    const inputRef = useRef(input)
+    const currentModelIdRef = useRef(activeModel?.id ?? '')
+    const messagesRef = useRef(messages)
+    const settingsRef = useRef(settings)
+    const pendingImagesRef = useRef(pendingImages)
+    const activeModelRef = useRef(activeModel)
+    useEffect(() => { inputRef.current = input }, [input])
+    useEffect(() => { currentModelIdRef.current = activeModel?.id ?? '' }, [activeModel])
+    useEffect(() => { messagesRef.current = messages }, [messages])
+    useEffect(() => { settingsRef.current = settings }, [settings])
+    useEffect(() => { pendingImagesRef.current = pendingImages }, [pendingImages])
+    useEffect(() => { activeModelRef.current = activeModel }, [activeModel])
+
     // Self-assessment & self-critique (extracted hook)
     const selfAssessment = useSelfAssessment({
         currentModelId: activeModel?.id ?? null,
@@ -829,7 +845,13 @@ export function ChatInterface() {
     }, [activeModel?.is_vision])
 
     const handleSend = useCallback(async (directPrompt?: string, displayContent?: string, actionType?: string) => {
-        const text = directPrompt ?? input;
+        // Read fresh values from refs — handleSend has empty deps [] to avoid
+        // infinite re-creation loops, so all state reads must go via refs.
+        const text = directPrompt ?? inputRef.current;
+        const currentModelId = currentModelIdRef.current;
+        const pendingImages = pendingImagesRef.current;
+        const settings = settingsRef.current;
+        const activeModel = activeModelRef.current;
         if ((!text.trim() && pendingImages.length === 0) || !currentModelId || isGenerating || sendingRef.current) return
         sendingRef.current = true
 
@@ -946,7 +968,7 @@ export function ChatInterface() {
                 : null
             const conversation = [
                 ...(systemMsg ? [systemMsg] : []),
-                ...messages,
+                ...messagesRef.current,
                 userMsg
             ]
 
