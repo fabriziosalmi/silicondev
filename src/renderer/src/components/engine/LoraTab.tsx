@@ -4,7 +4,6 @@ import { apiClient } from '../../api/client'
 import type { ModelEntry, JobStatus, ModelFormatInfo } from '../../api/client'
 import { useGlobalState } from '../../context/GlobalState'
 import { useToast } from '../ui/Toast'
-import { Card } from '../ui/Card'
 import { Cpu, Activity, Play, Settings2, ShieldAlert, FileText, Download, Loader2 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -188,185 +187,174 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
     }
 
     return (
-        <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
+        <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
 
-            {/* Settings Sidebar */}
-            <div className="w-[450px] flex flex-col gap-6 min-h-0 overflow-y-auto pr-2 pb-6">
-                <Card className="p-0 overflow-hidden bg-[#18181B] border border-white/10">
-                    <div className="p-4 border-b border-white/10 bg-white/[0.02] flex items-center gap-2">
-                        <Settings2 className="w-5 h-5 text-blue-400" />
-                        <h3 className="font-bold">Job Configuration</h3>
-                    </div>
+            {/* Settings Sidebar — sticky header & footer (CTA), middle scrolls. */}
+            <div className="w-[400px] flex flex-col min-h-0 bg-[#18181B] border border-white/10 rounded-xl overflow-hidden">
+                {/* Sticky header */}
+                <div className="px-4 py-3 border-b border-white/10 bg-white/[0.02] flex items-center gap-2 shrink-0">
+                    <Settings2 className="w-4 h-4 text-blue-400" />
+                    <h3 className="font-bold text-sm">Job Configuration</h3>
+                </div>
 
-                    <div className="p-5 space-y-5">
+                {/* Scrollable middle */}
+                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
 
-                        {/* Target Name */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Target Model Name</label>
+                    {/* Target Name + Base Model side-by-side */}
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Target Name</label>
                             <input
                                 type="text"
-                                placeholder="e.g. My-Llama-Finance-Expert"
+                                placeholder="My-Finance-Expert"
                                 value={jobName}
                                 onChange={e => setJobName(e.target.value)}
-                                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 placeholder-gray-500 font-medium"
+                                className="w-full bg-black/40 border border-white/10 rounded-md px-2 h-8 text-[12px] text-white outline-none focus:border-blue-500 placeholder-gray-600"
                             />
                         </div>
-
-                        {/* Base Model */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">{t('engine.selectModel')}</label>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">{t('engine.selectModel')}</label>
                             <select
                                 title="Base Foundation Model"
-                                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 appearance-none"
+                                className="w-full bg-black/40 border border-white/10 rounded-md px-2 h-8 text-[12px] text-white outline-none focus:border-blue-500 appearance-none truncate"
                                 value={selectedModel}
                                 onChange={e => setSelectedModel(e.target.value)}
                             >
-                                {models.map(m => <option key={m.id} value={m.id}>{m.name} ({m.size})</option>)}
+                                {models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Model Format Info — compact strip */}
+                    {modelFormat && (
+                        <div className="flex items-center gap-2 px-2 py-1 rounded bg-black/20 border border-white/5 text-[10px] text-gray-500">
+                            <span className="text-gray-400 font-medium">{modelFormat.model_type}</span>
+                            <span className="w-px h-3 bg-white/10" />
+                            <span className={modelFormat.has_chat_template ? 'text-green-500/70' : 'text-yellow-500/70'}>
+                                {modelFormat.has_chat_template ? 'chat template' : 'no chat template'}
+                            </span>
+                            {modelFormat.eos_token && (
+                                <>
+                                    <span className="w-px h-3 bg-white/10" />
+                                    <code className="text-gray-400">{modelFormat.eos_token}</code>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Dataset Path */}
+                    <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">{t('engine.dataset')}</label>
+                            {capturedCount > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={useCapturedDataset}
+                                    disabled={capturedLoading}
+                                    className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-colors disabled:opacity-50"
+                                >
+                                    {capturedLoading ? <Loader2 size={9} className="animate-spin" /> : <Activity size={9} />}
+                                    Use {capturedCount} captured
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex gap-1.5">
+                            <div className="flex-1 bg-black/40 border border-white/10 rounded-md px-2 h-8 text-[11px] text-blue-100/70 truncate flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                {datasetPath.split('/').pop() || "No file selected"}
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    const path = await window.electronAPI?.selectFile?.()
+                                    if (path) setDatasetPath(path)
+                                }}
+                                className="bg-white/10 hover:bg-white/20 text-white px-3 h-8 rounded-md transition-colors text-[11px] font-medium"
+                            >
+                                Select
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Hyperparameters */}
+                    <div className="pt-2 border-t border-white/5 space-y-2">
+                        <div className="flex justify-between items-center">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Hyperparameters</label>
+                            <select
+                                title="Hyperparameters Preset"
+                                value={preset}
+                                onChange={(e) => handlePresetChange(e.target.value as keyof typeof PRESETS | 'custom')}
+                                className="bg-white/5 text-gray-300 border border-white/10 text-[10px] rounded px-1.5 py-0.5 outline-none"
+                            >
+                                <option value="draft">Draft (Fast)</option>
+                                <option value="balanced">Balanced</option>
+                                <option value="deep">Deep (Slow)</option>
+                                <option value="custom">Custom...</option>
                             </select>
                         </div>
 
-                        {/* Model Format Info */}
-                        {modelFormat && (
-                            <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-black/20 border border-white/5 text-[11px] text-gray-500">
-                                <span className="text-gray-400 font-medium">{modelFormat.model_type}</span>
-                                <span className="w-px h-3 bg-white/10" />
-                                {modelFormat.has_chat_template ? (
-                                    <span className="text-green-500/70">Chat template detected</span>
-                                ) : (
-                                    <span className="text-yellow-500/70">No chat template</span>
-                                )}
-                                {modelFormat.eos_token && (
-                                    <>
-                                        <span className="w-px h-3 bg-white/10" />
-                                        <span>EOS: <code className="text-gray-400">{modelFormat.eos_token}</code></span>
-                                    </>
-                                )}
+                        <div className="grid grid-cols-4 gap-1.5">
+                            <div className="space-y-0.5">
+                                <label className="text-[9px] text-gray-500 uppercase" title="Number of full passes through the dataset">{t('engine.epochs')}</label>
+                                <input type="number" title="Epochs" value={epochs} onChange={e => { setEpochs(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                             </div>
-                        )}
-
-                        {/* Dataset Path */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">{t('engine.dataset')}</label>
-                                {capturedCount > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={useCapturedDataset}
-                                        disabled={capturedLoading}
-                                        className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-colors disabled:opacity-50"
-                                    >
-                                        {capturedLoading ? <Loader2 size={10} className="animate-spin" /> : <Activity size={10} />}
-                                        Use {capturedCount} captured samples
-                                    </button>
-                                )}
+                            <div className="space-y-0.5">
+                                <label className="text-[9px] text-gray-500 uppercase" title="Samples processed per training step">{t('engine.batchSize')}</label>
+                                <input type="number" title="Batch Size" value={batchSize} onChange={e => { setBatchSize(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                             </div>
-                            <div className="flex gap-2">
-                                <div className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[13px] text-blue-100/70 truncate flex items-center gap-2">
-                                    <FileText className="w-4 h-4 text-blue-400" />
-                                    {datasetPath.split('/').pop() || "No file selected"}
-                                </div>
-                                <button
-                                    onClick={async () => {
-                                        const path = await window.electronAPI?.selectFile?.()
-                                        if (path) setDatasetPath(path)
-                                    }}
-                                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                                >
-                                    Select
-                                </button>
+                            <div className="space-y-0.5">
+                                <label className="text-[9px] text-gray-500 uppercase" title="How fast the model adapts — lower is safer but slower">{t('engine.learningRate')}</label>
+                                <input type="number" title="Learning Rate" step="0.00001" value={learningRate} onChange={e => { setLearningRate(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                             </div>
-                            {datasetPath && (
-                                <p className="text-[10px] text-gray-500 font-mono truncate px-1 opacity-50">{datasetPath}</p>
-                            )}
+                            <div className="space-y-0.5">
+                                <label className="text-[9px] text-gray-500 uppercase" title="Max tokens per training example — longer uses more memory">Max Seq</label>
+                                <input type="number" title="Max Seq Length" value={maxSeqLength} onChange={e => { setMaxSeqLength(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
+                            </div>
                         </div>
 
-                        {/* Hyperparameters Preset */}
-                        <div className="pt-4 border-t border-white/5 space-y-4">
-                            <div className="flex justify-between items-center">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Hyperparameters</label>
-                                <select
-                                    title="Hyperparameters Preset"
-                                    value={preset}
-                                    onChange={(e) => handlePresetChange(e.target.value as keyof typeof PRESETS | 'custom')}
-                                    className="bg-white/5 text-gray-300 border border-white/10 text-xs rounded px-2 py-1 outline-none"
-                                >
-                                    <option value="draft">Draft (Fast)</option>
-                                    <option value="balanced">Balanced</option>
-                                    <option value="deep">Deep (Slow)</option>
-                                    <option value="custom">Custom...</option>
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-4 gap-3">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] text-gray-500 uppercase" title="Number of full passes through the dataset">{t('engine.epochs')}</label>
-                                    <input type="number" title="Epochs" value={epochs} onChange={e => { setEpochs(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                    <p className="text-[9px] text-gray-500 leading-tight">Full passes over dataset</p>
+                        {/* LoRA Specifics — inline, no inner card */}
+                        <div className="pt-2 border-t border-white/5 space-y-1.5">
+                            <div className="text-[9px] font-bold text-gray-500 uppercase">LoRA Specifics</div>
+                            <div className="grid grid-cols-5 gap-1.5">
+                                <div className="space-y-0.5">
+                                    <label className="text-[9px] text-gray-500 uppercase" title="Adapter capacity — higher rank = more expressive but uses more memory">Rank</label>
+                                    <input type="number" title="LoRA Rank" value={loraRank} onChange={e => { setLoraRank(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] text-gray-500 uppercase" title="Samples processed per training step">{t('engine.batchSize')}</label>
-                                    <input type="number" title="Batch Size" value={batchSize} onChange={e => { setBatchSize(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                    <p className="text-[9px] text-gray-500 leading-tight">Samples per step</p>
+                                <div className="space-y-0.5">
+                                    <label className="text-[9px] text-gray-500 uppercase" title="Scaling factor — typically 2x rank">Alpha</label>
+                                    <input type="number" title="LoRA Alpha" value={loraAlpha} onChange={e => { setLoraAlpha(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] text-gray-500 uppercase" title="How fast the model adapts — lower is safer but slower">{t('engine.learningRate')}</label>
-                                    <input type="number" title="Learning Rate" step="0.00001" value={learningRate} onChange={e => { setLearningRate(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                    <p className="text-[9px] text-gray-500 leading-tight">Lower = safer, slower</p>
+                                <div className="space-y-0.5">
+                                    <label className="text-[9px] text-gray-500 uppercase" title="How many transformer layers get LoRA adapters">Layers</label>
+                                    <input type="number" title="Target Layers" value={loraLayers} onChange={e => { setLoraLayers(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] text-gray-500 uppercase" title="Max tokens per training example — longer uses more memory">Max Seq</label>
-                                    <input type="number" title="Max Seq Length" value={maxSeqLength} onChange={e => { setMaxSeqLength(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                    <p className="text-[9px] text-gray-500 leading-tight">Tokens per example</p>
+                                <div className="space-y-0.5">
+                                    <label className="text-[9px] text-gray-500 uppercase" title="Regularization — 0 disables, 0.05-0.1 helps prevent overfitting">Dropout</label>
+                                    <input type="number" title="LoRA Dropout" step="0.05" value={loraDropout} onChange={e => { setLoraDropout(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
+                                </div>
+                                <div className="space-y-0.5">
+                                    <label className="text-[9px] text-gray-500 uppercase" title="Fixed random seed for reproducible training runs. Leave empty for random.">Seed</label>
+                                    <input type="number" title="Random Seed" placeholder="Rnd" value={seed ?? ''} onChange={e => setSeed(e.target.value ? parseInt(e.target.value) : null)} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none placeholder-gray-600" />
                                 </div>
                             </div>
-
-                            <div className="bg-black/20 p-3 rounded-lg border border-white/5 space-y-2">
-                                <div className="text-[10px] font-bold text-gray-500 uppercase">LoRA Specifics</div>
-                                <div className="grid grid-cols-4 gap-3">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] text-gray-500 uppercase" title="Adapter capacity — higher rank = more expressive but uses more memory">Rank (R)</label>
-                                        <input type="number" title="LoRA Rank" value={loraRank} onChange={e => { setLoraRank(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                        <p className="text-[9px] text-gray-500 leading-tight">Adapter capacity</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] text-gray-500 uppercase" title="Scaling factor — typically 2x rank">Alpha</label>
-                                        <input type="number" title="LoRA Alpha" value={loraAlpha} onChange={e => { setLoraAlpha(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                        <p className="text-[9px] text-gray-500 leading-tight">Scaling, usually 2x rank</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] text-gray-500 uppercase" title="How many transformer layers get LoRA adapters">Layers</label>
-                                        <input type="number" title="Target Layers" value={loraLayers} onChange={e => { setLoraLayers(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                        <p className="text-[9px] text-gray-500 leading-tight">Layers with adapters</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] text-gray-500 uppercase" title="Regularization — 0 disables, 0.05-0.1 helps prevent overfitting">Dropout</label>
-                                        <input type="number" title="LoRA Dropout" step="0.05" value={loraDropout} onChange={e => { setLoraDropout(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                        <p className="text-[9px] text-gray-500 leading-tight">0 = off, 0.05 typical</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] text-gray-500 uppercase" title="Fixed random seed for reproducible training runs. Leave empty for random.">Seed</label>
-                                        <input type="number" title="Random Seed" placeholder="Random" value={seed ?? ''} onChange={e => setSeed(e.target.value ? parseInt(e.target.value) : null)} className="w-full bg-black/40 border border-white/10 rounded p-1.5 text-xs font-mono outline-none" />
-                                        <p className="text-[9px] text-gray-500 leading-tight">For reproducibility</p>
-                                    </div>
-                                </div>
-                            </div>
-
                         </div>
-
-                        <button
-                            onClick={startTraining}
-                            disabled={loading || (jobStatus?.status === 'training')}
-                            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
-                        >
-                            {loading ? (
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            ) : (
-                                <Play className="w-4 h-4 fill-current" />
-                            )}
-                            {jobStatus?.status === 'training' ? t('engine.training') + '...' : t('engine.startTraining')}
-                        </button>
                     </div>
-                </Card>
+                </div>
+
+                {/* Sticky footer CTA — always visible, never scrolls. */}
+                <div className="px-4 py-3 border-t border-white/10 bg-white/[0.02] shrink-0">
+                    <button
+                        onClick={startTraining}
+                        disabled={loading || (jobStatus?.status === 'training')}
+                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold h-10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                        {loading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Play className="w-4 h-4 fill-current" />
+                        )}
+                        <span className="text-sm">{jobStatus?.status === 'training' ? t('engine.training') + '...' : t('engine.startTraining')}</span>
+                    </button>
+                </div>
             </div>
 
             {/* Live Telemetry Area */}
