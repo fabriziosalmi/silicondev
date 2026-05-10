@@ -57,6 +57,7 @@ export function NoteListPanel({
                                         onChange={(e) => onRenameValueChange(e.target.value)}
                                         className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-blue-500/50"
                                         autoFocus
+                                        maxLength={120}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') onRename(note.id, renameValue);
                                             if (e.key === 'Escape') onCancelRename();

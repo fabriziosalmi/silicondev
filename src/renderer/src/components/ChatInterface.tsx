@@ -111,6 +111,7 @@ export function ChatInterface() {
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const abortRef = useRef<AbortController | null>(null)
     const sendingRef = useRef(false)
+    const flashErrorTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
     // ── Input enhancement state ──
     const promptHistory = usePromptHistory()
@@ -159,8 +160,12 @@ export function ChatInterface() {
 
     const showError = useCallback((msg: string) => {
         setFlashError(msg);
-        setTimeout(() => setFlashError(null), 4000);
+        if (flashErrorTimerRef.current) clearTimeout(flashErrorTimerRef.current);
+        flashErrorTimerRef.current = setTimeout(() => setFlashError(null), 4000);
     }, []);
+
+    // Cancel pending error timer on unmount
+    useEffect(() => () => { if (flashErrorTimerRef.current) clearTimeout(flashErrorTimerRef.current) }, []);
 
     // RAG collections cache
     const [ragCollections, setRagCollections] = useState<{ id: string; name: string; chunks: number }[]>([])
@@ -1593,6 +1598,7 @@ Return exactly this JSON structure (no other text):
                                     {searchMatches.length > 1 && (
                                         <>
                                             <button
+                                                type="button"
                                                 onClick={() => {
                                                     const prev = (searchMatchIndex - 1 + searchMatches.length) % searchMatches.length;
                                                     setSearchMatchIndex(prev);
@@ -1604,6 +1610,7 @@ Return exactly this JSON structure (no other text):
                                                 <ChevronUp size={14} />
                                             </button>
                                             <button
+                                                type="button"
                                                 onClick={() => {
                                                     const next = (searchMatchIndex + 1) % searchMatches.length;
                                                     setSearchMatchIndex(next);
@@ -1618,7 +1625,7 @@ Return exactly this JSON structure (no other text):
                                     )}
                                 </div>
                             )}
-                            <button onClick={toggleSearch} className="text-gray-500 hover:text-white transition-colors shrink-0" title={t('chat.searchClose')}>
+                            <button type="button" onClick={toggleSearch} className="text-gray-500 hover:text-white transition-colors shrink-0" title={t('chat.searchClose')}>
                                 <X size={14} />
                             </button>
                         </div>
@@ -1676,6 +1683,7 @@ Return exactly this JSON structure (no other text):
                                                 <>
                                                     <p className="text-xs text-gray-400 mb-3">{t('chat.walkthrough.noModels')}</p>
                                                     <button
+                                                        type="button"
                                                         onClick={() => startWalkthrough('mlx-community/Qwen3-0.6B-4bit')}
                                                         className="w-full flex items-center gap-3 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition-colors mb-2"
                                                     >
@@ -1683,6 +1691,7 @@ Return exactly this JSON structure (no other text):
                                                         {t('chat.walkthrough.downloadQwen')}
                                                     </button>
                                                     <button
+                                                        type="button"
                                                         onClick={() => startWalkthrough('mlx-community/Llama-3.2-1B-Instruct-4bit')}
                                                         className="w-full flex items-center gap-3 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg text-xs transition-colors"
                                                     >
@@ -1713,6 +1722,7 @@ Return exactly this JSON structure (no other text):
                                                 <div className="text-left">
                                                     <p className="text-sm text-red-400 mb-2">{walkthroughError}</p>
                                                     <button
+                                                        type="button"
                                                         onClick={() => { setWalkthroughStep('idle'); setWalkthroughError(null) }}
                                                         className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
                                                     >
@@ -1728,6 +1738,7 @@ Return exactly this JSON structure (no other text):
                             <div className="max-w-3xl mx-auto py-6 px-4">
                                 {renderStart > 0 && (
                                     <button
+                                        type="button"
                                         onClick={() => setRenderStart(Math.max(0, renderStart - RENDER_PAGE))}
                                         className="w-full py-2 mb-4 text-xs text-gray-500 hover:text-gray-300 bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 rounded-lg transition-colors"
                                     >
@@ -1899,6 +1910,7 @@ Return exactly this JSON structure (no other text):
                                                     {/* Error retry */}
                                                     {visibleContent.startsWith('Error:') && !isGenerating && (
                                                         <button
+                                                            type="button"
                                                             onClick={() => handleRetry(idx)}
                                                             className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400 hover:bg-red-500/20 transition-colors"
                                                             aria-label="Retry message"

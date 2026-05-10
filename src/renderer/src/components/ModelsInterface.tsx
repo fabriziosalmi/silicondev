@@ -42,6 +42,7 @@ export function ModelsInterface() {
             if (!silent) setLoading(true)
             const data = await apiClient.engine.getModels()
             setModels(data)
+            setError(null) // M-2: clear stale error on successful refresh
             setDownloading(prev => {
                 const next = new Set(prev)
                 let changed = false
@@ -76,6 +77,11 @@ export function ModelsInterface() {
     }
 
     const handleDelete = async (modelId: string) => {
+        // M-1: Block delete while the model is being downloaded
+        if (downloading.has(modelId)) {
+            toast(t('models.deleteWhileDownloading', { defaultValue: 'Cannot delete while download is in progress.' }), 'error')
+            return
+        }
         const ok = await confirm({
             title: t('models.deleteTitle', { defaultValue: 'Delete model' }),
             message: t('models.deleteConfirm'),

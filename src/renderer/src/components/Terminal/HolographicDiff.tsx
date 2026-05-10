@@ -148,6 +148,7 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
             className="flex-1 bg-black/30 border border-white/10 rounded-md px-2 py-1 text-[11px] font-mono text-white placeholder-gray-600 focus:outline-none focus:border-red-500/40"
           />
           <button
+            type="button"
             onClick={handleRejectSubmit}
             disabled={deciding}
             className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-md bg-red-600/80 hover:bg-red-500 text-white transition-colors disabled:opacity-50 shrink-0"
@@ -155,6 +156,7 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
             <Send size={9} /> Send
           </button>
           <button
+            type="button"
             onClick={() => { setShowRejectInput(false); setRejectReason('') }}
             className="px-1.5 py-1 text-[10px] text-gray-500 hover:text-white transition-colors"
           >

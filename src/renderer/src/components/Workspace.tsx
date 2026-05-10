@@ -134,7 +134,14 @@ export function Workspace() {
                 saveTimerRef.current = null;
             }
         };
+    // N-2: run cleanup both on note switch AND on full component unmount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeNoteId]);
+
+    // Additional cleanup: cancel timer on full unmount regardless of activeNoteId
+    useEffect(() => {
+        return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) };
+    }, []);
 
     // Debounced save: immediate local state, delayed backend persist
     const handleChange = useCallback((value: string) => {
@@ -146,7 +153,8 @@ export function Workspace() {
                 try {
                     await apiClient.notes.update(activeNoteId, { content: value });
                 } catch {
-                    // save failed silently
+                    // N-1: silent save failure now surfaced to user
+                    toast('Auto-save failed — check your connection to the backend.', 'error');
                 }
             } else if (value.trim() && !creatingNoteRef.current) {
                 // Auto-create a new note (guarded against double-create)

@@ -263,6 +263,9 @@ export function CodeWorkspace() {
     document.addEventListener('mouseup', onUp)
   }, [previewHeight])
 
+  // Cleanup saveTimerRef on unmount
+  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }, [])
+
   // Listen for workspace directory changes from Settings
   useEffect(() => {
     const handler = (e: Event) => {
@@ -467,6 +470,7 @@ export function CodeWorkspace() {
             {t('settings.codebase.title')}
           </p>
           <button
+            type="button"
             onClick={() => {
               window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'settings' }))
             }}
@@ -499,16 +503,16 @@ export function CodeWorkspace() {
             {f.dirty && <Circle size={6} className="text-blue-400 fill-blue-400" />}
             {pendingDiffs.has(f.path) && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
             <span className="truncate max-w-[120px]">{f.name}</span>
-            <span
-              role="button"
-              tabIndex={0}
+            <button
+              type="button"
               title="Close"
-              onClick={(e) => handleCloseFile(f.path, e)}
+              onClick={(e) => handleCloseFile(f.path, e as unknown as React.MouseEvent)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleCloseFile(f.path) } }}
               className="ml-1 p-0.5 rounded hover:bg-white/10 text-gray-600 hover:text-white transition-colors"
+              aria-label={`Close ${f.name}`}
             >
               <X size={10} />
-            </span>
+            </button>
           </div>
         ))}
         {saveStatus && (
@@ -631,12 +635,14 @@ export function CodeWorkspace() {
                       Proposed Change
                     </div>
                     <button
+                      type="button"
                       onClick={() => handleDiffApprove(active.path)}
                       className="flex items-center gap-1.5 px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-[11px] font-bold rounded transition-all"
                     >
                       Accept
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleDiffReject(active.path)}
                       className="px-3 py-1 bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-medium rounded transition-all"
                     >
