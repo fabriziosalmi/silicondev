@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from app.engine.service import MLXEngineService
 from app.security import safe_user_file
+from app.monitor import traces as trace_store
 
 logger = logging.getLogger(__name__)
 
@@ -289,13 +290,37 @@ async def chat_generation(request: ChatRequest):
     logger.info(f"Generation started: model={model_id}, messages={len(messages)}")
     t0 = time.time()
 
+    trace_ctx = trace_store.start_trace("chat", model_id=model_id)
+    output_token_count = 0
+    input_token_count = sum(len(str(m.get("content", "")).split()) for m in messages)  # approx
+
     async def event_generator():
+        nonlocal output_token_count
+        status = "ok"
+        error_msg = None
         try:
             async for chunk in service.generate_stream(model_id, messages, **params):
+                if "error" in chunk:
+                    status = "error"
+                    error_msg = chunk["error"]
+                if "text" in chunk:
+                    output_token_count += 1  # approx token-per-chunk
                 yield f"data: {json.dumps(chunk)}\n\n"
         except Exception as e:
+            status = "error"
+            error_msg = str(e)
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
-        logger.info(f"Generation complete in {time.time() - t0:.1f}s: model={model_id}")
+        finally:
+            elapsed = time.time() - t0
+            logger.info(f"Generation complete in {elapsed:.1f}s: model={model_id}")
+            trace_store.finish_trace(
+                trace_ctx,
+                status=status,
+                input_tokens=input_token_count,
+                output_tokens=output_token_count,
+                error=error_msg,
+                extra={"messages": len(messages), "duration_s": round(elapsed, 2)},
+            )
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

@@ -1,10 +1,12 @@
 import logging
 import re
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
 from app.mcp.service import MCPService
+from app.mcp.router import mcp_router
+from app.mcp.examples import tool_examples
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -147,3 +149,113 @@ async def get_audit_log(limit: int = 100):
     if limit < 1 or limit > 500:
         raise HTTPException(400, "limit must be between 1 and 500")
     return {"entries": service.get_audit_log(limit)}
+
+
+# ── P1.1 MCP Router: Progressive Tool Discovery ───────────────────────────────
+
+@router.get("/router/stats")
+async def router_stats():
+    """Return current state of the MCP tool index."""
+    return mcp_router.stats()
+
+
+@router.post("/router/refresh")
+async def router_refresh():
+    """Force a full re-discovery of all tools across enabled MCP servers."""
+    count = await mcp_router.refresh(service)
+    return {"indexed_tools": count, **mcp_router.stats()}
+
+
+@router.get("/router/search")
+async def router_search(
+    q: str = Query(..., min_length=1, max_length=500),
+    top_k: int = Query(default=5, ge=1, le=20),
+):
+    """Search for tools matching an intent query. Auto-refreshes stale index."""
+    if mcp_router.is_stale():
+        await mcp_router.refresh(service)
+    tools = mcp_router.search(q, top_k=top_k)
+    return {"query": q, "tools": tools, "total": len(tools)}
+
+
+@router.get("/router/tools")
+async def router_list_tools(
+    server_id: Optional[str] = Query(default=None),
+):
+    """List all indexed tools, optionally filtered by server_id."""
+    if mcp_router.is_stale():
+        await mcp_router.refresh(service)
+    return {"tools": mcp_router.list_all(server_id=server_id)}
+
+
+# ── P1.2 Programmatic Tool Orchestration ─────────────────────────────────────
+
+class OrchestrateRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=32768,
+                      description="Python orchestration code. Has access to call_tool(server_id, tool, args).")
+    timeout: int = Field(default=30, ge=5, le=120)
+
+
+@router.post("/orchestrate")
+async def orchestrate(request: OrchestrateRequest):
+    """Execute Python orchestration code in a restricted sandbox with MCP tool access."""
+    from app.mcp.orchestrator import run_orchestration
+    result = await run_orchestration(request.code, timeout=request.timeout)
+    return result.to_dict()
+
+
+# ── P1.3 Tool Use Examples Registry ──────────────────────────────────────────
+
+class AddExampleRequest(BaseModel):
+    server_id: str = Field(min_length=1, max_length=255)
+    tool_name: str = Field(min_length=1, max_length=255)
+    description: str = Field(min_length=1, max_length=2048)
+    input_example: Dict[str, Any] = {}
+    expected_output_pattern: str = Field(default="", max_length=1024)
+    edge_cases: List[str] = Field(default=[])
+    tags: List[str] = Field(default=[])
+
+
+@router.get("/examples")
+async def list_examples(
+    server_id: Optional[str] = Query(default=None),
+    tool_name: Optional[str] = Query(default=None),
+    tag: Optional[str] = Query(default=None),
+):
+    """List tool usage examples, optionally filtered."""
+    return {"examples": tool_examples.get_examples(server_id=server_id, tool_name=tool_name, tag=tag)}
+
+
+@router.post("/examples")
+async def add_example(request: AddExampleRequest):
+    """Add a new usage example for an MCP tool."""
+    return tool_examples.add_example(
+        server_id=request.server_id,
+        tool_name=request.tool_name,
+        description=request.description,
+        input_example=request.input_example,
+        expected_output_pattern=request.expected_output_pattern,
+        edge_cases=request.edge_cases,
+        tags=request.tags,
+    )
+
+
+@router.delete("/examples/{example_id}")
+async def delete_example(example_id: str):
+    """Delete a usage example by ID."""
+    if not tool_examples.delete_example(example_id):
+        raise HTTPException(404, "Example not found")
+    return {"status": "deleted"}
+
+
+@router.get("/examples/stats")
+async def examples_stats():
+    """Return tool examples registry statistics."""
+    return tool_examples.stats()
+
+
+@router.get("/examples/{server_id}/{tool_name}/prompt")
+async def example_prompt(server_id: str, tool_name: str, max_examples: int = Query(default=3, ge=1, le=10)):
+    """Return a prompt-ready usage example block for a specific tool."""
+    text = tool_examples.format_for_prompt(server_id, tool_name, max_examples=max_examples)
+    return {"prompt_block": text}

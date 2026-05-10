@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from app.monitor.system import SystemMonitor
+from app.monitor import traces as trace_store
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -91,3 +92,58 @@ async def get_logs(lines: int = Query(200, ge=1, le=2000)):
     except OSError as e:
         logger.error(f"Failed to read log file: {e}")
         return {"lines": [f"Error reading log: {e}"]}
+
+
+# ── P1.5 Observability Endpoints ───────────────────────────────────────────────────
+
+@router.get("/traces")
+async def get_traces(
+    limit: int = Query(100, ge=1, le=1000),
+    operation: str = Query(default=None),
+):
+    """Return recent request/tool traces (newest first)."""
+    return {"traces": trace_store.get_recent_traces(limit=limit, operation=operation)}
+
+
+@router.get("/tokens")
+async def get_token_usage():
+    """Return cumulative token usage broken down by model."""
+    return {"usage": trace_store.get_token_usage()}
+
+
+@router.get("/health")
+async def get_health_dashboard():
+    """
+    Unified health dashboard: system stats + observability summary.
+
+    Combines:
+    - Real-time system metrics (RAM, CPU, GPU, disk)
+    - Request trace summary (error rate, latency p95, token totals)
+    - MCP audit log stats
+    - Active coder loop sessions
+    """
+    system = SystemMonitor.get_system_stats()
+    obs = trace_store.get_summary()
+
+    # MCP audit recent error rate
+    try:
+        from app.mcp.audit import get_recent as mcp_recent
+        recent_mcp = mcp_recent(50)
+        mcp_errors = sum(1 for e in recent_mcp if e.get("status") != "ok")
+        mcp_stats = {"recent_calls": len(recent_mcp), "recent_errors": mcp_errors}
+    except Exception:
+        mcp_stats = {}
+
+    # Active coder loop sessions
+    try:
+        from app.api.coder_loop import _active_loops
+        coder_sessions = len(_active_loops)
+    except Exception:
+        coder_sessions = 0
+
+    return {
+        "system": system,
+        "observability": obs,
+        "mcp": mcp_stats,
+        "coder_loop_active_sessions": coder_sessions,
+    }

@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.16.0] — 2026-05-10
+
+### Features — "P1 Platform Upgrades: MCP Router, Orchestration, Examples, Observability"
+
+#### P1.1 — MCP Router Layer (progressive tool discovery)
+- `backend/app/mcp/router.py` (new): in-process BM25 tool index over all enabled MCP servers.
+  - `GET /api/mcp/router/search?q=<intent>` — returns top-k relevant tool schemas without loading all tools into context.
+  - `POST /api/mcp/router/refresh` — force full re-discovery; auto-refresh on stale index (TTL: 5 min).
+  - `GET /api/mcp/router/tools` — list all indexed tools, filterable by `server_id`.
+  - `GET /api/mcp/router/stats` — index size, age, staleness flag.
+
+#### P1.2 — Programmatic Tool Orchestration (PTC-style, local)
+- `backend/app/mcp/orchestrator.py` (new): RestrictedPython sandbox exposing `call_tool(server_id, tool, args)`.
+  - LLM writes orchestration code; intermediate payloads (tables, logs) stay in execution memory, never in model context.
+  - `POST /api/mcp/orchestrate` — execute code with `timeout` cap (5–120s).
+  - Stdout captured and capped at 64 KB; `result` variable returned as structured value.
+  - Fail-closed: if `RestrictedPython` is not installed, execution is refused.
+
+#### P1.3 — Tool Use Examples Registry (ACI quality)
+- `backend/app/mcp/examples.py` (new): structured per-tool usage examples with description, input, expected output pattern, edge cases, tags.
+  - `GET /api/mcp/examples` — list examples (filterable by `server_id`, `tool_name`, `tag`).
+  - `POST /api/mcp/examples` — add an example.
+  - `DELETE /api/mcp/examples/{id}` — remove an example.
+  - `GET /api/mcp/examples/{server_id}/{tool_name}/prompt` — returns a prompt-ready block for context injection.
+  - `GET /api/mcp/examples/stats` — registry statistics.
+
+#### P1.5 — Observability baseline for local operations
+- `backend/app/monitor/traces.py` (new): structured request/tool trace collector.
+  - In-memory ring buffer (last 1000 requests) + JSONL disk log (`~/.silicon-studio/traces.jsonl`, rotates at 20 MB).
+  - Token usage accounting aggregated by model (input, output, calls).
+  - `GET /api/monitor/traces` — recent traces, filterable by operation.
+  - `GET /api/monitor/tokens` — token usage by model.
+  - `GET /api/monitor/health` — unified dashboard: system stats + observability summary + MCP error rate + active coder loop sessions.
+- `backend/app/api/engine.py`: chat endpoint now auto-records traces with latency, token approximation, and error status.
+
+### Version bumps
+- `backend/app/version.py`, `package.json`, `src/renderer/package.json`, `backend/pyproject.toml` → `0.16.0`.
+
 ## [0.15.0] — 2026-05-10
 
 ### Features — "P0 Complete: Native Runtime, Agents, RAG, MCP, Coder Loop"
