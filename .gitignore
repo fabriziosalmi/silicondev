@@ -42,6 +42,7 @@ docs/node_modules/
 # Internal planning
 PLAN.md
 PLAN_v*.md
+TODO.md
 .claude/
 silicondev-coder-agent-analysis.md
 silicondev-pareto-opportunities.md
