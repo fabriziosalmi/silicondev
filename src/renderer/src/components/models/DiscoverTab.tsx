@@ -1,12 +1,20 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cleanModelName } from '../../api/client'
 import type { ModelEntry } from '../../api/client'
-import { Search, Download, FileText, Loader2 } from 'lucide-react'
+import { Search, Download, FileText, Loader2, Globe, AlertCircle } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 import { archColor, parseSizeGB, RECOMMENDED_MODELS } from './ModelsUtils'
+
+// HuggingFace API model result shape (minimal fields we use)
+interface HFSearchResult {
+    id: string;
+    downloads?: number;
+    likes?: number;
+    modelId?: string;
+}
 
 // Order of family chips in the Discover filter bar — most popular first.
 const FAMILY_ORDER = ['Qwen', 'Llama', 'Gemma', 'Mistral', 'Phi', 'NanoCoder', 'LFM', 'Other'] as const
@@ -110,11 +118,138 @@ export function DiscoverTab({
         fetchReadme(model.id)
     }
 
+    // B-3: HuggingFace open search
+    const [hfTab, setHfTab] = useState<'catalog' | 'hfsearch'>('catalog')
+    const [hfQuery, setHfQuery] = useState('')
+    const [hfResults, setHfResults] = useState<HFSearchResult[]>([])
+    const [hfLoading, setHfLoading] = useState(false)
+    const [hfError, setHfError] = useState('')
+    const hfAbortRef = useRef<AbortController | null>(null)
+    const hfDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    const searchHuggingFace = useCallback(async (q: string) => {
+        if (!q.trim()) { setHfResults([]); return; }
+        hfAbortRef.current?.abort();
+        const ctrl = new AbortController();
+        hfAbortRef.current = ctrl;
+        setHfLoading(true);
+        setHfError('');
+        try {
+            const res = await fetch(
+                `https://huggingface.co/api/models?search=${encodeURIComponent(q)}&filter=gguf&sort=downloads&direction=-1&limit=30`,
+                { signal: ctrl.signal }
+            );
+            if (!res.ok) throw new Error(`HF API ${res.status}`);
+            const data: HFSearchResult[] = await res.json();
+            if (!ctrl.signal.aborted) setHfResults(data);
+        } catch (e) {
+            if (!(e instanceof DOMException && e.name === 'AbortError')) {
+                setHfError('HuggingFace search failed. Check your connection.');
+            }
+        } finally {
+            if (!ctrl.signal.aborted) setHfLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (hfDebounceRef.current) clearTimeout(hfDebounceRef.current);
+        hfDebounceRef.current = setTimeout(() => searchHuggingFace(hfQuery), 400);
+        return () => { if (hfDebounceRef.current) clearTimeout(hfDebounceRef.current); };
+    }, [hfQuery, searchHuggingFace]);
+
+    useEffect(() => {
+        return () => { hfAbortRef.current?.abort(); };
+    }, []);
+
     return (
         <div className="h-full flex gap-4 overflow-hidden">
 
-            {/* Left Side: Search, Family filter, Recommended, Dense list */}
+            {/* Left Side: tabs + catalog/HF search */}
             <div className="w-2/5 flex flex-col bg-black/20 border border-white/10 rounded-xl overflow-hidden shrink-0">
+                {/* Tab bar */}
+                <div className="flex border-b border-white/10 bg-white/[0.01] shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => setHfTab('catalog')}
+                        className={`flex-1 py-2 text-[11px] font-semibold transition-colors ${
+                            hfTab === 'catalog' ? 'text-white border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-300'
+                        }`}
+                    >
+                        {t('models.catalog', 'Catalog')}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setHfTab('hfsearch')}
+                        className={`flex-1 py-2 text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 ${
+                            hfTab === 'hfsearch' ? 'text-white border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-300'
+                        }`}
+                    >
+                        <Globe className="w-3 h-3" />
+                        HuggingFace
+                    </button>
+                </div>
+
+                {/* HF Search panel */}
+                {hfTab === 'hfsearch' ? (
+                    <div className="flex flex-col flex-1 overflow-hidden">
+                        <div className="p-3 border-b border-white/10">
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    placeholder="Search any GGUF model on HuggingFace..."
+                                    value={hfQuery}
+                                    onChange={e => setHfQuery(e.target.value)}
+                                    className="w-full bg-black/40 border border-white/10 rounded-md pl-8 pr-3 h-8 text-white text-[12px] outline-none focus:border-blue-500 transition-colors"
+                                />
+                                {hfLoading && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 animate-spin" />}
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto">
+                            {hfError && (
+                                <div className="p-4 flex items-center gap-2 text-xs text-red-400">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    {hfError}
+                                </div>
+                            )}
+                            {!hfError && hfResults.length === 0 && !hfLoading && hfQuery.trim() && (
+                                <div className="p-6 text-center text-[11px] text-gray-600">No GGUF models found for "{hfQuery}"</div>
+                            )}
+                            {!hfQuery.trim() && (
+                                <div className="p-6 text-center text-[11px] text-gray-600 leading-relaxed">
+                                    Search any model on HuggingFace.<br />
+                                    <span className="text-gray-700">Only GGUF-compatible models are shown.</span>
+                                </div>
+                            )}
+                            <div className="divide-y divide-white/[0.04]">
+                                {hfResults.map(result => (
+                                    <div key={result.id} className="group flex items-center gap-2 px-3 h-10 hover:bg-white/[0.025] transition-colors">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-[11px] font-medium text-gray-200 truncate">{result.id}</div>
+                                            <div className="text-[9px] text-gray-600 font-mono">
+                                                {result.downloads ? `↓ ${result.downloads.toLocaleString()}` : ''}
+                                                {result.likes ? ` · ♥ ${result.likes}` : ''}
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDownload(result.id)}
+                                            disabled={downloading.has(result.id)}
+                                            aria-label={`Download ${result.id}`}
+                                            className="h-6 w-6 flex items-center justify-center rounded text-gray-600 opacity-0 group-hover:opacity-100 hover:bg-blue-500/20 hover:text-blue-400 transition-all disabled:opacity-50 shrink-0"
+                                            title={downloading.has(result.id) ? 'Downloading…' : 'Download'}
+                                        >
+                                            {downloading.has(result.id)
+                                                ? <Loader2 size={11} className="animate-spin" />
+                                                : <Download size={11} />}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                ) : (
                 <div className="p-3 border-b border-white/10 bg-white/[0.02] space-y-2">
                     <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
@@ -232,6 +367,7 @@ export function DiscoverTab({
                         </div>
                     )}
                 </div>
+                )}
             </div>
 
             {/* Right Side: Readme & Download */}

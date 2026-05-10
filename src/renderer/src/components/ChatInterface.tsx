@@ -122,6 +122,9 @@ export function ChatInterface() {
     const [pastedMultiline, setPastedMultiline] = useState(false)
     const [workspaceFiles, setWorkspaceFiles] = useState<FileEntry[]>([])
     const [gitBranch, setGitBranch] = useState<{ branch: string; clean: boolean } | null>(null)
+    // B-1: edit user message state
+    const [editingMsgIdx, setEditingMsgIdx] = useState<number | null>(null)
+    const [editingMsgText, setEditingMsgText] = useState('')
     const inputWrapperRef = useRef<HTMLDivElement>(null)
 
     // Abort any in-flight streaming fetch on unmount
@@ -1083,6 +1086,16 @@ export function ChatInterface() {
         handleSend(userMsg.content);
     };
 
+    // B-1: Edit user message — truncate history from that point and resend
+    const handleEditMessage = useCallback((idx: number, newText: string) => {
+        if (!newText.trim()) return;
+        // Keep messages up to (not including) this user message
+        setMessages(prev => prev.slice(0, idx));
+        setEditingMsgIdx(null);
+        setEditingMsgText('');
+        handleSend(newText.trim());
+    }, [handleSend]);
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         // Track cursor position for overlay
         const ta = e.currentTarget
@@ -1814,8 +1827,48 @@ Return exactly this JSON structure (no other text):
                                                         ))}
                                                     </div>
                                                 )}
-                                                {!isGenerating && (
-                                                    <div className="ml-9 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {/* B-1: Edit user message inline */}
+                                                {!isGenerating && editingMsgIdx === idx ? (
+                                                    <div className="ml-9 mt-2 flex flex-col gap-2">
+                                                        <textarea
+                                                            autoFocus
+                                                            value={editingMsgText}
+                                                            onChange={e => setEditingMsgText(e.target.value)}
+                                                            onKeyDown={e => {
+                                                                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEditMessage(idx, editingMsgText); }
+                                                                if (e.key === 'Escape') { setEditingMsgIdx(null); setEditingMsgText(''); }
+                                                            }}
+                                                            rows={Math.max(2, editingMsgText.split('\n').length)}
+                                                            className="w-full bg-white/[0.05] border border-blue-500/30 rounded-lg px-3 py-2 text-sm text-white outline-none resize-none focus:border-blue-500/60 font-mono"
+                                                        />
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleEditMessage(idx, editingMsgText)}
+                                                                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors"
+                                                            >
+                                                                Resend
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setEditingMsgIdx(null); setEditingMsgText(''); }}
+                                                                className="px-3 py-1 bg-white/5 hover:bg-white/10 text-gray-400 text-xs rounded-lg transition-colors"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : !isGenerating && (
+                                                    <div className="ml-9 mt-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setEditingMsgIdx(idx); setEditingMsgText(typeof msg.content === 'string' ? msg.content : ''); }}
+                                                            className="p-1 rounded text-gray-700 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                                                            aria-label="Edit message"
+                                                            title="Edit & resend"
+                                                        >
+                                                            <Pencil className="w-3 h-3" />
+                                                        </button>
                                                         <button
                                                             type="button"
                                                             onClick={() => handleDeleteMessage(idx)}
@@ -2137,6 +2190,29 @@ Return exactly this JSON structure (no other text):
                                     <span><kbd className="text-gray-500">Shift+Enter</kbd> {t('chat.shiftEnterNewline')}</span>
                                 </div>
                             </div>
+                            {/* B-4: Context window usage bar */}
+                            {activeModel?.context_window && (() => {
+                                const ctxMax = activeModel.context_window;
+                                // Rough estimate: sum all message chars / 3.5 chars-per-token + current input
+                                const usedTokens = Math.round(
+                                    messages.reduce((acc, m) => acc + (typeof m.content === 'string' ? m.content.length : 0), 0) / 3.5
+                                    + (input.length / 3.5)
+                                );
+                                const pct = Math.min(100, Math.round((usedTokens / ctxMax) * 100));
+                                const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-blue-500/60';
+                                const textColor = pct >= 90 ? 'text-red-400' : pct >= 70 ? 'text-amber-400' : 'text-gray-600';
+                                if (usedTokens < 100) return null; // hide when conversation is empty
+                                return (
+                                    <div className="flex items-center gap-2 mx-1 mt-1" title={`~${usedTokens.toLocaleString()} / ${ctxMax.toLocaleString()} tokens used`}>
+                                        <div className="flex-1 h-0.5 bg-white/5 rounded-full overflow-hidden">
+                                            <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+                                        </div>
+                                        <span className={`text-[9px] font-mono tabular-nums shrink-0 ${textColor}`}>
+                                            ~{usedTokens < 1000 ? usedTokens : `${(usedTokens/1000).toFixed(1)}k`} / {ctxMax < 1000 ? ctxMax : `${(ctxMax/1000).toFixed(0)}k`}
+                                        </span>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
