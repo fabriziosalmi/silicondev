@@ -9,7 +9,9 @@ def agent_service(temp_dir):
     svc = AgentService()
     from pathlib import Path
     svc.agents_file = Path(temp_dir) / "agents.json"
+    svc.runs_dir = Path(temp_dir) / "runs"
     svc.agents_file.parent.mkdir(parents=True, exist_ok=True)
+    svc.runs_dir.mkdir(parents=True, exist_ok=True)
     with open(svc.agents_file, "w") as f:
         json.dump([], f)
     return svc
@@ -58,22 +60,26 @@ def test_delete_nonexistent_agent(agent_service):
 
 @pytest.mark.asyncio
 async def test_execute_agent(agent_service):
+    """DAG engine: nodes without edges all execute from root (no incoming edges)."""
     agent = agent_service.save_agent({
         "name": "Pipeline",
         "nodes": [
             {"id": "1", "type": "input", "data": {"label": "Input Node"}},
-            {"id": "2", "type": "transform", "data": {"label": "Transform Node"}},
+            {"id": "2", "type": "output", "data": {"label": "Output Node"}},
         ],
-        "edges": []
+        # Edge from 1 -> 2 so they execute in order
+        "edges": [{"source": "1", "target": "2"}]
     })
 
     result = await agent_service.execute_agent(agent["id"], "test data")
     assert result["status"] == "success"
     assert result["agent_id"] == agent["id"]
-    assert len(result["steps"]) == 2
+    # run_id returned by new engine
+    assert "run_id" in result
     assert result["execution_time"] >= 0
-    assert result["steps"][0]["node_name"] == "Input Node"
-    assert result["steps"][0]["status"] == "completed"
+    steps = {s["node_id"]: s for s in result["steps"]}
+    assert steps["1"]["status"] == "completed"
+    assert steps["2"]["status"] == "completed"
 
 
 @pytest.mark.asyncio
@@ -84,6 +90,7 @@ async def test_execute_nonexistent_agent(agent_service):
 
 @pytest.mark.asyncio
 async def test_execute_agent_no_nodes(agent_service):
+    """Agent with no nodes returns success immediately with empty steps."""
     agent = agent_service.save_agent({"name": "Empty", "nodes": [], "edges": []})
     result = await agent_service.execute_agent(agent["id"], "test")
     assert result["status"] == "success"

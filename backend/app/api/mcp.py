@@ -2,7 +2,7 @@ import logging
 import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from app.mcp.service import MCPService
 
@@ -47,6 +47,11 @@ class AddServerRequest(BaseModel):
     args: List[str] = Field(default=[], max_length=50)
     env: Dict[str, str] = {}
     transport: str = Field(default="stdio", max_length=20)
+    enabled: bool = True
+
+
+class SetEnabledRequest(BaseModel):
+    enabled: bool
 
 
 class ExecuteToolRequest(BaseModel):
@@ -73,6 +78,7 @@ async def add_server(request: AddServerRequest):
         args=request.args,
         env=request.env,
         transport=request.transport,
+        enabled=request.enabled,
     )
 
 
@@ -84,6 +90,15 @@ async def remove_server(server_id: str):
     return {"status": "removed"}
 
 
+@router.patch("/servers/{server_id}/enabled")
+async def set_server_enabled(server_id: str, request: SetEnabledRequest):
+    """Enable or disable an MCP server without removing it."""
+    updated = service.set_enabled(server_id, request.enabled)
+    if not updated:
+        raise HTTPException(404, "Server not found")
+    return updated
+
+
 @router.get("/servers/{server_id}/tools")
 async def list_tools(server_id: str):
     """Discover available tools on an MCP server."""
@@ -92,6 +107,8 @@ async def list_tools(server_id: str):
         return {"tools": tools}
     except ValueError as e:
         raise HTTPException(404, str(e))
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
     except Exception as e:
         logger.error(f"Failed to list tools for {server_id}: {e}")
         raise HTTPException(500, f"Failed to connect to MCP server: {e}")
@@ -117,6 +134,16 @@ async def execute_tool(request: ExecuteToolRequest):
         return {"result": content}
     except ValueError as e:
         raise HTTPException(404, str(e))
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
     except Exception as e:
         logger.error(f"Failed to execute tool {request.tool_name}: {e}")
         raise HTTPException(500, f"Tool execution failed: {e}")
+
+
+@router.get("/audit")
+async def get_audit_log(limit: int = 100):
+    """Return recent MCP tool execution audit log entries."""
+    if limit < 1 or limit > 500:
+        raise HTTPException(400, "limit must be between 1 and 500")
+    return {"entries": service.get_audit_log(limit)}

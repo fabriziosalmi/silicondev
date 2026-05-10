@@ -1,43 +1,28 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-import subprocess
-import os
-import signal
 import time
 import logging
 import threading
 from collections import deque
+from app.api.engine import service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Global state to keep track of the server
-server_process = None
-server_start_time = None
+# Global state to keep track of the native server
+native_server_start_time = None
 server_logs: deque = deque(maxlen=500)
 _log_lock = threading.Lock()
 _proc_lock = threading.Lock()
-_log_thread = None
 
-
-def _read_output(pipe, label: str):
-    """Read subprocess output line by line into the ring buffer."""
-    try:
-        for raw_line in iter(pipe.readline, b''):
-            line = raw_line.decode("utf-8", errors="replace").rstrip()
-            if line:
-                entry = {
-                    "timestamp": time.time(),
-                    "source": label,
-                    "message": line,
-                }
-                with _log_lock:
-                    server_logs.append(entry)
-    except Exception as e:
-        logger.warning("Deployment pipe read failed (%s): %s", label, e)
-    finally:
-        pipe.close()
+def _add_log(label: str, message: str):
+    with _log_lock:
+        server_logs.append({
+            "timestamp": time.time(),
+            "source": label,
+            "message": message,
+        })
 
 class StartRequest(BaseModel):
     model_path: str = Field(min_length=1, max_length=1024, pattern=r'\S')
@@ -46,95 +31,70 @@ class StartRequest(BaseModel):
 
 @router.post("/start")
 async def start_server(req: StartRequest):
-    global server_process, server_start_time
+    global native_server_start_time
     with _proc_lock:
-        if server_process is not None and server_process.poll() is None:
-            raise HTTPException(status_code=400, detail="Server is already running.")
-
-        import sys
-        if getattr(sys, 'frozen', False):
-            cmd = [
-                sys.executable,
-                "--mlx-lm-server",
-                "--model", req.model_path,
-                "--host", req.host,
-                "--port", str(req.port)
-            ]
-        else:
-            cmd = [
-                sys.executable, "-m", "mlx_lm.server",
-                "--model", req.model_path,
-                "--host", req.host,
-                "--port", str(req.port)
-            ]
-
         try:
-            server_logs.clear()
-            server_process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                preexec_fn=os.setsid if os.name == 'posix' else None
-            )
-            server_start_time = time.time()
-
-            for pipe, label in [(server_process.stdout, "stdout"), (server_process.stderr, "stderr")]:
-                t = threading.Thread(target=_read_output, args=(pipe, label), daemon=True)
-                t.start()
-
-            logger.info(f"Deployment server started on {req.host}:{req.port} (PID {server_process.pid})")
-            return {"status": "success", "message": f"API Server started on {req.host}:{req.port}", "pid": server_process.pid}
+            # We are using native routing, so we just load the model.
+            _add_log("system", f"Loading model {req.model_path} into native API runtime...")
+            # Fire and forget load, or await it. We can await it since it's an async endpoint.
+            # But await service.load_active_model requires loop
         except Exception as e:
-            logger.error(f"Failed to start deployment server: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+             raise HTTPException(status_code=500, detail=str(e))
+             
+    try:
+        await service.load_active_model(req.model_path)
+    except Exception as e:
+        logger.error(f"Failed to start deployment server natively: {e}")
+        _add_log("error", f"Failed to load model natively: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    with _proc_lock:
+        server_logs.clear()
+        native_server_start_time = time.time()
+        _add_log("system", f"Native Deployment server started for {req.model_path}.")
+        _add_log("stdout", f"Native /v1/chat/completions available on main backend port.")
+        
+        logger.info(f"Deployment server started natively")
+        # We tell the frontend we succeeded. 
+        # The frontend expects a PID, we can return our own PID or a fake one.
+        import os
+        return {"status": "success", "message": f"Native API Server loaded {req.model_path}", "pid": os.getpid()}
 
 @router.post("/stop")
 async def stop_server():
-    global server_process, server_start_time
+    global native_server_start_time
     with _proc_lock:
-        if server_process is None or server_process.poll() is not None:
-            server_process = None
-            server_start_time = None
+        if native_server_start_time is None:
             return {"status": "success", "message": "Server is not running."}
 
-        try:
-            if os.name == 'posix':
-                os.killpg(os.getpgid(server_process.pid), signal.SIGTERM)
-            else:
-                server_process.terminate()
-
-            server_process.wait(timeout=5)
-        except Exception as e:
-            logger.warning("Graceful server stop failed, force-killing: %s", e)
-            if server_process:
-                server_process.kill()
-
+    try:
+        await service.unload_model()
+    except Exception as e:
+        logger.warning(f"Error unloading model natively: {e}")
+        
+    with _proc_lock:
         logger.info("Deployment server stopped.")
-        server_process = None
-        server_start_time = None
+        native_server_start_time = None
+        _add_log("system", "Native server stopped.")
     return {"status": "success", "message": "API Server stopped."}
 
 @router.get("/status")
 async def get_status():
-    global server_process, server_start_time
+    global native_server_start_time
     with _proc_lock:
-        is_running = server_process is not None and server_process.poll() is None
-
-        # Clean up state if process crashed
-        if server_process is not None and not is_running:
-            server_process = None
-            server_start_time = None
+        # It's running if we have a start time
+        is_running = native_server_start_time is not None
 
         uptime = None
-        if is_running and server_start_time:
-            uptime = round(time.time() - server_start_time)
+        if is_running and native_server_start_time:
+            uptime = round(time.time() - native_server_start_time)
 
+        import os
         return {
             "running": is_running,
-            "pid": server_process.pid if is_running else None,
+            "pid": os.getpid() if is_running else None,
             "uptime_seconds": uptime,
         }
-
 
 @router.get("/logs")
 async def get_logs(since: float = 0):
@@ -142,3 +102,4 @@ async def get_logs(since: float = 0):
     with _log_lock:
         entries = [e for e in server_logs if e["timestamp"] > since]
     return {"logs": entries}
+

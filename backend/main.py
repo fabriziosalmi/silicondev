@@ -77,6 +77,10 @@ try:
     logger.info("Imported workspace router")
     from app.api.memory import router as memory_router
     logger.info("Imported memory router")
+    from app.api.openai import router as openai_router
+    logger.info("Imported openai router")
+    from app.api.coder_loop import router as coder_loop_router
+    logger.info("Imported coder_loop router")
 
 except Exception as e:
     logger.critical(f"Import error: {e}", exc_info=True)
@@ -269,6 +273,8 @@ app.include_router(terminal_router, prefix="/api/terminal", tags=["terminal"])
 app.include_router(codebase_router, prefix="/api/codebase", tags=["codebase"])
 app.include_router(workspace_router, prefix="/api/workspace", tags=["workspace"])
 app.include_router(memory_router, prefix="/api/memory", tags=["memory"])
+app.include_router(openai_router, tags=["openai"])
+app.include_router(coder_loop_router, prefix="/api/coder", tags=["coder"])
 
 
 @app.get("/health")
@@ -281,11 +287,6 @@ if __name__ == "__main__":
     import sys
     
     multiprocessing.freeze_support()
-
-    if "--mlx-lm-server" in sys.argv:
-        from mlx_lm.server import main as mlx_lm_server_main
-        sys.argv.remove("--mlx-lm-server")
-        sys.exit(mlx_lm_server_main())
 
     try:
         preferred = int(os.getenv("PORT", "8000"))

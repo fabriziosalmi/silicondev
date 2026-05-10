@@ -2,12 +2,15 @@
 
 Tests MCP client tool discovery and execution without
 requiring Node.js or any real MCP server in CI.
+
+Updated for retry logic: timeout/error tests now expect MCPError
+after all retries are exhausted (not bare asyncio.TimeoutError).
 """
 
 import pytest
 import asyncio
 from unittest.mock import patch, AsyncMock, MagicMock
-from app.mcp.client import MCPClient, MCP_TIMEOUT
+from app.mcp.client import MCPClient, MCPError, MCP_TIMEOUT
 
 mcp = pytest.importorskip("mcp", reason="mcp SDK not installed")
 pytestmark = pytest.mark.skipif(
@@ -98,10 +101,10 @@ async def test_execute_tool_returns_result(mcp_client):
 
 
 @pytest.mark.asyncio
-async def test_timeout_on_initialize(mcp_client):
-    """If the MCP server hangs on initialize, asyncio.TimeoutError should propagate."""
+async def test_timeout_on_initialize_raises_mcp_error(mcp_client):
+    """If the MCP server hangs on initialize, MCPError is raised after all retries."""
     async def slow_init():
-        await asyncio.sleep(MCP_TIMEOUT + 5)
+        await asyncio.sleep(10)
 
     mock_session = AsyncMock()
     mock_session.initialize = slow_init
@@ -114,16 +117,19 @@ async def test_timeout_on_initialize(mcp_client):
 
     with patch("mcp.client.stdio.stdio_client", return_value=mock_stdio), \
          patch("mcp.ClientSession", return_value=mock_session), \
-         patch("app.mcp.client.MCP_TIMEOUT", 1):  # Override to 1s for fast test
-        with pytest.raises(asyncio.TimeoutError):
+         patch("app.mcp.client.MCP_TIMEOUT", 0.05), \
+         patch("app.mcp.client.MCP_RETRY_BASE_DELAY", 0.01), \
+         patch("app.mcp.client.MCP_MAX_RETRIES", 2):
+        with pytest.raises(MCPError) as exc_info:
             await mcp_client.connect_and_list_tools("node", ["slow-server.js"])
+    assert exc_info.value.attempts == 2
 
 
 @pytest.mark.asyncio
-async def test_timeout_on_tool_execution(mcp_client):
-    """If a tool call hangs, asyncio.TimeoutError should propagate."""
+async def test_timeout_on_tool_execution_raises_mcp_error(mcp_client):
+    """If a tool call hangs, MCPError is raised after all retries."""
     async def slow_call(name, args):
-        await asyncio.sleep(60)
+        await asyncio.sleep(10)
 
     mock_session = AsyncMock()
     mock_session.initialize = AsyncMock()
@@ -137,12 +143,15 @@ async def test_timeout_on_tool_execution(mcp_client):
 
     with patch("mcp.client.stdio.stdio_client", return_value=mock_stdio), \
          patch("mcp.ClientSession", return_value=mock_session), \
-         patch("app.mcp.client.MCP_TIMEOUT", 1):
-        with pytest.raises(asyncio.TimeoutError):
+         patch("app.mcp.client.MCP_TIMEOUT", 0.05), \
+         patch("app.mcp.client.MCP_RETRY_BASE_DELAY", 0.01), \
+         patch("app.mcp.client.MCP_MAX_RETRIES", 2):
+        with pytest.raises(MCPError) as exc_info:
             await mcp_client.execute_tool(
                 "node", ["server.js"], None,
                 "slow_tool", {},
             )
+    assert exc_info.value.attempts == 2
 
 
 @pytest.mark.asyncio
@@ -155,11 +164,12 @@ async def test_env_passed_to_server():
         captured_params["command"] = params.command
         captured_params["args"] = params.args
         captured_params["env"] = params.env
-        # Return a mock that will fail (we just want to capture params)
         raise ConnectionError("test capture only")
 
-    with patch("mcp.client.stdio.stdio_client", side_effect=fake_stdio_client):
-        with pytest.raises(ConnectionError):
+    with patch("mcp.client.stdio.stdio_client", side_effect=fake_stdio_client), \
+         patch("app.mcp.client.MCP_RETRY_BASE_DELAY", 0.01), \
+         patch("app.mcp.client.MCP_MAX_RETRIES", 1):
+        with pytest.raises(MCPError):
             await client.connect_and_list_tools(
                 "npx", ["-y", "@mcp/server"],
                 env={"API_KEY": "test-key-123"},

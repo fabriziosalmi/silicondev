@@ -1,5 +1,8 @@
 import json
 import logging
+import os
+import tempfile
+import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -18,17 +21,36 @@ class MCPServerRegistry:
         if self.config_path.exists():
             try:
                 with open(self.config_path) as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    # Back-fill `enabled` flag for servers created before this version
+                    for s in data:
+                        s.setdefault("enabled", True)
+                    return data
             except Exception as e:
                 logger.error(f"Failed to load MCP servers config: {e}")
         return []
 
     def _save(self):
-        with open(self.config_path, "w") as f:
-            json.dump(self.servers, f, indent=2)
+        """Atomic save to prevent corruption on crash."""
+        fd, tmp = tempfile.mkstemp(
+            dir=str(self.config_path.parent), suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(self.servers, f, indent=2)
+            os.replace(tmp, self.config_path)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
     def list_servers(self) -> List[Dict[str, Any]]:
         return self.servers
+
+    def list_enabled_servers(self) -> List[Dict[str, Any]]:
+        return [s for s in self.servers if s.get("enabled", True)]
 
     def add_server(
         self,
@@ -37,6 +59,7 @@ class MCPServerRegistry:
         args: List[str] | None = None,
         env: Dict[str, str] | None = None,
         transport: str = "stdio",
+        enabled: bool = True,
     ) -> Dict[str, Any]:
         server = {
             "id": name.lower().replace(" ", "-"),
@@ -45,6 +68,8 @@ class MCPServerRegistry:
             "args": args or [],
             "env": env or {},
             "transport": transport,
+            "enabled": enabled,
+            "added_at": time.time(),
         }
         # Replace existing server with same id
         self.servers = [s for s in self.servers if s["id"] != server["id"]]
@@ -59,6 +84,15 @@ class MCPServerRegistry:
             self._save()
             return True
         return False
+
+    def set_enabled(self, server_id: str, enabled: bool) -> Optional[Dict[str, Any]]:
+        """Enable or disable a server by ID. Returns updated server or None if not found."""
+        for s in self.servers:
+            if s["id"] == server_id:
+                s["enabled"] = enabled
+                self._save()
+                return s
+        return None
 
     def get_server(self, server_id: str) -> Optional[Dict[str, Any]]:
         for s in self.servers:
