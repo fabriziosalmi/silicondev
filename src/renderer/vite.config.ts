@@ -32,6 +32,47 @@ export default defineConfig({
   build: {
     outDir: '../../dist/renderer',
     emptyOutDir: true,
+    // Raise limit: Monaco editor alone is ~2MB minified; splitting it is the right fix, not ignoring
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          // React core — smallest possible chunk loaded first
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/scheduler/')) {
+            return 'react-core'
+          }
+          // Monaco editor — single large chunk, lazy-loaded by CodeWorkspace
+          if (id.includes('node_modules/monaco-editor') || id.includes('node_modules/@monaco-editor')) {
+            return 'monaco'
+          }
+          // i18n
+          if (id.includes('node_modules/i18next') || id.includes('node_modules/react-i18next')) {
+            return 'i18n'
+          }
+          // Markdown / syntax
+          if (
+            id.includes('node_modules/react-markdown') ||
+            id.includes('node_modules/remark') ||
+            id.includes('node_modules/rehype') ||
+            id.includes('node_modules/micromark') ||
+            id.includes('node_modules/mdast') ||
+            id.includes('node_modules/hast') ||
+            id.includes('node_modules/unified') ||
+            id.includes('node_modules/vfile')
+          ) {
+            return 'markdown'
+          }
+          // Lucide icons
+          if (id.includes('node_modules/lucide-react')) {
+            return 'icons'
+          }
+          // Everything else in node_modules → vendor
+          if (id.includes('node_modules/')) {
+            return 'vendor'
+          }
+        },
+      },
+    },
   },
   server: {
     port: 5173,

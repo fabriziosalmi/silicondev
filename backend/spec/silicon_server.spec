@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_data_files
 
 datas = [
     ('../../models.json', '.'),  # Bundle models.json to root of dist
@@ -19,61 +19,43 @@ hiddenimports = [
     'uvicorn',
     'fastapi',
     'app',
-    # Note: the entrypoint is backend/main.py, not app.main — there is no
-    # app/main.py, the previous "app.main" hidden import produced a noisy
-    # warning during PyInstaller analysis.
     'pandas',
-    'presidio_analyzer',
-    'presidio_anonymizer',
+    # presidio is intentionally NOT listed here: it requires Pydantic V1 which is
+    # incompatible with Python 3.14+. The service.py guards all imports with try/except
+    # and degrades gracefully when presidio is unavailable.
 ]
 
 # MLX and MLX-LM often need explicit collection
 tmp_ret = collect_all('mlx')
-datas += tmp_ret[0]
-binaries += tmp_ret[1]
-hiddenimports += tmp_ret[2]
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 tmp_ret = collect_all('mlx_lm')
-datas += tmp_ret[0]
-binaries += tmp_ret[1]
-hiddenimports += tmp_ret[2]
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 tmp_ret = collect_all('uvicorn')
-datas += tmp_ret[0]
-binaries += tmp_ret[1]
-hiddenimports += tmp_ret[2]
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 tmp_ret = collect_all('fastapi')
-datas += tmp_ret[0]
-binaries += tmp_ret[1]
-hiddenimports += tmp_ret[2]
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
-tmp_ret = collect_all('presidio_analyzer')
-datas += tmp_ret[0]
-binaries += tmp_ret[1]
-hiddenimports += tmp_ret[2]
+# spaCy — collect_all handles the NLP pipeline and en_core_web_sm model correctly
+try:
+    tmp_ret = collect_all('spacy')
+    datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+except Exception:
+    pass
 
-tmp_ret = collect_all('presidio_anonymizer')
-datas += tmp_ret[0]
-binaries += tmp_ret[1]
-hiddenimports += tmp_ret[2]
+# scipy and sklearn are distributions, not packages — use collect_data_files
+# to include their data assets without triggering "not a package" warnings
+try:
+    datas += collect_data_files('scipy', include_py_files=False)
+except Exception:
+    pass
+try:
+    datas += collect_data_files('sklearn', include_py_files=False)
+except Exception:
+    pass
 
-tmp_ret = collect_all('en_core_web_sm')
-datas += tmp_ret[0]
-binaries += tmp_ret[1]
-hiddenimports += tmp_ret[2]
-
-tmp_ret = collect_all('scipy')
-datas += tmp_ret[0]
-binaries += tmp_ret[1]
-hiddenimports += tmp_ret[2]
-
-
-
-tmp_ret = collect_all('sklearn')
-datas += tmp_ret[0]
-binaries += tmp_ret[1]
-hiddenimports += tmp_ret[2]
 
 block_cipher = None
 

@@ -3,6 +3,7 @@ import {
     Globe, Play, Square, RefreshCw, ExternalLink,
     Loader2, AlertCircle, ChevronDown, Terminal
 } from 'lucide-react'
+import { apiClient } from '../../api/client'
 
 interface PreviewPanelProps {
     running: boolean
@@ -177,7 +178,6 @@ function PreviewLogs() {
         let mounted = true
         const poll = async () => {
             try {
-                const { apiClient } = await import('../../api/client')
                 const since = logs.length > 0 ? logs[logs.length - 1].timestamp : 0
                 const data = await apiClient.preview.logs(since)
                 if (mounted && data.logs.length > 0) {
@@ -188,7 +188,7 @@ function PreviewLogs() {
         const interval = setInterval(poll, 2000)
         poll()
         return () => { mounted = false; clearInterval(interval) }
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps -- intentional: run once on mount, poll manages its own state
 
     useEffect(() => {
         scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight)
