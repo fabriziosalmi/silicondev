@@ -40,7 +40,7 @@ jobs:
         run: python scripts/check_constraints_sync.py
 
       - name: Run tests
-        run: python -m pytest tests/ -v --ignore=tests/test_shield.py
+        run: python -m pytest tests/ -v
 
   frontend-check:
     runs-on: ubuntu-latest

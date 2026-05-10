@@ -18,8 +18,10 @@ hiddenimports = [
     'uvicorn.middleware.proxy_headers',
     'uvicorn',
     'fastapi',
-    'app', 
-    'app.main', 
+    'app',
+    # Note: the entrypoint is backend/main.py, not app.main — there is no
+    # app/main.py, the previous "app.main" hidden import produced a noisy
+    # warning during PyInstaller analysis.
     'pandas',
     'presidio_analyzer',
     'presidio_anonymizer',
