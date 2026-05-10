@@ -22,8 +22,18 @@ export function CodebaseIndexSection() {
     useEffect(() => { fetchStatus() }, [])
 
     const handlePickDirectory = async () => {
+        // In Electron: use native file picker dialog
+        // In browser: electronAPI is undefined → picker silently returns undefined.
+        // Fall through to manual path input immediately.
+        if (!window.electronAPI?.selectDirectory) {
+            // Pre-fill with current workspace dir if already set
+            const saved = localStorage.getItem('silicon-studio-workspace-dir')
+            if (saved) setManualPath(saved)
+            setShowManualPath(true)
+            return
+        }
         try {
-            const dir = await window.electronAPI?.selectDirectory?.()
+            const dir = await window.electronAPI.selectDirectory()
             if (dir) {
                 handleIndex(dir)
             }

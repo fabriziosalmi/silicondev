@@ -30,12 +30,14 @@ export function InputBar({ onSubmit, onStop, isRunning }: InputBarProps) {
   const historyIndexRef = useRef(-1)
   const savedInputRef = useRef('')
 
-  // Auto-resize textarea
+  // Auto-resize textarea — use max(24, scrollHeight) so an empty textarea
+  // never collapses to 0px height (scrollHeight is 0 on initial render in
+  // some Chromium builds before layout has been computed).
   useEffect(() => {
     const el = textareaRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+    el.style.height = Math.max(24, Math.min(el.scrollHeight, 160)) + 'px'
   }, [value])
 
   const handleSubmit = useCallback(() => {
