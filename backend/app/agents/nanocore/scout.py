@@ -35,6 +35,9 @@ class ScoutAgent:
     """Background worker that proactively monitors the Knowledge Graph for project risks and opportunities."""
 
     def __init__(self, workspace_path: str):
+        # workspace_path is currently unused — reconnaissance operates on the
+        # in-memory knowledge graph only. Kept on the constructor for future
+        # filesystem-level scans (AST hotspots, dead-imports detection).
         self.workspace_path = workspace_path
         self._stop_event = asyncio.Event()
         self.interval = 300  # Scan every 5 minutes
@@ -107,8 +110,5 @@ class ScoutAgent:
                     })
                 logger.info(f"Scout Agent: Flagged {node_id} as refactoring candidate.")
 
-        # 3. Handle specific project rules or known bug patterns
-        # (This can be expanded with real AST scanning in the future)
-        pass
 
 # The ScoutAgent is typically started by the main engine service or supervisor

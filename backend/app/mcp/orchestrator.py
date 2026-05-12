@@ -44,8 +44,13 @@ class OrchestratorResult:
         }
 
 
-def _make_mcp_bridge(loop: asyncio.AbstractEventLoop):
-    """Return a synchronous `call_tool(server_id, tool, args)` callable for use inside orchestration code."""
+def _make_mcp_bridge(loop: asyncio.AbstractEventLoop, per_call_timeout: float):
+    """Return a synchronous `call_tool(server_id, tool, args)` callable for use inside orchestration code.
+
+    The per-tool timeout is bounded by the outer orchestration timeout so a
+    single slow tool can't outlive the wall-clock deadline. Caller passes
+    `per_call_timeout` derived from the orchestration's own budget.
+    """
     from app.mcp.service import MCPService
     svc = MCPService()
 
@@ -54,7 +59,7 @@ def _make_mcp_bridge(loop: asyncio.AbstractEventLoop):
         future = asyncio.run_coroutine_threadsafe(
             svc.execute_tool_for_agent(server_id, tool_name, tool_args), loop
         )
-        return future.result(timeout=25)
+        return future.result(timeout=per_call_timeout)
 
     return call_tool
 
@@ -95,8 +100,10 @@ async def run_orchestration(
     except SyntaxError as e:
         return OrchestratorResult(output="", error=f"Syntax error: {e}", duration_ms=0)
 
-    # Build sandbox globals
-    call_tool = _make_mcp_bridge(loop)
+    # Build sandbox globals. Per-tool budget = outer timeout so a tool can't
+    # silently win the wall clock; the asyncio.wait_for below still enforces
+    # the hard ceiling on the whole orchestration.
+    call_tool = _make_mcp_bridge(loop, per_call_timeout=float(timeout))
     import math, json, re
     from datetime import datetime
     from collections import defaultdict, Counter

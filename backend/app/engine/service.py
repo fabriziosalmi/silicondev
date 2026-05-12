@@ -837,8 +837,12 @@ class MLXEngineService:
 
     def _run_scout_agent(self):
         """Runs the ScoutAgent in a separate thread with its own event loop."""
-        # Simple placeholder for workspace path
-        current_workspace = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        # Scout currently operates on the in-memory knowledge graph; the
+        # workspace_path arg is reserved for future filesystem scans. Anchor
+        # it to the per-user data dir so it points at the right place when
+        # filesystem features land.
+        from pathlib import Path
+        current_workspace = str(Path.home() / ".silicon-studio")
         scout = ScoutAgent(workspace_path=current_workspace)
         
         # We need a new event loop for this thread
