@@ -574,7 +574,7 @@ class MLXEngineService:
                     if mem.percent > 75:
                         logger.info(f"Memory tight ({mem.percent}%), not caching {self.active_model_id}")
                     else:
-                        self._model_cache[self.active_model_id] = (
+                        self._model_cache[self.active_model_id] = _CachedModel(
                             self.active_model, self.active_tokenizer, self.active_processor,
                             self.active_is_vision, time.time(),
                         )

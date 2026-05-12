@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional
 import time
 
 from app.agents.nanocore.tools import _is_blocked
+from app.security import safe_id
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,7 @@ class AgentService:
             raise
 
     def _load_run(self, run_id: str) -> Dict[str, Any]:
+        safe_id(run_id)
         run_file = self.runs_dir / f"{run_id}.json"
         if not run_file.exists():
             raise ValueError(f"Run {run_id} not found")
@@ -86,7 +88,7 @@ class AgentService:
             return json.load(f)
 
     def _save_run(self, run_state: Dict[str, Any]):
-        run_id = run_state["run_id"]
+        run_id = safe_id(run_state["run_id"])
         run_file = self.runs_dir / f"{run_id}.json"
         fd, tmp_path = tempfile.mkstemp(dir=str(self.runs_dir), suffix=".tmp")
         try:

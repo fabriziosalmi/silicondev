@@ -12,6 +12,7 @@ How it works:
 
 The index uses BM25 over tool name + description + inputSchema keys.
 """
+import asyncio
 import logging
 import time
 import threading
@@ -29,7 +30,16 @@ class MCPRouter:
         self._lock = threading.Lock()
         self._index: List[Dict[str, Any]] = []   # flat list of enriched tool records
         self._last_built: float = 0.0
-        self._building = False
+        # Async lock created lazily to bind to the running event loop.
+        # Serialises concurrent refresh() calls so we don't spawn parallel
+        # discovery storms when multiple search/list requests arrive while
+        # the index is stale.
+        self._refresh_lock: Optional[asyncio.Lock] = None
+
+    def _get_refresh_lock(self) -> asyncio.Lock:
+        if self._refresh_lock is None:
+            self._refresh_lock = asyncio.Lock()
+        return self._refresh_lock
 
     # ── Public API ────────────────────────────────────────────
 
@@ -37,42 +47,52 @@ class MCPRouter:
         return (time.time() - self._last_built) > _ROUTER_CACHE_TTL
 
     async def refresh(self, service) -> int:
-        """Rebuild the tool index from all enabled MCP servers. Returns tool count."""
+        """Rebuild the tool index from all enabled MCP servers. Returns tool count.
+
+        Concurrent callers are serialised: the second arrival waits for the
+        first to finish and then no-ops if the index has just been rebuilt.
+        """
         from app.mcp.registry import MCPServerRegistry
         from app.mcp.client import MCPClient
 
-        registry = MCPServerRegistry()
-        client = MCPClient()
-        enabled = registry.list_enabled_servers()
+        lock = self._get_refresh_lock()
+        async with lock:
+            # Skip if another caller refreshed while we waited
+            if not self.is_stale() and self._last_built > 0:
+                return len(self._index)
 
-        new_index: List[Dict[str, Any]] = []
-        for server in enabled:
-            try:
-                tools = await client.connect_and_list_tools(
-                    server["command"], server.get("args", []), server.get("env", {})
-                )
-                for tool in tools:
-                    new_index.append({
-                        "server_id": server["id"],
-                        "server_name": server["name"],
-                        "name": tool["name"],
-                        "description": tool.get("description", ""),
-                        "inputSchema": tool.get("inputSchema", {}),
-                        "_search_blob": (
-                            f"{server['name']} {tool['name']} "
-                            f"{tool.get('description', '')} "
-                            f"{' '.join(tool.get('inputSchema', {}).get('properties', {}).keys())}"
-                        ).lower(),
-                    })
-            except Exception as e:
-                logger.warning("MCPRouter: failed to index server %s: %s", server["id"], e)
+            registry = MCPServerRegistry()
+            client = MCPClient()
+            enabled = registry.list_enabled_servers()
 
-        with self._lock:
-            self._index = new_index
-            self._last_built = time.time()
+            new_index: List[Dict[str, Any]] = []
+            for server in enabled:
+                try:
+                    tools = await client.connect_and_list_tools(
+                        server["command"], server.get("args", []), server.get("env", {})
+                    )
+                    for tool in tools:
+                        new_index.append({
+                            "server_id": server["id"],
+                            "server_name": server["name"],
+                            "name": tool["name"],
+                            "description": tool.get("description", ""),
+                            "inputSchema": tool.get("inputSchema", {}),
+                            "_search_blob": (
+                                f"{server['name']} {tool['name']} "
+                                f"{tool.get('description', '')} "
+                                f"{' '.join(tool.get('inputSchema', {}).get('properties', {}).keys())}"
+                            ).lower(),
+                        })
+                except Exception as e:
+                    logger.warning("MCPRouter: failed to index server %s: %s", server["id"], e)
 
-        logger.info("MCPRouter: indexed %d tools from %d servers", len(new_index), len(enabled))
-        return len(new_index)
+            with self._lock:
+                self._index = new_index
+                self._last_built = time.time()
+
+            logger.info("MCPRouter: indexed %d tools from %d servers", len(new_index), len(enabled))
+            return len(new_index)
 
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """Return the top_k most relevant tool schemas for a given query string."""
