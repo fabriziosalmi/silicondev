@@ -27,6 +27,7 @@ const SHORTCUTS = [
         { keys: ['Cmd', '/'], desc: 'This shortcuts panel' },
         { keys: ['Alt', 'Shift', 'P'], desc: 'Command palette' },
         { keys: ['Alt', 'Shift', 'K'], desc: 'Knowledge map' },
+        { keys: ['Cmd', 'Shift', 'N'], desc: 'Quick capture (new note overlay)' },
         { keys: ['Tab'], desc: 'Move focus between elements' },
     ]},
     { section: 'Terminal', items: [

@@ -19,6 +19,8 @@ import { AgentTerminal } from './components/Terminal/AgentTerminal'
 import { TopBar } from './components/TopBar'
 import { ConversationListPanel } from './components/ConversationListPanel'
 import { NoteListPanel } from './components/NoteListPanel'
+import { NotesTemplateMenu } from './components/NotesTemplateMenu'
+import { QuickCaptureModal } from './components/QuickCaptureModal'
 import { useGlobalState } from './context/GlobalState'
 import { useConversations } from './context/ConversationContext'
 import { useNotes } from './context/NotesContext'
@@ -39,6 +41,7 @@ function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [knowledgeMapOpen, setKnowledgeMapOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
   const { t } = useTranslation()
   const { backendReady, pendingChatInput } = useGlobalState()
   const conversations = useConversations()
@@ -101,8 +104,11 @@ function App() {
             setActiveTab('chat');
           }
           break;
-        case 'n': // Cmd+N — new conversation
-          if (!isInput) {
+        case 'n': // Cmd+Shift+N → quick capture overlay; plain Cmd+N → new conversation
+          if (e.shiftKey) {
+            e.preventDefault();
+            setQuickCaptureOpen(true);
+          } else if (!isInput) {
             e.preventDefault();
             conversations.setActiveConversationId(null);
             setActiveTab('chat');
@@ -396,14 +402,11 @@ function App() {
                     experimental
                     suffix={activeTab === 'workspace' ? (
                       <div className="flex items-center gap-0.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); notes.setActiveNoteId(null); }}
-                          className="p-1 text-foreground-muted hover:text-foreground hover:bg-active rounded transition-colors"
-                          title={t('sidebar.newNote')}
-                        >
-                          <Plus size={14} />
-                        </button>
+                        <NotesTemplateMenu
+                          onBlankNote={() => notes.setActiveNoteId(null)}
+                          onNoteCreated={(id) => notes.setActiveNoteId(id)}
+                          onAfterCreate={() => notes.fetchNotes()}
+                        />
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setNotesExpanded(!notesExpanded); if (!notesExpanded) notes.fetchNotes(); }}
@@ -579,6 +582,11 @@ function App() {
       />
       <SelectionMenu />
       {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
+      <QuickCaptureModal
+        isOpen={quickCaptureOpen}
+        onClose={() => setQuickCaptureOpen(false)}
+        onSaved={() => notes.fetchNotes()}
+      />
     </div>
   )
 }

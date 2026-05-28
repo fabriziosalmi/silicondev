@@ -1,4 +1,5 @@
-import { Pin, PinOff, Trash2, Edit3, Check, X, FileText } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Pin, PinOff, Trash2, Edit3, Check, X, FileText, Search } from 'lucide-react'
 import type { NoteSummary } from '../api/client'
 import { formatTimeAgo } from '../utils/time'
 
@@ -31,15 +32,47 @@ export function NoteListPanel({
     onRenameValueChange,
     loading,
 }: NoteListPanelProps) {
+    const [search, setSearch] = useState('')
+
+    const filteredNotes = useMemo(() => {
+        const q = search.trim().toLowerCase()
+        if (!q) return notes
+        return notes.filter(n => n.title.toLowerCase().includes(q))
+    }, [notes, search])
+
+    const showSearch = notes.length >= 5 || search.length > 0
+
     return (
         <div className="w-full flex flex-col gap-2 overflow-hidden">
+            {showSearch && (
+                <div className="relative shrink-0">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-foreground-subtle" />
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Filter notes…"
+                        className="w-full bg-hover border border-outline-subtle rounded pl-7 pr-6 py-1 text-[11px] text-foreground placeholder:text-foreground-subtle outline-none focus:border-accent/40"
+                    />
+                    {search && (
+                        <button
+                            type="button"
+                            onClick={() => setSearch('')}
+                            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-foreground-subtle hover:text-foreground-muted"
+                            aria-label="Clear search"
+                        >
+                            <X className="w-2.5 h-2.5" />
+                        </button>
+                    )}
+                </div>
+            )}
             <div className="flex-1 overflow-y-auto space-y-1">
                 {loading && notes.length === 0 && (
                     <div className="p-6 text-center">
                         <div className="w-4 h-4 border border-blue-400/40 border-t-blue-400 rounded-full animate-spin mx-auto" />
                     </div>
                 )}
-                {notes.map((note) => (
+                {filteredNotes.map((note) => (
                     <div
                         key={note.id}
                         onClick={() => onSelect(note.id)}
@@ -125,6 +158,11 @@ export function NoteListPanel({
                     <div className="p-6 text-center">
                         <FileText className="w-6 h-6 text-foreground-disabled mx-auto mb-2" />
                         <p className="text-xs text-foreground-subtle">No notes yet.</p>
+                    </div>
+                )}
+                {notes.length > 0 && filteredNotes.length === 0 && !loading && (
+                    <div className="p-4 text-center">
+                        <p className="text-xs text-foreground-subtle">No notes match "{search}".</p>
                     </div>
                 )}
             </div>
