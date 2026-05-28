@@ -49,8 +49,11 @@ export function CodeActionsToolbar({ fileName, language }: CodeActionsToolbarPro
         return () => window.removeEventListener('nanocore-selection-change', handler)
     }, [])
 
-    // Reset badge whenever the active file changes
+    // Reset badge whenever the active file changes — Monaco will re-emit
+    // nanocore-selection-change once the new editor mounts, but until then
+    // the stale badge from the previous file would mislead the user.
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state reset on prop change
         setHasSelection(false)
         setSelectionLines(0)
     }, [fileName])

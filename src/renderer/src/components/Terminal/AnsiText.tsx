@@ -13,8 +13,11 @@
 import { Fragment, useMemo, type CSSProperties } from 'react'
 
 // SGR (Select Graphic Rendition) only — strip non-SGR escapes separately.
+// \x1b is the literal ANSI ESC byte; intentional in this parser.
+// eslint-disable-next-line no-control-regex -- ANSI ESC is the byte we're parsing
 const SGR_RE = /\x1b\[([\d;]*)m/g
 // Other CSI escapes (cursor movement, clear line, etc.) — discarded.
+// eslint-disable-next-line no-control-regex -- ANSI ESC is the byte we're parsing
 const NON_SGR_CSI_RE = /\x1b\[[\d;?]*[a-ln-zA-LN-Z]/g
 
 // VS Code dark palette — good contrast on dark backgrounds.
