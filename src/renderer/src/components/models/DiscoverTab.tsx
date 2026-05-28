@@ -2,11 +2,11 @@ import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cleanModelName } from '../../api/client'
 import type { ModelEntry } from '../../api/client'
-import { Search, Download, FileText, Loader2, Globe, AlertCircle } from 'lucide-react'
+import { Search, Download, FileText, Loader2, Globe, AlertCircle, Eye, Sparkles, TrendingUp } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
-import { archColor, parseSizeGB, RECOMMENDED_MODELS } from './ModelsUtils'
+import { archColor, parseSizeGB, RECOMMENDED_MODELS, isMlxOfficial, isVisionLikely, quantBucket, type QuantBucket } from './ModelsUtils'
 
 // HuggingFace API model result shape (minimal fields we use)
 interface HFSearchResult {
@@ -55,6 +55,8 @@ export function DiscoverTab({
     const [readmeLoading, setReadmeLoading] = useState(false)
     const readmeAbortRef = useRef<AbortController | null>(null)
     const [familyFilter, setFamilyFilter] = useState<Family>('All')
+    const [quantFilter, setQuantFilter] = useState<'All' | QuantBucket>('All')
+    const [visionOnly, setVisionOnly] = useState(false)
 
     // Family chip counts for the filter bar (excludes models that won't fit RAM)
     const familyCounts = useMemo(() => {
@@ -77,11 +79,13 @@ export function DiscoverTab({
                 const sizeGB = parseSizeGB(m.size)
                 if (sizeGB > 0 && availableRamBytes > 0 && sizeGB * 1.07e9 > availableRamBytes) return false
                 if (familyFilter !== 'All' && familyOf(m) !== familyFilter) return false
+                if (quantFilter !== 'All' && quantBucket(m.name) !== quantFilter) return false
+                if (visionOnly && !isVisionLikely(m.id + ' ' + m.name, m.is_vision)) return false
                 return true
             })
             // Smaller models first — easier to pick when looking by RAM budget.
             .sort((a, b) => parseSizeGB(a.size) - parseSizeGB(b.size))
-    }, [models, searchQuery, availableRamBytes, familyFilter])
+    }, [models, searchQuery, availableRamBytes, familyFilter, quantFilter, visionOnly])
 
     // Use the Vite dev proxy (/hf-api/*) when running in a browser to avoid
     // CSP violations. In Electron, the direct HF URL works fine (no CSP meta).
@@ -131,14 +135,19 @@ export function DiscoverTab({
         fetchReadme(model.id)
     }
 
-    // B-3: HuggingFace open search
-    const [hfTab, setHfTab] = useState<'catalog' | 'hfsearch'>('catalog')
+    // B-3: HuggingFace open search + Trending
+    const [hfTab, setHfTab] = useState<'catalog' | 'trending' | 'hfsearch'>('catalog')
     const [hfQuery, setHfQuery] = useState('')
     const [hfResults, setHfResults] = useState<HFSearchResult[]>([])
     const [hfLoading, setHfLoading] = useState(false)
     const [hfError, setHfError] = useState('')
+    const [trending, setTrending] = useState<HFSearchResult[]>([])
+    const [trendingLoading, setTrendingLoading] = useState(false)
+    const [trendingError, setTrendingError] = useState('')
+    const [trendingLoaded, setTrendingLoaded] = useState(false)
     const hfAbortRef = useRef<AbortController | null>(null)
     const hfDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const trendingAbortRef = useRef<AbortController | null>(null)
 
     const searchHuggingFace = useCallback(async (q: string) => {
         if (!q.trim()) { setHfResults([]); return; }
@@ -168,7 +177,7 @@ export function DiscoverTab({
         } finally {
             if (!ctrl.signal.aborted) setHfLoading(false);
         }
-    }, []);
+    }, [HF_BASE]);
 
     useEffect(() => {
         if (hfDebounceRef.current) clearTimeout(hfDebounceRef.current);
@@ -177,8 +186,45 @@ export function DiscoverTab({
     }, [hfQuery, searchHuggingFace]);
 
     useEffect(() => {
-        return () => { hfAbortRef.current?.abort(); };
+        return () => { hfAbortRef.current?.abort(); trendingAbortRef.current?.abort(); };
     }, []);
+
+    // Lazy-load the Trending list the first time the tab is opened.
+    const fetchTrending = useCallback(async () => {
+        if (!navigator.onLine) {
+            setTrendingError('Offline mode — Trending requires an internet connection.')
+            return
+        }
+        trendingAbortRef.current?.abort()
+        const ctrl = new AbortController()
+        trendingAbortRef.current = ctrl
+        setTrendingLoading(true)
+        setTrendingError('')
+        try {
+            const res = await fetch(
+                `${HF_BASE}/api/models?search=mlx&sort=likes&direction=-1&limit=30`,
+                { signal: ctrl.signal }
+            )
+            if (!res.ok) throw new Error(`HF API ${res.status}`)
+            const data: HFSearchResult[] = await res.json()
+            if (!ctrl.signal.aborted) {
+                setTrending(data)
+                setTrendingLoaded(true)
+            }
+        } catch (e) {
+            if (!(e instanceof DOMException && e.name === 'AbortError')) {
+                setTrendingError('Trending fetch failed. Check your connection.')
+            }
+        } finally {
+            if (!ctrl.signal.aborted) setTrendingLoading(false)
+        }
+    }, [HF_BASE])
+
+    useEffect(() => {
+        if (hfTab === 'trending' && !trendingLoaded && !trendingLoading) {
+            fetchTrending()
+        }
+    }, [hfTab, trendingLoaded, trendingLoading, fetchTrending])
 
     return (
         <div className="h-full flex gap-4 overflow-hidden">
@@ -198,6 +244,16 @@ export function DiscoverTab({
                     </button>
                     <button
                         type="button"
+                        onClick={() => setHfTab('trending')}
+                        className={`flex-1 py-2 text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 ${
+                            hfTab === 'trending' ? 'text-white border-b-2 border-blue-500' : 'text-foreground-muted hover:text-foreground-secondary'
+                        }`}
+                    >
+                        <TrendingUp className="w-3 h-3" />
+                        Trending
+                    </button>
+                    <button
+                        type="button"
                         onClick={() => setHfTab('hfsearch')}
                         className={`flex-1 py-2 text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 ${
                             hfTab === 'hfsearch' ? 'text-white border-b-2 border-blue-500' : 'text-foreground-muted hover:text-foreground-secondary'
@@ -208,8 +264,58 @@ export function DiscoverTab({
                     </button>
                 </div>
 
-                {/* HF Search panel */}
-                {hfTab === 'hfsearch' ? (
+                {/* Trending panel */}
+                {hfTab === 'trending' ? (
+                    <div className="flex flex-col flex-1 overflow-hidden">
+                        <div className="px-3 py-2 border-b border-outline bg-hover flex items-center justify-between">
+                            <span className="text-[10px] text-foreground-muted font-mono">Top-liked MLX models on HuggingFace</span>
+                            {trendingLoading && <Loader2 className="w-3 h-3 text-foreground-muted animate-spin" />}
+                        </div>
+                        <div className="flex-1 overflow-y-auto">
+                            {trendingError && (
+                                <div className="p-4 flex items-center gap-2 text-xs text-red-400">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    {trendingError}
+                                </div>
+                            )}
+                            {!trendingError && trending.length === 0 && !trendingLoading && (
+                                <div className="p-6 text-center text-[11px] text-foreground-subtle">No trending results.</div>
+                            )}
+                            <div className="divide-y divide-white/[0.04]">
+                                {trending.map(result => {
+                                    const mlx = isMlxOfficial(result.id)
+                                    const vision = isVisionLikely(result.id)
+                                    return (
+                                    <div key={result.id} className="group flex items-center gap-2 px-3 h-10 hover:bg-white/[0.025] transition-colors">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <span className="text-[11px] font-medium text-foreground-secondary truncate">{result.id}</span>
+                                                {mlx && <Sparkles size={9} className="text-amber-400 shrink-0" aria-label="MLX official" />}
+                                                {vision && <Eye size={9} className="text-pink-400 shrink-0" aria-label="Vision model" />}
+                                            </div>
+                                            <div className="text-[9px] text-foreground-subtle font-mono">
+                                                {result.likes ? `♥ ${result.likes.toLocaleString()}` : ''}
+                                                {result.downloads ? ` · ↓ ${result.downloads.toLocaleString()}` : ''}
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDownload(result.id)}
+                                            disabled={downloading.has(result.id)}
+                                            aria-label={`Download ${result.id}`}
+                                            className="h-6 w-6 flex items-center justify-center rounded text-foreground-subtle opacity-0 group-hover:opacity-100 hover:bg-blue-500/20 hover:text-blue-400 transition-all disabled:opacity-50 shrink-0"
+                                            title={downloading.has(result.id) ? 'Downloading…' : 'Download'}
+                                        >
+                                            {downloading.has(result.id)
+                                                ? <Loader2 size={11} className="animate-spin" />
+                                                : <Download size={11} />}
+                                        </button>
+                                    </div>
+                                )})}
+                            </div>
+                        </div>
+                    </div>
+                ) : /* HF Search panel */ hfTab === 'hfsearch' ? (
                     <div className="flex flex-col flex-1 overflow-hidden">
                         <div className="p-3 border-b border-outline">
                             <div className="relative">
@@ -305,6 +411,40 @@ export function DiscoverTab({
                             )
                         })}
                     </div>
+                    {/* Quantization + vision filter row */}
+                    <div className="flex flex-wrap gap-1 items-center">
+                        {(['All', '4bit', '8bit', 'fp16'] as const).map(q => {
+                            const label = q === 'All' ? 'Any quant' : q === '4bit' ? '4-bit' : q === '8bit' ? '8-bit' : 'FP/BF16'
+                            const isActive = quantFilter === q
+                            return (
+                                <button
+                                    key={q}
+                                    type="button"
+                                    onClick={() => setQuantFilter(q)}
+                                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                                        isActive
+                                            ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                                            : 'bg-hover border-outline text-foreground-muted hover:text-foreground-secondary'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            )
+                        })}
+                        <button
+                            type="button"
+                            onClick={() => setVisionOnly(v => !v)}
+                            title="Show only vision/VLM models"
+                            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors flex items-center gap-1 ml-auto ${
+                                visionOnly
+                                    ? 'bg-pink-500/20 border-pink-500/40 text-pink-300'
+                                    : 'bg-hover border-outline text-foreground-muted hover:text-foreground-secondary'
+                            }`}
+                        >
+                            <Eye size={9} />
+                            Vision only
+                        </button>
+                    </div>
                 </div>
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                     {/* Recommended section — only when no filter is active */}
@@ -371,6 +511,12 @@ export function DiscoverTab({
                                         >
                                             <div className={`w-1.5 h-1.5 rounded-full ${colors.dot} shrink-0`} />
                                             <span className="text-[12px] font-medium text-foreground-secondary truncate">{cleanModelName(model.name)}</span>
+                                            {isMlxOfficial(model.id) && (
+                                                <Sparkles size={9} className="text-amber-400 shrink-0" aria-label="MLX official" />
+                                            )}
+                                            {isVisionLikely(model.id + ' ' + model.name, model.is_vision) && (
+                                                <Eye size={9} className="text-pink-400 shrink-0" aria-label="Vision model" />
+                                            )}
                                             <span className="text-[10px] text-foreground-muted font-mono ml-auto tabular-nums shrink-0">{model.size}</span>
                                             {/* F-2: fit badge */}
                                             {fitLabel && (

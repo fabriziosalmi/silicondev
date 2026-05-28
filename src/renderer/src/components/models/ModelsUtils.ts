@@ -36,3 +36,41 @@ export function guessQuant(name: string) {
 export function guessPublisher(id: string) {
     return id.split('/')[0] || '-'
 }
+
+/**
+ * Semi-official MLX builds: mlx-community/* is Apple-curated, apple/* is
+ * first-party. Useful as a trust signal in Discover.
+ */
+export function isMlxOfficial(id: string): boolean {
+    const lower = id.toLowerCase()
+    return lower.startsWith('mlx-community/') || lower.startsWith('apple/')
+}
+
+/**
+ * Best-effort vision detection from the model id/name. Backend flags
+ * is_vision once a model is loaded, but at catalog browse time we rely on
+ * naming conventions instead of fetching every config.json.
+ */
+export function isVisionLikely(idOrName: string, isVisionFlag?: boolean): boolean {
+    if (isVisionFlag) return true
+    const s = idOrName.toLowerCase()
+    return (
+        s.includes('vlm')
+        || s.includes('vision')
+        || s.includes('-vl-')
+        || s.endsWith('-vl')
+        || s.includes('llava')
+        || s.includes('idefics')
+        || s.includes('paligemma')
+    )
+}
+
+export type QuantBucket = '4bit' | '8bit' | 'fp16' | 'unknown'
+
+export function quantBucket(name: string): QuantBucket {
+    const n = name.toLowerCase()
+    if (n.includes('4-bit') || n.includes('4bit') || n.includes('q4_')) return '4bit'
+    if (n.includes('8-bit') || n.includes('8bit') || n.includes('q8_')) return '8bit'
+    if (n.includes('bf16') || n.includes('fp16') || n.includes('f16')) return 'fp16'
+    return 'unknown'
+}
