@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { cleanModelName } from '../../api/client'
+import { apiClient, cleanModelName } from '../../api/client'
 import type { ModelEntry } from '../../api/client'
-import { Search, Trash2, Database, Play, LogOut, Zap, Loader2 } from 'lucide-react'
+import { Search, Trash2, Database, Play, LogOut, Zap, Loader2, RefreshCw } from 'lucide-react'
+import { useToast } from '../ui/Toast'
 import { archColor, guessQuant, parseSizeGB } from './ModelsUtils'
 
 interface MyModelsTabProps {
@@ -16,15 +17,38 @@ interface MyModelsTabProps {
     onEject: () => void
     onDelete: (id: string) => void
     onSwitchToDiscover: () => void
+    /** Called after Verify & Clean removed orphans, so the parent can refetch the list. */
+    onAfterClean?: () => void
 }
 
 export function MyModelsTab({
     models, downloading, activeModelId, loadingModelId,
     searchQuery, setSearchQuery,
     onLoad, onEject, onDelete, onSwitchToDiscover,
+    onAfterClean,
 }: MyModelsTabProps) {
     const { t } = useTranslation()
+    const { toast } = useToast()
     const [sortBy, setSortBy] = useState<'name' | 'size' | 'arch'>('name')
+    const [verifying, setVerifying] = useState(false)
+
+    const handleVerify = useCallback(async () => {
+        if (verifying) return
+        setVerifying(true)
+        try {
+            const result = await apiClient.engine.verifyModels(true)
+            if (result.removed > 0) {
+                toast(`Cleaned ${result.removed} orphan ${result.removed === 1 ? 'entry' : 'entries'} from the registry.`, 'success')
+                onAfterClean?.()
+            } else {
+                toast('All registered models are present on disk.', 'info')
+            }
+        } catch (err) {
+            toast(err instanceof Error ? err.message : 'Verify failed', 'error')
+        } finally {
+            setVerifying(false)
+        }
+    }, [verifying, toast, onAfterClean])
 
     const displayedMyModels = useMemo(() => {
         const q = searchQuery.toLowerCase()
@@ -88,6 +112,18 @@ export function MyModelsTab({
                         </button>
                     ))}
                 </div>
+                <button
+                    type="button"
+                    onClick={handleVerify}
+                    disabled={verifying}
+                    title="Re-check every registered entry against disk and drop orphans"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[10px] font-medium bg-hover text-foreground-muted border border-outline-subtle hover:text-foreground hover:border-outline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {verifying
+                        ? <Loader2 size={11} className="animate-spin" />
+                        : <RefreshCw size={11} />}
+                    Verify &amp; Clean
+                </button>
             </div>
 
             <div className="flex-1 overflow-auto">

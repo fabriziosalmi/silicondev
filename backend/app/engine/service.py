@@ -768,6 +768,57 @@ class MLXEngineService:
                     logger.error(f"OOM Retry failed for {model_id}: {retry_e}")
                     raise retry_e
 
+            # Vision-to-text fallback: config.json hinted "vision" (Gemma 3 ships
+            # with vision_config even on text-only variants), mlx-vlm rejected
+            # the architecture, but mlx-lm may still be able to load it as a
+            # plain causal LM. Distinguish "architecture not supported" from
+            # genuine failures (file missing, weights corrupt) and retry on the
+            # former only.
+            err_msg = str(e).lower()
+            arch_mismatch = (
+                "no module named" in err_msg
+                or "unsupported architecture" in err_msg
+                or "not supported" in err_msg
+                or "unknown architecture" in err_msg
+                or "could not find module" in err_msg
+            )
+            if is_vision and arch_mismatch:
+                logger.warning(
+                    f"Vision load failed for {model_id} ({type(e).__name__}: {e}). "
+                    f"Retrying as text-only via mlx-lm — vision features will be unavailable."
+                )
+                try:
+                    model, tokenizer = await loop.run_in_executor(
+                        self._mlx_executor, lambda: load(path_to_load)
+                    )
+                    self.active_model = model
+                    self.active_tokenizer = tokenizer
+                    self.active_processor = None
+                    self.active_is_vision = False
+                    self.active_model_id = model_id
+                    self.active_kv_bits = kv_quant_bits if kv_quant_bits in (4, 8) else None
+                    self._load_warning = (
+                        "Loaded as text-only — this model's vision branch isn't supported "
+                        "by the installed mlx-vlm. Image inputs won't work."
+                    )
+                    logger.info(f"Model {model_id} loaded via mlx-lm fallback (text-only).")
+                    return
+                except Exception as text_e:
+                    logger.error(f"Text fallback also failed for {model_id}: {text_e}")
+                    # Reset state before raising the composed error
+                    self.active_model_id = None
+                    self.active_model = None
+                    self.active_tokenizer = None
+                    self.active_processor = None
+                    self.active_is_vision = False
+                    raise RuntimeError(
+                        f"Could not load {model_id}. config.json suggests a vision model "
+                        f"but mlx-vlm rejected it ({type(e).__name__}: {e}); the text-only "
+                        f"fallback via mlx-lm also failed ({type(text_e).__name__}: {text_e}). "
+                        f"This architecture may need a newer mlx-lm / mlx-vlm — "
+                        f"check ~/.silicon-studio/logs/app.log for the full trace."
+                    ) from text_e
+
             # Reset state so we don't appear to have a loaded model
             self.active_model_id = None
             self.active_model = None
@@ -1629,6 +1680,63 @@ class MLXEngineService:
 
             models.append(entry)
         return models
+
+    def verify_models(self, cleanup: bool = False) -> Dict[str, Any]:
+        """Re-verify each registered model entry against disk.
+
+        Identifies "orphans": entries pointing at paths that no longer exist
+        (e.g. user deleted a fine-tune output directory or a custom model
+        path outside the UI). Bundled-catalog entries that simply haven't
+        been downloaded are NOT orphans — they remain useful as
+        downloadable options.
+
+        Returns {"checked": N, "orphans": [{id, name, reason}], "removed": M}.
+        If cleanup=True, orphan entries are dropped from models_config and
+        the JSON is persisted atomically.
+        """
+        orphans: List[Dict[str, str]] = []
+        for m in self.models_config:
+            model_id = m["id"]
+
+            # Fine-tunes: adapter directory must still be on disk.
+            if m.get("is_finetuned"):
+                adapter = m.get("adapter_path") or m.get("path")
+                if not adapter or not Path(adapter).exists():
+                    orphans.append({
+                        "id": model_id,
+                        "name": m.get("name", model_id),
+                        "reason": f"fine-tune adapter missing: {adapter or '<none>'}",
+                    })
+                continue
+
+            # Custom-registered models or absolute-path entries.
+            if Path(model_id).is_absolute() or m.get("is_custom"):
+                if not Path(model_id).exists():
+                    orphans.append({
+                        "id": model_id,
+                        "name": m.get("name", model_id),
+                        "reason": f"registered path no longer exists: {model_id}",
+                    })
+                continue
+
+            # Catalog / HF-downloaded entries: "not downloaded" is not an
+            # orphan — the entry is still a valid download target.
+
+        removed = 0
+        if cleanup and orphans:
+            orphan_ids = {o["id"] for o in orphans}
+            self.models_config = [m for m in self.models_config if m["id"] not in orphan_ids]
+            self._save_models_config()
+            removed = len(orphans)
+            logger.info(
+                f"Verify cleaned {removed} orphan model entries: {sorted(orphan_ids)}"
+            )
+
+        return {
+            "checked": len(self.models_config) + removed,
+            "orphans": orphans,
+            "removed": removed,
+        }
 
     def download_model(self, model_id: str):
         """

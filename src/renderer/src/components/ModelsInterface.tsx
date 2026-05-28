@@ -310,6 +310,7 @@ export function ModelsInterface() {
                         onEject={handleEject}
                         onDelete={handleDelete}
                         onSwitchToDiscover={() => { setActiveTab('discover'); setSearchQuery('') }}
+                        onAfterClean={() => fetchModels()}
                     />
                 ) : (
                     <DiscoverTab

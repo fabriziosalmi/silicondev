@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from typing import Dict, Any, List, Optional, Union
+import asyncio
 import uuid
 import json
 import logging
@@ -212,6 +213,26 @@ async def scan_models(request: ScanRequest):
         safe_user_file(request.path)
         found = service.scan_directory(request.path)
         return found
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class VerifyRequest(BaseModel):
+    cleanup: bool = False
+
+
+@router.post("/models/verify")
+async def verify_models(request: VerifyRequest):
+    """Re-check every registered model entry against disk.
+
+    With `cleanup: false` (default) the response lists which entries are
+    orphaned without touching the registry. With `cleanup: true` orphans
+    are removed from `~/.silicon-studio/models.json` and the change is
+    persisted atomically.
+    """
+    try:
+        result = await asyncio.to_thread(service.verify_models, request.cleanup)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -398,6 +398,15 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to scan directory');
             return res.json();
         },
+        verifyModels: async (cleanup: boolean = false): Promise<{ checked: number; orphans: Array<{ id: string; name: string; reason: string }>; removed: number }> => {
+            const res = await apiFetch(`${API_BASE}/api/engine/models/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cleanup })
+            });
+            await throwIfNotOk(res, 'Failed to verify models');
+            return res.json();
+        },
         getJobStatus: async (jobId: string): Promise<JobStatus> => {
             const res = await apiFetch(`${API_BASE}/api/engine/jobs/${jobId}`);
             await throwIfNotOk(res, 'Failed to get job status');
