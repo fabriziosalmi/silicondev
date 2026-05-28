@@ -190,7 +190,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
         <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
 
             {/* Settings Sidebar — sticky header & footer (CTA), middle scrolls. */}
-            <div className="w-[400px] flex flex-col min-h-0 bg-[#18181B] border border-white/10 rounded-xl overflow-hidden">
+            <div className="w-[400px] flex flex-col min-h-0 bg-elevated border border-white/10 rounded-xl overflow-hidden">
                 {/* Sticky header */}
                 <div className="px-4 py-3 border-b border-white/10 bg-white/[0.02] flex items-center gap-2 shrink-0">
                     <Settings2 className="w-4 h-4 text-blue-400" />
@@ -432,7 +432,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                 )}
 
                 {/* Telemetry Chart */}
-                <div className="flex-1 bg-[#18181B] border border-white/10 rounded-xl flex flex-col overflow-hidden min-h-[300px]">
+                <div className="flex-1 bg-elevated border border-white/10 rounded-xl flex flex-col overflow-hidden min-h-[300px]">
                     <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between z-10">
                         <div className="flex items-center gap-2">
                             <Activity className="w-5 h-5 text-blue-400" />

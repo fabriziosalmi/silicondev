@@ -91,7 +91,7 @@ const KnowledgeMap: React.FC<KnowledgeMapProps> = ({ isOpen, onClose }) => {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-xl flex flex-col overflow-hidden"
+          className="fixed inset-0 z-modal bg-overlay/95 backdrop-blur-xl flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">

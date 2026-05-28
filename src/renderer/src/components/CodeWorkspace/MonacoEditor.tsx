@@ -8,6 +8,7 @@ const Editor = lazy(() => import('@monaco-editor/react'))
 
 import { useHolographicDiff } from './useHolographicDiff'
 import { apiClient } from '../../api/client'
+import { useTheme } from '../../context/ThemeContext'
 
 interface MonacoEditorProps {
   filePath: string
@@ -31,8 +32,8 @@ function getMonaco(): any {
 
 function EditorFallback() {
   return (
-    <div className="flex items-center justify-center h-full bg-[#1e1e1e]">
-      <div className="flex items-center gap-2 text-gray-500 text-sm">
+    <div className="flex items-center justify-center h-full bg-elevated">
+      <div className="flex items-center gap-2 text-foreground-muted text-sm">
         <Loader2 size={16} className="animate-spin" />
         Loading editor...
       </div>
@@ -41,6 +42,8 @@ function EditorFallback() {
 }
 
 export function MonacoEditor({ filePath, content, language, onSave, onChange, originalContent, activeModelId, debugLine }: MonacoEditorProps) {
+  const { resolvedTheme } = useTheme()
+  const monacoTheme = resolvedTheme === 'dark' ? 'vs-dark' : 'vs'
   // Monaco editor instance -- stored in both ref (for callbacks) and state (for hooks that need re-render on mount)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null)
@@ -245,7 +248,7 @@ export function MonacoEditor({ filePath, content, language, onSave, onChange, or
     height: '100%',
     language,
     value: content,
-    theme: 'vs-dark',
+    theme: monacoTheme,
     onMount: handleEditorDidMount,
     onChange: handleChange,
     options: {

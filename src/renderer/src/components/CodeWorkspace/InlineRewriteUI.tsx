@@ -40,7 +40,7 @@ export function InlineRewriteUI({ selection, onClose, onSubmit, isRunning }: Inl
     }
 
     return (
-        <div className="flex flex-col gap-2 p-2 bg-[#1a1a1a] border border-blue-500/30 rounded-lg shadow-2xl glow-accent w-[400px]">
+        <div className="flex flex-col gap-2 p-2 bg-elevated border border-blue-500/30 rounded-lg shadow-2xl glow-accent w-[400px]">
             <div className="flex items-center gap-2 px-2 py-1 border-b border-white/5">
                 <Sparkles size={14} className="text-blue-400" />
                 <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Inline Edit</span>

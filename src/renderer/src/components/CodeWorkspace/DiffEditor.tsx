@@ -1,5 +1,6 @@
 import { Suspense, lazy, useState } from 'react'
 import { Check, X, Loader2 } from 'lucide-react'
+import { useTheme } from '../../context/ThemeContext'
 
 const MonacoDiffEditor = lazy(() =>
   import('@monaco-editor/react').then(mod => ({ default: mod.DiffEditor }))
@@ -16,8 +17,8 @@ interface DiffEditorProps {
 
 function DiffFallback() {
   return (
-    <div className="flex items-center justify-center h-full bg-[#1e1e1e]">
-      <div className="flex items-center gap-2 text-gray-500 text-sm">
+    <div className="flex items-center justify-center h-full bg-elevated">
+      <div className="flex items-center gap-2 text-foreground-muted text-sm">
         <Loader2 size={16} className="animate-spin" />
         Loading diff editor...
       </div>
@@ -26,6 +27,8 @@ function DiffFallback() {
 }
 
 export function DiffEditor({ filePath, originalContent, modifiedContent, language, onApprove, onReject }: DiffEditorProps) {
+  const { resolvedTheme } = useTheme()
+  const monacoTheme = resolvedTheme === 'dark' ? 'vs-dark' : 'vs'
   const [showRejectInput, setShowRejectInput] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [deciding, setDeciding] = useState(false)
@@ -60,7 +63,7 @@ export function DiffEditor({ filePath, originalContent, modifiedContent, languag
             language={language}
             original={originalContent}
             modified={modifiedContent}
-            theme="vs-dark"
+            theme={monacoTheme}
             options={{
               readOnly: true,
               fontSize: 13,

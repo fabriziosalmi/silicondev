@@ -35,9 +35,9 @@ export function PreviewPanel({
     const previewUrl = port ? `http://localhost:${port}` : null
 
     return (
-        <div className="flex flex-col bg-[#0f0f0f] border-t border-white/5 overflow-hidden" style={{ height: '100%' }}>
+        <div className="flex flex-col bg-overlay border-t border-white/5 overflow-hidden" style={{ height: '100%' }}>
             {/* Toolbar */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#161618] border-b border-white/5 shrink-0">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-elevated border-b border-white/5 shrink-0">
                 <Globe className="w-3.5 h-3.5 text-blue-400" />
                 <span className="text-[11px] font-medium text-gray-400 select-none">Preview</span>
 

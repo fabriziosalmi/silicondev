@@ -70,7 +70,7 @@ function ContextMenu({ x, y, onRename, onDelete, onCopyPath, onClose }: {
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[140px] py-1 bg-[#1e1e1e] border border-white/10 rounded-md shadow-xl"
+      className="fixed z-50 min-w-[140px] py-1 bg-elevated border border-white/10 rounded-md shadow-xl"
       style={{ left: x, top: y }}
     >
       <button

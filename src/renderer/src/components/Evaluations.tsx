@@ -336,7 +336,7 @@ export function Evaluations() {
                         </div>
                         <div className="p-0 flex-1 overflow-hidden">
                             <table className="w-full text-left text-sm">
-                                <thead className="bg-[#18181B] text-gray-500">
+                                <thead className="bg-elevated text-gray-500">
                                     <tr>
                                         <th className="px-5 py-3 font-semibold">Benchmark</th>
                                         <th className="px-5 py-3 font-semibold">Type</th>
@@ -420,7 +420,7 @@ export function Evaluations() {
                         </div>
                         <div className="p-0 flex-1 overflow-hidden">
                             <table className="w-full text-left text-sm">
-                                <thead className="bg-[#18181B] text-gray-500">
+                                <thead className="bg-elevated text-gray-500">
                                     <tr>
                                         <th className="px-5 py-3 font-semibold">Model & Date</th>
                                         <th className="px-5 py-3 font-semibold">Benchmark</th>

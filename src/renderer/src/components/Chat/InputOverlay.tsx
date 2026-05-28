@@ -187,7 +187,7 @@ export function InputOverlay({ input, cursorPosition, visible, onSelect, onClose
             className="absolute bottom-full left-0 right-0 mb-1 z-50"
             style={{ maxHeight: '240px' }}
         >
-            <div className="bg-[#1a1a2e] border border-white/10 rounded-lg shadow-xl overflow-hidden">
+            <div className="bg-elevated border border-white/10 rounded-lg shadow-xl overflow-hidden">
                 {/* Header */}
                 <div className="px-3 py-1.5 text-[10px] text-gray-500 uppercase tracking-wider border-b border-white/5">
                     {trigger.type === 'command' ? t('chatInput.commands') : t('chatInput.files')}

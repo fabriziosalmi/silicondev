@@ -9,14 +9,153 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS
+   Single source of truth for color, depth, and stacking.
+   :root defines defaults (dark) so legacy code without data-theme still works.
+   [data-theme="light"] overrides for light mode.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="dark"] {
+  /* Surfaces — depth hierarchy from app shell to popovers */
+  --bg-base: rgb(0, 0, 0);                      /* App shell, deepest */
+  --bg-window: rgba(20, 20, 20, 0.7);           /* Main content area (translucent) */
+  --bg-surface: rgba(20, 20, 20, 0.5);          /* Inline panels */
+  --bg-sidebar: rgba(40, 40, 40, 0.9);          /* Sidebar */
+  --bg-titlebar: rgba(19, 19, 22, 0.8);         /* TopBar */
+  --bg-elevated: rgb(24, 24, 27);               /* Cards, dropdowns */
+  --bg-overlay: rgb(28, 28, 31);                /* Modals, command palette */
+  --bg-input: rgba(0, 0, 0, 0.4);               /* Form inputs */
+  --bg-hover: rgba(255, 255, 255, 0.05);        /* Hover states */
+  --bg-active: rgba(255, 255, 255, 0.08);       /* Pressed states */
+  --bg-selection: rgba(59, 130, 246, 0.5);      /* Text selection */
+
+  /* Foreground — text and icons */
+  --text-primary: rgb(255, 255, 255);
+  --text-secondary: rgb(229, 231, 235);
+  --text-muted: rgb(156, 163, 175);
+  --text-subtle: rgb(107, 114, 128);
+  --text-disabled: rgb(75, 85, 99);
+
+  /* Borders / outlines */
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.20);
+
+  /* Brand / accent (Apple system blue, tuned per theme) */
+  --accent: #007AFF;
+  --accent-hover: #2997ff;
+  --accent-muted: rgba(59, 130, 246, 0.18);
+  --accent-foreground: rgb(255, 255, 255);
+
+  /* Status */
+  --success: rgb(52, 211, 153);
+  --success-muted: rgba(52, 211, 153, 0.12);
+  --danger: rgb(239, 68, 68);
+  --danger-muted: rgba(239, 68, 68, 0.12);
+  --warn: rgb(251, 191, 36);
+  --warn-muted: rgba(251, 191, 36, 0.12);
+  --info: rgb(96, 165, 250);
+  --info-muted: rgba(96, 165, 250, 0.12);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.04);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.12);
+
+  /* Editor (Monaco / EasyMDE) */
+  --editor-bg: transparent;
+  --editor-fg: rgb(229, 231, 235);
+  --editor-caret: #3b82f6;
+  --editor-heading-1: rgb(255, 255, 255);
+  --editor-heading-2: rgb(243, 244, 246);
+  --editor-comment: rgb(107, 114, 128);
+  --editor-keyword: rgb(129, 140, 248);
+  --editor-string: rgb(52, 211, 153);
+  --editor-variable: rgb(96, 165, 250);
+  --editor-preview-bg: rgb(14, 14, 16);
+  --editor-preview-border: rgba(255, 255, 255, 0.10);
+
+  /* Z-index stacking scale — 5 layers, no more z-[9999] */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-dropdown: 100;
+  --z-overlay: 200;
+  --z-modal: 300;
+  --z-toast: 400;
+}
+
+[data-theme="light"] {
+  /* Surfaces */
+  --bg-base: rgb(245, 245, 247);
+  --bg-window: rgba(245, 245, 247, 0.92);
+  --bg-surface: rgba(255, 255, 255, 0.7);
+  --bg-sidebar: rgba(232, 232, 235, 0.92);
+  --bg-titlebar: rgba(232, 232, 235, 0.85);
+  --bg-elevated: rgb(255, 255, 255);
+  --bg-overlay: rgba(255, 255, 255, 0.96);
+  --bg-input: rgba(0, 0, 0, 0.04);
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --bg-active: rgba(0, 0, 0, 0.08);
+  --bg-selection: rgba(0, 122, 255, 0.25);
+
+  /* Foreground */
+  --text-primary: rgb(28, 28, 30);
+  --text-secondary: rgb(60, 60, 67);
+  --text-muted: rgb(99, 99, 102);
+  --text-subtle: rgb(142, 142, 147);
+  --text-disabled: rgb(199, 199, 204);
+
+  /* Borders */
+  --border-subtle: rgba(0, 0, 0, 0.05);
+  --border-default: rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.18);
+
+  /* Brand */
+  --accent: #007AFF;
+  --accent-hover: #0a84ff;
+  --accent-muted: rgba(0, 122, 255, 0.12);
+  --accent-foreground: rgb(255, 255, 255);
+
+  /* Status */
+  --success: rgb(48, 176, 90);
+  --success-muted: rgba(48, 176, 90, 0.10);
+  --danger: rgb(220, 53, 69);
+  --danger-muted: rgba(220, 53, 69, 0.10);
+  --warn: rgb(217, 142, 0);
+  --warn-muted: rgba(217, 142, 0, 0.10);
+  --info: rgb(10, 132, 255);
+  --info-muted: rgba(10, 132, 255, 0.10);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(0, 0, 0, 0.08);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.20);
+
+  /* Editor */
+  --editor-bg: transparent;
+  --editor-fg: rgb(28, 28, 30);
+  --editor-caret: #007AFF;
+  --editor-heading-1: rgb(28, 28, 30);
+  --editor-heading-2: rgb(60, 60, 67);
+  --editor-comment: rgb(142, 142, 147);
+  --editor-keyword: rgb(126, 50, 195);
+  --editor-string: rgb(48, 134, 65);
+  --editor-variable: rgb(0, 122, 255);
+  --editor-preview-bg: rgb(255, 255, 255);
+  --editor-preview-border: rgba(0, 0, 0, 0.10);
+}
+
+/* Legacy aliases — kept temporarily so any un-migrated component still renders.
+   Will be removed at the end of the codemod sweep. */
 :root {
-  --sidebar-bg: rgba(40, 40, 40, 0.9);
-  --window-bg: rgba(30, 30, 30, 0.5);
-  /* Translucent */
+  --sidebar-bg: var(--bg-sidebar);
+  --window-bg: var(--bg-window);
 }
 
 body {
-  @apply bg-transparent text-white antialiased;
+  @apply bg-transparent antialiased;
+  color: var(--text-primary);
   font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   margin: 0;
   padding: 0;
@@ -52,18 +191,17 @@ input:not([type]) {
 
 /* Beautiful Selection Color */
 ::selection {
-  background: rgba(59, 130, 246, 0.5);
-  /* Blue-500/50 */
-  color: white;
+  background: var(--bg-selection);
+  color: var(--text-primary);
 }
 
-/* Kill browser default orange focus ring — use blue everywhere */
+/* Kill browser default orange focus ring — use accent everywhere */
 *:focus {
   outline: none;
 }
 
 *:focus-visible {
-  outline: 2px solid rgba(59, 130, 246, 0.6);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -104,7 +242,7 @@ button,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--scrollbar-thumb);
   background-clip: padding-box;
   border: 3px solid transparent;
   border-radius: 9999px;
@@ -112,7 +250,7 @@ button,
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--scrollbar-thumb-hover);
   background-clip: padding-box;
   border: 3px solid transparent;
 }
@@ -120,24 +258,28 @@ button,
 /* Custom Scrollbar — Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.04) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
-/* Vibrancy & Blur Utilities */
+/* Vibrancy & Blur Utilities — theme-aware */
 .glass-sidebar {
-  @apply bg-black/40 backdrop-blur-xl;
+  background: var(--bg-sidebar);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 .glass-header {
-  @apply bg-[#18181B]/80 backdrop-blur-2xl;
+  background: var(--bg-titlebar);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
 }
 
 .premium-border {
-  @apply border-white/5;
+  border-color: var(--border-subtle);
 }
 
 .glow-accent {
-  box-shadow: 0 0 20px -5px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 20px -5px var(--accent-muted);
 }
 
 /* Hide default summary marker for custom details */
@@ -157,10 +299,10 @@ h3 {
   letter-spacing: -0.02em;
 }
 
-/* Dark select dropdown */
+/* Native-looking select dropdown — token-driven */
 select option {
-  background: #1a1a1a;
-  color: #e5e7eb;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 /* Drag Region for Titlebar */
@@ -172,56 +314,60 @@ select option {
   -webkit-app-region: no-drag;
 }
 
-/* EasyMDE Dark Mode Overrides */
+/* ─────────────────────────────────────────────────────────────────────────
+   EasyMDE editor styles
+   Scoped under .editor-container so we don't need !important. Tokens drive
+   colors so the editor follows the active theme automatically.
+   ───────────────────────────────────────────────────────────────────────── */
 .editor-container .CodeMirror {
-  background: transparent !important;
-  color: #e5e7eb !important;
-  border: none !important;
-  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Code', monospace !important;
-  font-size: 14px !important;
-  line-height: 1.6 !important;
-  padding: 20px !important;
+  background: var(--editor-bg);
+  color: var(--editor-fg);
+  border: none;
+  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 20px;
 }
 
 .editor-container .CodeMirror-cursor {
-  border-left: 2px solid #3b82f6 !important;
+  border-left: 2px solid var(--editor-caret);
 }
 
 .editor-container .editor-preview-active-side {
-  background: #0e0e10 !important;
-  border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: #e5e7eb !important;
+  background: var(--editor-preview-bg);
+  border-left: 1px solid var(--editor-preview-border);
+  color: var(--editor-fg);
 }
 
 .editor-container .editor-toolbar {
-  display: none !important;
+  display: none;
   /* Managed by our custom toolbar */
 }
 
 .editor-container .cm-header-1 {
   font-size: 2em;
   font-weight: bold;
-  color: white;
+  color: var(--editor-heading-1);
 }
 
 .editor-container .cm-header-2 {
   font-size: 1.5em;
   font-weight: bold;
-  color: #f3f4f6;
+  color: var(--editor-heading-2);
 }
 
 .editor-container .cm-comment {
-  color: #6b7280;
+  color: var(--editor-comment);
 }
 
 .editor-container .cm-keyword {
-  color: #818cf8;
+  color: var(--editor-keyword);
 }
 
 .editor-container .cm-string {
-  color: #34d399;
+  color: var(--editor-string);
 }
 
 .editor-container .cm-variable {
-  color: #60a5fa;
+  color: var(--editor-variable);
 }

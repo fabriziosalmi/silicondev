@@ -110,24 +110,24 @@ export function CommandPalette({ isOpen, onClose, onOpenKnowledgeMap, onNavigate
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-start justify-center pt-[15vh] px-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-xl bg-[#1c1c1f]/95 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-modal flex items-start justify-center pt-[15vh] px-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-xl bg-overlay/95 border border-outline rounded-2xl shadow-2xl shadow-black/60 overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Search Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
-          <Search size={18} className="text-gray-500 shrink-0" />
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-outline-subtle">
+          <Search size={18} className="text-foreground-muted shrink-0" />
           <input
             ref={inputRef}
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search agentic tools..."
-            className="flex-1 bg-transparent text-sm text-white placeholder-gray-600 outline-none"
+            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-foreground-subtle outline-none"
           />
-          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/5 bg-white/5 text-[10px] text-gray-500 font-mono">
+          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-outline-subtle bg-hover text-[10px] text-foreground-muted font-mono">
             <Command size={10} />
             <span>K</span>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-white/5 rounded-md text-gray-500 transition-colors">
+          <button onClick={onClose} className="p-1 hover:bg-hover rounded-md text-foreground-muted transition-colors">
             <X size={16} />
           </button>
         </div>

@@ -275,7 +275,7 @@ function App() {
     <div className="h-screen w-screen flex flex-col bg-transparent">
 
       {/* Modern Top Status Bar */}
-      <header className="glass-header z-50">
+      <header className="glass-header z-nav">
         <TopBar />
       </header>
 
@@ -293,7 +293,7 @@ function App() {
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden rounded-bl-lg rounded-br-lg border-t premium-border bg-[rgba(20,20,20,0.7)]">
+      <div className="flex-1 flex overflow-hidden rounded-bl-lg rounded-br-lg border-t premium-border bg-window">
 
         {/* Sidebar */}
         <div className={`${sidebarCollapsed ? 'w-14' : 'w-64'} glass-sidebar flex flex-col pt-6 border-r premium-border relative z-20 rounded-bl-lg transition-all duration-200 overflow-hidden`}>
@@ -588,9 +588,9 @@ function SidebarItem({ label, active, onClick, icon, collapsed, suffix }: { labe
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
       title={collapsed ? label : undefined}
-      className={`w-full flex items-center ${collapsed ? 'justify-center px-0 py-2 rounded-lg' : 'px-3 py-2 rounded-r-md'} text-[13px] font-medium transition-all duration-150 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500/50 ${active
-        ? `bg-[#1e1e1e] text-gray-100 ${collapsed ? '' : 'border-l-[3px] border-blue-500'}`
-        : `text-gray-400 hover:bg-white/5 hover:text-white ${collapsed ? '' : 'border-l-[3px] border-transparent'}`
+      className={`w-full flex items-center ${collapsed ? 'justify-center px-0 py-2 rounded-lg' : 'px-3 py-2 rounded-r-md'} text-[13px] font-medium transition-all duration-150 cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent/50 ${active
+        ? `bg-elevated text-foreground ${collapsed ? '' : 'border-l-[3px] border-accent'}`
+        : `text-foreground-muted hover:bg-hover hover:text-foreground ${collapsed ? '' : 'border-l-[3px] border-transparent'}`
         }`}
     >
       <span className={`flex items-center justify-center w-5 h-5 shrink-0 ${active ? 'text-blue-400' : 'opacity-70'}`}>{icon}</span>

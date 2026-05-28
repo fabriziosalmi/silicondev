@@ -97,7 +97,7 @@ export function AddModelModal({ onClose, onModelsAdded, initialPath }: AddModelM
                 aria-modal="true"
                 aria-labelledby="add-model-modal-title"
                 ref={trapRef}
-                className="bg-[#18181B] border border-white/10 rounded-xl max-w-md w-full p-6 max-h-[85vh] overflow-y-auto"
+                className="bg-elevated border border-white/10 rounded-xl max-w-md w-full p-6 max-h-[85vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
             >
                 <h3 id="add-model-modal-title" className="text-xl font-bold text-white mb-6 flex items-center gap-2">

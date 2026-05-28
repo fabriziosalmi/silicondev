@@ -49,7 +49,7 @@ export function IngestTab({ collections, selectedCollectionId, setSelectedCollec
     return (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <Card className="xl:col-span-2 flex flex-col items-center justify-center p-12 border-2 border-dashed border-white/10 hover:border-white/20 transition-all bg-black/20 text-center min-h-[400px] group rounded-2xl">
-                <div className="w-20 h-20 bg-[#18181B] border border-white/5 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
+                <div className="w-20 h-20 bg-elevated border border-white/5 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
                     <Upload className="w-10 h-10 text-blue-400" />
                 </div>
                 <h2 className="text-xl font-bold mb-3 text-gray-200 tracking-wide">Upload Files for Embedding</h2>
@@ -95,7 +95,7 @@ export function IngestTab({ collections, selectedCollectionId, setSelectedCollec
             </Card>
 
             <div className="space-y-6">
-                <Card className="p-6 bg-[#18181B] border border-white/10">
+                <Card className="p-6 bg-elevated border border-white/10">
                     <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-6">Pipeline Settings</h3>
                     <div className="space-y-6">
                         <div className="space-y-3">

@@ -496,7 +496,7 @@ export function CodeWorkspace() {
             onClick={() => setActiveFile(f.path)}
             onKeyDown={(e) => { if (e.key === 'Enter') setActiveFile(f.path) }}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border-r border-white/5 cursor-pointer shrink-0 transition-colors ${f.path === activeFile
-              ? 'bg-[#1e1e1e] text-white'
+              ? 'bg-elevated text-white'
               : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
               }`}
           >
@@ -630,7 +630,7 @@ export function CodeWorkspace() {
                 />
 
                 {activeDiff && (
-                  <div className="absolute bottom-6 right-6 z-50 flex items-center gap-2 p-1.5 bg-[#1a1a1a]/90 border border-amber-500/30 rounded-lg shadow-2xl backdrop-blur-md">
+                  <div className="absolute bottom-6 right-6 z-50 flex items-center gap-2 p-1.5 bg-elevated/90 border border-amber-500/30 rounded-lg shadow-2xl backdrop-blur-md">
                     <div className="px-2 py-0.5 bg-amber-500/10 rounded text-[10px] font-bold text-amber-500 uppercase tracking-tighter">
                       Proposed Change
                     </div>
@@ -673,13 +673,13 @@ export function CodeWorkspace() {
                 )}
               </>
             ) : (
-              <div className="h-full flex items-center justify-center bg-[#1e1e1e]">
+              <div className="h-full flex items-center justify-center bg-elevated">
                 <p className="text-sm text-gray-600">{t('code.noSession')}</p>
               </div>
             )}
           </div>
           {debugSessionId && (
-            <div className="h-64 border-t border-white/5 bg-[#1a1a1a] shrink-0">
+            <div className="h-64 border-t border-white/5 bg-elevated shrink-0">
               <DebuggerPanel
                 sessionId={debugSessionId}
                 onStop={() => {

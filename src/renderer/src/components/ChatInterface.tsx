@@ -1503,7 +1503,7 @@ Return exactly this JSON structure (no other text):
                                 {t('chat.export')}
                             </button>
                             <div className="hidden group-hover/export:block absolute top-full left-0 pt-1 z-50">
-                                <div className="bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 min-w-[110px]">
+                                <div className="bg-elevated border border-white/10 rounded-lg shadow-xl py-1 min-w-[110px]">
                                     <button
                                         type="button"
                                         onClick={() => handleExport('md')}
@@ -1535,7 +1535,7 @@ Return exactly this JSON structure (no other text):
                                 )}
                             </button>
                             <div className="hidden group-hover/redact:block absolute top-full left-0 pt-1 z-50">
-                                <div className="bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 min-w-[140px]">
+                                <div className="bg-elevated border border-white/10 rounded-lg shadow-xl py-1 min-w-[140px]">
                                     <button
                                         type="button"
                                         onClick={() => handleRedactConversation('all')}

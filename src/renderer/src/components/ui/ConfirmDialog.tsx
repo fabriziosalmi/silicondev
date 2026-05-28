@@ -52,11 +52,11 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
         <ConfirmContext.Provider value={{ confirm }}>
             {children}
             {pending && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-150">
+                <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-150">
                     <div
                         ref={trapRef}
                         tabIndex={-1}
-                        className="w-full max-w-sm mx-4 bg-[#1c1c1f] border border-white/10 rounded-xl shadow-2xl p-5 outline-none animate-in zoom-in-95 duration-150"
+                        className="w-full max-w-sm mx-4 bg-overlay border border-outline rounded-xl shadow-2xl p-5 outline-none animate-in zoom-in-95 duration-150"
                         role="alertdialog"
                         aria-modal="true"
                         aria-labelledby="confirm-title"
@@ -64,17 +64,17 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                     >
                         <div className="flex items-start gap-3 mb-4">
                             {pending.destructive && (
-                                <div className="p-2 rounded-lg bg-red-500/10 shrink-0">
-                                    <AlertTriangle size={18} className="text-red-400" />
+                                <div className="p-2 rounded-lg bg-danger-muted shrink-0">
+                                    <AlertTriangle size={18} className="text-danger" />
                                 </div>
                             )}
                             <div>
                                 {pending.title && (
-                                    <h3 id="confirm-title" className="text-sm font-semibold text-white mb-1">
+                                    <h3 id="confirm-title" className="text-sm font-semibold text-foreground mb-1">
                                         {pending.title}
                                     </h3>
                                 )}
-                                <p id="confirm-message" className="text-sm text-gray-400">
+                                <p id="confirm-message" className="text-sm text-foreground-muted">
                                     {pending.message}
                                 </p>
                             </div>
@@ -83,7 +83,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                             <button
                                 type="button"
                                 onClick={() => handleResolve(false)}
-                                className="px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                className="px-3 py-1.5 text-sm text-foreground-muted hover:text-foreground hover:bg-hover rounded-lg transition-colors"
                             >
                                 {pending.cancelLabel || 'Cancel'}
                             </button>
@@ -92,8 +92,8 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                                 onClick={() => handleResolve(true)}
                                 className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                                     pending.destructive
-                                        ? 'bg-red-600 hover:bg-red-500 text-white'
-                                        : 'bg-blue-600 hover:bg-blue-500 text-white'
+                                        ? 'bg-danger hover:opacity-90 text-white'
+                                        : 'bg-accent hover:bg-accent-hover text-accent-foreground'
                                 }`}
                             >
                                 {pending.confirmLabel || 'Confirm'}

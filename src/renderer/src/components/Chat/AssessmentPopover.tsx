@@ -14,7 +14,7 @@ export function AssessmentPopover({ scores }: { scores: SelfAssessment }) {
         v >= 80 ? 'bg-emerald-500' : v >= 60 ? 'bg-yellow-500' : v >= 40 ? 'bg-orange-500' : 'bg-red-500';
 
     return (
-        <div className="absolute bottom-full left-0 mb-1 p-2.5 rounded-lg bg-[#1a1a1a] border border-white/10 shadow-xl z-50 min-w-[220px]">
+        <div className="absolute bottom-full left-0 mb-1 p-2.5 rounded-lg bg-elevated border border-white/10 shadow-xl z-50 min-w-[220px]">
             <div className="flex items-center gap-2 mb-2">
                 <ShieldCheck className="w-3 h-3 text-emerald-400" />
                 <span className="text-[10px] font-medium text-gray-400">Self-Assessment</span>

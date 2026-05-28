@@ -135,17 +135,17 @@ export function SelectionMenu() {
         <div
             ref={menuRef}
             style={{ left: pos.x, top: pos.y }}
-            className="fixed z-[1000] w-[220px] bg-[#18181B] border border-white/10 rounded-lg shadow-2xl shadow-black/40 overflow-hidden text-white text-[12px]"
+            className="fixed z-dropdown w-[220px] bg-elevated border border-outline rounded-lg shadow-2xl shadow-black/40 overflow-hidden text-foreground text-[12px]"
         >
-            <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-white/5 bg-white/[0.02] text-[10px] text-gray-500 uppercase tracking-wide">
+            <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-outline-subtle bg-hover text-[10px] text-foreground-muted uppercase tracking-wide">
                 <span>{selection.isCode ? `Code · ${selection.lang ?? 'plain'}` : 'Selection'}</span>
                 <div className="flex items-center gap-1">
-                    <span className="font-mono text-gray-600">{charCount} ch</span>
+                    <span className="font-mono text-foreground-subtle">{charCount} ch</span>
                     <button
                         type="button"
                         onClick={() => setOpen(false)}
                         aria-label="Close"
-                        className="text-gray-600 hover:text-gray-300"
+                        className="text-foreground-subtle hover:text-foreground-secondary"
                     >
                         <X size={11} />
                     </button>
@@ -155,17 +155,17 @@ export function SelectionMenu() {
                 type="button"
                 onClick={handleSaveToNote}
                 disabled={saving}
-                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-white/[0.04] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-                {saving ? <Loader2 size={13} className="animate-spin text-blue-400" /> : <FilePlus2 size={13} className="text-blue-400" />}
+                {saving ? <Loader2 size={13} className="animate-spin text-accent" /> : <FilePlus2 size={13} className="text-accent" />}
                 <span>Save to new note</span>
             </button>
             <button
                 type="button"
                 onClick={handleCopy}
-                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-white/[0.04] transition-colors"
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-hover transition-colors"
             >
-                {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} className="text-gray-400" />}
+                {copied ? <Check size={13} className="text-success" /> : <Copy size={13} className="text-foreground-muted" />}
                 <span>{copied ? 'Copied' : 'Copy'}</span>
             </button>
         </div>,

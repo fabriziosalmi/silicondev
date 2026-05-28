@@ -7,6 +7,7 @@ import { useConfirm } from './ui/ConfirmDialog'
 import { apiClient } from '../api/client'
 import { Settings2, MessageSquare, Brain, RotateCcw, Info, Trash2, Loader2, Gauge, Globe, HardDrive, FolderSearch, Bug, ScrollText, Shield, Bot, ChevronRight } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
+import { useTheme, type ThemeChoice } from '../context/ThemeContext'
 import {
     type SettingsNavItem, type ChatDefaults, type RagDefaults, type TopBarDefaults,
     defaultChat, defaultRag, defaultTopBar,
@@ -37,6 +38,7 @@ export function Settings() {
     const { t } = useTranslation()
     const { systemStats } = useGlobalState()
     const { confirm } = useConfirm()
+    const { theme, setTheme } = useTheme()
 
     const [chat, setChat] = useState<ChatDefaults>(() => {
         try {
@@ -307,6 +309,26 @@ export function Settings() {
                             {apiClient.API_BASE}
                         </div>
                         <span className="text-[10px] text-gray-600">{t('settings.general.backendUrlHint')}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className="text-xs font-bold text-gray-500 uppercase">{t('settings.general.theme', { defaultValue: 'Theme' })}</label>
+                        <div className="flex items-center gap-1 p-1 rounded-lg bg-black/40 border border-white/10 w-fit">
+                            {(['light', 'dark', 'system'] as const).map((opt: ThemeChoice) => (
+                                <button
+                                    key={opt}
+                                    type="button"
+                                    onClick={() => setTheme(opt)}
+                                    className={`px-3 py-1 text-xs font-medium rounded-md capitalize transition-colors ${
+                                        theme === opt
+                                            ? 'bg-accent text-accent-foreground'
+                                            : 'text-foreground-muted hover:text-foreground'
+                                    }`}
+                                >
+                                    {t(`settings.general.theme_${opt}`, { defaultValue: opt })}
+                                </button>
+                            ))}
+                        </div>
+                        <span className="text-[10px] text-gray-600">{t('settings.general.themeHint', { defaultValue: 'Appearance — system follows your OS preference.' })}</span>
                     </div>
                     <div className="flex flex-col gap-1">
                         <label className="text-xs font-bold text-gray-500 uppercase">{t('settings.general.reasoningMode')}</label>

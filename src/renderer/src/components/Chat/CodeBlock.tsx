@@ -294,7 +294,7 @@ export const CodeBlock = memo(function CodeBlock({
                             <Wand2 className="w-3 h-3" />
                         </button>
                         {showRewriteMenu && (
-                            <div className="absolute right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 z-50 min-w-[140px]">
+                            <div className="absolute right-0 top-full mt-1 bg-elevated border border-white/10 rounded-lg shadow-xl py-1 z-50 min-w-[140px]">
                                 {rewriteActions.map(a => (
                                     <button
                                         type="button"

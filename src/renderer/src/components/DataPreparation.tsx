@@ -349,13 +349,13 @@ export function DataPreparation() {
                     </div>
 
                     {/* Table */}
-                    <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-[#0E0E10]">
+                    <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-background">
                         <table className="w-full text-left text-sm text-gray-400 border-separate border-spacing-0">
-                            <thead className="bg-[#18181B] text-gray-500 uppercase font-bold text-[10px] tracking-wide sticky top-0 z-20">
+                            <thead className="bg-elevated text-gray-500 uppercase font-bold text-[10px] tracking-wide sticky top-0 z-20">
                                 <tr>
-                                    <th className="px-4 py-3 bg-[#18181B] border-b border-white/10 w-12 text-center">#</th>
+                                    <th className="px-4 py-3 bg-elevated border-b border-white/10 w-12 text-center">#</th>
                                     {columns.map(header => (
-                                        <th key={header} className={`px-4 py-3 bg-[#18181B] border-b border-white/10 whitespace-nowrap ${header === instructionCol ? 'text-blue-400 shadow-[inset_0_-2px_0_#3b82f6]' : header === outputCol ? 'text-green-400 shadow-[inset_0_-2px_0_#22c55e]' : header === inputCol ? 'text-indigo-400 shadow-[inset_0_-2px_0_#6366f1]' : ''}`}>
+                                        <th key={header} className={`px-4 py-3 bg-elevated border-b border-white/10 whitespace-nowrap ${header === instructionCol ? 'text-blue-400 shadow-[inset_0_-2px_0_#3b82f6]' : header === outputCol ? 'text-green-400 shadow-[inset_0_-2px_0_#22c55e]' : header === inputCol ? 'text-indigo-400 shadow-[inset_0_-2px_0_#6366f1]' : ''}`}>
                                             <div className="flex items-center gap-2">
                                                 {header}
                                                 {header === instructionCol && <span className="text-[8px] bg-blue-500/20 px-1 rounded">PROMPT</span>}
@@ -384,7 +384,7 @@ export function DataPreparation() {
                 </Card>
             ) : (
                 <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-white/20 rounded-2xl bg-black/20 hover:bg-black/40 transition-all cursor-pointer group">
-                    <div className="w-16 h-16 bg-[#18181B] rounded-2xl flex items-center justify-center mb-4 border border-white/5 group-hover:scale-105 transition-transform">
+                    <div className="w-16 h-16 bg-elevated rounded-2xl flex items-center justify-center mb-4 border border-white/5 group-hover:scale-105 transition-transform">
                         {dataMode === 'file' ? <FileText className="w-8 h-8 text-blue-400/80 group-hover:text-blue-400" /> : <Server className="w-8 h-8 text-blue-400/80 group-hover:text-blue-400" />}
                     </div>
                     <p className="text-gray-300 font-bold tracking-wide">

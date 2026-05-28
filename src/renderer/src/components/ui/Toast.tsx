@@ -52,19 +52,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     return (
         <ToastContext.Provider value={{ toast: addToast }}>
             {children}
-            <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 max-w-sm">
+            <div className="fixed bottom-4 right-4 z-toast flex flex-col gap-2 max-w-sm">
                 {toasts.map(t => {
                     const Icon = ICONS[t.type]
                     return (
                         <div
                             key={t.id}
-                            className={`flex items-start gap-2.5 px-3.5 py-2.5 rounded-lg bg-[#1a1a1a] border ${COLORS[t.type]} text-sm shadow-lg animate-in slide-in-from-right`}
+                            className={`flex items-start gap-2.5 px-3.5 py-2.5 rounded-lg bg-elevated border ${COLORS[t.type]} text-sm shadow-lg animate-in slide-in-from-right`}
                         >
                             <Icon size={16} className="shrink-0 mt-0.5" />
-                            <span className="flex-1 text-gray-200">{t.message}</span>
+                            <span className="flex-1 text-foreground-secondary">{t.message}</span>
                             <button
                                 onClick={() => dismiss(t.id)}
-                                className="shrink-0 text-gray-500 hover:text-gray-300 transition-colors"
+                                className="shrink-0 text-foreground-muted hover:text-foreground transition-colors"
                                 aria-label="Dismiss notification"
                             >
                                 <X size={14} />

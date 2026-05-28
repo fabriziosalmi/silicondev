@@ -268,7 +268,7 @@ export function PipelinesJobs() {
                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectPipeline(p) } }}
                                     className={`group w-full flex items-center justify-between p-3 rounded-xl border text-left cursor-pointer transition-all ${active?.id === p.id
                                         ? 'bg-blue-500/10 border-blue-500/40'
-                                        : 'bg-[#18181B] border-white/5 hover:border-white/20 hover:bg-white/[0.02]'}`}
+                                        : 'bg-elevated border-white/5 hover:border-white/20 hover:bg-white/[0.02]'}`}
                                 >
                                     <div className="min-w-0">
                                         <div className="text-sm font-bold text-gray-200 truncate">{p.name}</div>
@@ -303,7 +303,7 @@ export function PipelinesJobs() {
                                     const Icon = meta.icon
                                     return (
                                         <button key={type} type="button" onClick={() => addNode(type)}
-                                            className="w-full flex items-center gap-3 p-2.5 bg-[#18181B] border border-white/5 rounded-xl hover:bg-white/[0.05] transition-colors text-left">
+                                            className="w-full flex items-center gap-3 p-2.5 bg-elevated border border-white/5 rounded-xl hover:bg-white/[0.05] transition-colors text-left">
                                             <div className="p-1.5 rounded-lg bg-black/40"><Icon className={`w-4 h-4 ${meta.color}`} /></div>
                                             <span className="text-[11px] font-bold text-gray-300">{meta.label}</span>
                                         </button>

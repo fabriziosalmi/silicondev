@@ -59,7 +59,7 @@ export function CollectionsTab({ collections, embeddingModel, onDelete }: Collec
 
             <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-black/20">
                 <table className="w-full text-left text-sm">
-                    <thead className="bg-[#18181B] text-gray-500 border-b border-white/10">
+                    <thead className="bg-elevated text-gray-500 border-b border-white/10">
                         <tr>
                             <th className="px-5 py-3 text-[10px] font-bold tracking-wide uppercase">Collection Name</th>
                             <th className="px-5 py-3 text-[10px] font-bold tracking-wide uppercase">Chunks</th>

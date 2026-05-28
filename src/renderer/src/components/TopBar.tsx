@@ -124,7 +124,7 @@ export function TopBar() {
     const diskTotalGB = systemStats ? (systemStats.disk.total / (1024 * 1024 * 1024)).toFixed(0) : '–';
 
     return (
-        <div className="h-10 w-full drag-region flex items-center justify-between px-3 border-b border-white/[0.04] bg-[#131316]/80 backdrop-blur-xl">
+        <div className="h-10 w-full drag-region flex items-center justify-between px-3 border-b border-outline-subtle bg-titlebar backdrop-blur-xl">
 
             {/* Left: App identity + activity state */}
             <div className="flex items-center gap-3 pl-[72px]">
@@ -200,7 +200,7 @@ export function TopBar() {
 
                     {/* Model picker dropdown */}
                     {showModelMenu && (
-                        <div className="absolute top-full right-0 mt-1.5 w-80 bg-[#18181b] border border-white/10 rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-[100]">
+                        <div className="absolute top-full right-0 mt-1.5 w-80 bg-elevated border border-outline rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-dropdown">
                             {/* Search */}
                             <div className="px-3 py-2 border-b border-white/5">
                                 <div className="flex items-center gap-2 px-2 py-1.5 bg-white/[0.04] rounded-lg border border-white/[0.06]">

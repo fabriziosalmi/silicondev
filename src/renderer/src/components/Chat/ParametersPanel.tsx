@@ -219,7 +219,7 @@ export function ParametersPanel({
                                                 Presets <ChevronDown size={9} />
                                             </button>
                                             {showPresetsMenu && (
-                                                <div className="absolute right-0 top-full mt-1 z-50 bg-[#111] border border-white/10 rounded-lg shadow-xl min-w-[200px] py-1">
+                                                <div className="absolute right-0 top-full mt-1 z-50 bg-background border border-white/10 rounded-lg shadow-xl min-w-[200px] py-1">
                                                     {presets.map((p, i) => (
                                                         <div key={i} className="flex items-center group">
                                                             <button

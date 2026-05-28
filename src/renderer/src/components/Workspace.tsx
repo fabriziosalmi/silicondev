@@ -449,7 +449,7 @@ export function Workspace() {
                             <ChevronDown className="w-3 h-3" />
                         </button>
                         {showExportMenu && (
-                            <div className="absolute top-full left-0 mt-1 bg-[#1a1a1e] border border-white/10 rounded-lg shadow-xl py-1 z-50 min-w-[140px]">
+                            <div className="absolute top-full left-0 mt-1 bg-elevated border border-white/10 rounded-lg shadow-xl py-1 z-50 min-w-[140px]">
                                 <button type="button" onClick={() => { handleExport('md'); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
                                     <Download size={12} /> Markdown (.md)
                                 </button>
@@ -471,7 +471,7 @@ export function Workspace() {
             <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
                 {/* Full-width editor */}
-                <div className="flex-1 bg-[#18181B] border border-white/10 rounded-xl overflow-hidden flex flex-col">
+                <div className="flex-1 bg-elevated border border-white/10 rounded-xl overflow-hidden flex flex-col">
 
                     {/* Status bar */}
                     <div className="h-8 border-b border-white/5 bg-white/[0.02] flex items-center px-4 justify-between shrink-0">

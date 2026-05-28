@@ -136,7 +136,7 @@ export function RagKnowledge() {
                         aria-modal="true"
                         aria-labelledby="rag-create-modal-title"
                         ref={modalTrapRef}
-                        className="bg-[#18181B] border border-white/10 rounded-2xl max-w-md w-full p-6"
+                        className="bg-elevated border border-white/10 rounded-2xl max-w-md w-full p-6"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <h3 id="rag-create-modal-title" className="text-xl font-bold text-white mb-6 flex items-center gap-2">

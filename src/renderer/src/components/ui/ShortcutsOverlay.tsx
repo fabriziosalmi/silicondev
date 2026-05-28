@@ -47,22 +47,22 @@ export function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
 
     return (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-modal flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
             onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
         >
-            <div className="w-full max-w-2xl bg-[#0f0f0f] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div className="w-full max-w-2xl bg-overlay border border-outline rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] shrink-0">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-outline-subtle shrink-0">
                     <div className="flex items-center gap-2.5">
-                        <Keyboard size={15} className="text-blue-400" />
-                        <span className="text-sm font-semibold text-white">Keyboard Shortcuts</span>
-                        <kbd className="text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded font-mono">⌘ /</kbd>
+                        <Keyboard size={15} className="text-accent" />
+                        <span className="text-sm font-semibold text-foreground">Keyboard Shortcuts</span>
+                        <kbd className="text-[10px] text-foreground-muted bg-hover px-1.5 py-0.5 rounded font-mono">⌘ /</kbd>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
                         aria-label="Close shortcuts panel"
-                        className="text-gray-500 hover:text-white transition-colors p-1"
+                        className="text-foreground-muted hover:text-foreground transition-colors p-1"
                     >
                         <X size={16} />
                     </button>
@@ -72,18 +72,18 @@ export function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
                 <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {SHORTCUTS.map(section => (
                         <div key={section.section}>
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-3">
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted mb-3">
                                 {section.section}
                             </div>
                             <div className="space-y-2">
                                 {section.items.map(item => (
                                     <div key={item.desc} className="flex items-center justify-between gap-4">
-                                        <span className="text-[12px] text-gray-400">{item.desc}</span>
+                                        <span className="text-[12px] text-foreground-muted">{item.desc}</span>
                                         <div className="flex items-center gap-1 shrink-0">
                                             {item.keys.map((k, i) => (
                                                 <span key={i} className="flex items-center gap-1">
-                                                    {i > 0 && <span className="text-gray-700 text-[10px]">+</span>}
-                                                    <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-[10px] font-mono text-gray-300">
+                                                    {i > 0 && <span className="text-foreground-subtle text-[10px]">+</span>}
+                                                    <kbd className="px-1.5 py-0.5 rounded bg-hover border border-outline text-[10px] font-mono text-foreground-secondary">
                                                         {k}
                                                     </kbd>
                                                 </span>
@@ -96,8 +96,8 @@ export function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
                     ))}
                 </div>
 
-                <div className="px-5 py-3 border-t border-white/[0.04] text-[10px] text-gray-600 shrink-0">
-                    Press <kbd className="px-1 py-0.5 rounded bg-white/5 border border-white/10 font-mono">Esc</kbd> to close
+                <div className="px-5 py-3 border-t border-outline-subtle text-[10px] text-foreground-subtle shrink-0">
+                    Press <kbd className="px-1 py-0.5 rounded bg-hover border border-outline font-mono">Esc</kbd> to close
                 </div>
             </div>
         </div>

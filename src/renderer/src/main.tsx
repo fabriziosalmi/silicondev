@@ -4,11 +4,15 @@ import { createRoot } from 'react-dom/client'
 import { GlobalStateProvider } from './context/GlobalState'
 import { ConversationProvider } from './context/ConversationContext'
 import { NotesProvider } from './context/NotesContext'
+import { ThemeProvider, applyInitialTheme } from './context/ThemeContext'
 import { ToastProvider } from './components/ui/Toast'
 import { ConfirmProvider } from './components/ui/ConfirmDialog'
 import './i18n'
 import './index.css'
 import App from './App.tsx'
+
+// Apply theme synchronously before React mounts, to avoid a flash of the wrong palette.
+applyInitialTheme()
 
 // Catch unhandled promise rejections so they don't silently disappear
 window.addEventListener('unhandledrejection', (event) => {
@@ -102,17 +106,19 @@ class ErrorBoundary extends Component<
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <GlobalStateProvider>
-        <ToastProvider>
-          <ConfirmProvider>
-            <ConversationProvider>
-              <NotesProvider>
-                <App />
-              </NotesProvider>
-            </ConversationProvider>
-          </ConfirmProvider>
-        </ToastProvider>
-      </GlobalStateProvider>
+      <ThemeProvider>
+        <GlobalStateProvider>
+          <ToastProvider>
+            <ConfirmProvider>
+              <ConversationProvider>
+                <NotesProvider>
+                  <App />
+                </NotesProvider>
+              </ConversationProvider>
+            </ConfirmProvider>
+          </ToastProvider>
+        </GlobalStateProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   </StrictMode>,
 )

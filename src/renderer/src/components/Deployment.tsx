@@ -222,8 +222,8 @@ print(response.choices[0].message.content)`
                                     disabled={serverRunning}
                                     className="bg-transparent text-xs text-gray-400 outline-none cursor-pointer hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <option value="127.0.0.1" className="bg-[#18181B]">localhost</option>
-                                    <option value="0.0.0.0" className="bg-[#18181B]">0.0.0.0</option>
+                                    <option value="127.0.0.1" className="bg-elevated">localhost</option>
+                                    <option value="0.0.0.0" className="bg-elevated">0.0.0.0</option>
                                 </select>
                             </div>
                             <span className="text-gray-700">:</span>

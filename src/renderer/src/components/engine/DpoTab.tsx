@@ -81,7 +81,7 @@ export function DpoTab({ models, selectedModel, setSelectedModel, capturedCount,
 
     return (
         <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
-            <Card className="p-0 overflow-hidden bg-[#18181B] border border-white/10">
+            <Card className="p-0 overflow-hidden bg-elevated border border-white/10">
                 <div className="p-4 border-b border-white/10 bg-white/[0.02] flex items-center gap-2">
                     <GitCompare className="w-5 h-5 text-purple-400" />
                     <h3 className="font-bold">Preference Training (DPO)</h3>

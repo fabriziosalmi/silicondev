@@ -344,7 +344,7 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
             }}
         >
             <div
-                className="w-full max-w-5xl max-h-[80vh] flex flex-col bg-[#0f0f0f] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+                className="w-full max-w-5xl max-h-[80vh] flex flex-col bg-overlay border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
             >
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">

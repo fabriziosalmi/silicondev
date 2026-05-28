@@ -84,7 +84,7 @@ export function DebuggerPanel({ sessionId, onStop, onUpdateState }: DebuggerPane
     }
 
     return (
-        <div className="h-full flex flex-col bg-[#1a1a1a] text-xs">
+        <div className="h-full flex flex-col bg-elevated text-xs">
             {/* Header / Controls */}
             <div className="flex items-center justify-between p-2 border-b border-white/5 bg-white/5">
                 <div className="flex items-center gap-2">
