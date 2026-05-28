@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import tempfile
 import uuid
 import logging
@@ -13,6 +14,26 @@ logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
 
+# Match #tag tokens in note content. Anchored to a non-word boundary so we
+# don't catch things like `foo#bar` mid-word; the `#` must be followed by a
+# letter (not a space) so markdown headings like "# Title" or "## Section"
+# are skipped. Tag body: letters, digits, dashes, underscores, up to 30 chars.
+_TAG_RE = re.compile(r"(?<![A-Za-z0-9_])#([A-Za-z][A-Za-z0-9_-]{0,30})")
+
+
+def _extract_tags(content: str) -> List[str]:
+    """Pull unique #tags from note content, lowercased, preserving first-seen order."""
+    if not content:
+        return []
+    seen: set[str] = set()
+    out: List[str] = []
+    for m in _TAG_RE.finditer(content):
+        tag = m.group(1).lower()
+        if tag not in seen:
+            seen.add(tag)
+            out.append(tag)
+    return out
+
 
 class NotesService:
     def __init__(self):
@@ -21,19 +42,25 @@ class NotesService:
         self.notes_dir.mkdir(parents=True, exist_ok=True)
 
     def list_notes(self) -> List[Dict[str, Any]]:
-        """Return all notes sorted by pinned + updated_at desc, without content."""
+        """Return all notes sorted by pinned + updated_at desc, without content.
+
+        Tags parsed from content (#tag tokens) are included so the sidebar
+        can render a filter chip row without having to fetch each note body.
+        """
         results = []
         for path in self.notes_dir.glob("*.json"):
             try:
                 with open(path, "r") as f:
                     data = json.load(f)
+                content = data.get("content", "")
                 results.append({
                     "id": data["id"],
                     "title": data.get("title", "Untitled"),
                     "created_at": data.get("created_at"),
                     "updated_at": data.get("updated_at"),
                     "pinned": data.get("pinned", False),
-                    "char_count": len(data.get("content", "")),
+                    "char_count": len(content),
+                    "tags": _extract_tags(content),
                 })
             except Exception as e:
                 logger.warning(f"Failed to read note {path.name}: {e}")

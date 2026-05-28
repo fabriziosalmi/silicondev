@@ -209,6 +209,8 @@ export interface NoteSummary {
     updated_at: string
     pinned: boolean
     char_count: number
+    /** Lowercased #tag tokens extracted from the note body server-side. */
+    tags?: string[]
 }
 
 export interface Note extends NoteSummary {

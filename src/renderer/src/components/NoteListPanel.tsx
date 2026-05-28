@@ -33,14 +33,33 @@ export function NoteListPanel({
     loading,
 }: NoteListPanelProps) {
     const [search, setSearch] = useState('')
+    const [selectedTag, setSelectedTag] = useState<string | null>(null)
+
+    // Aggregate unique tags across all notes, most-used first, capped at 12 to
+    // keep the chip row from blowing up.
+    const topTags = useMemo(() => {
+        const counts = new Map<string, number>()
+        for (const n of notes) {
+            for (const t of n.tags ?? []) {
+                counts.set(t, (counts.get(t) ?? 0) + 1)
+            }
+        }
+        return Array.from(counts.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 12)
+    }, [notes])
 
     const filteredNotes = useMemo(() => {
         const q = search.trim().toLowerCase()
-        if (!q) return notes
-        return notes.filter(n => n.title.toLowerCase().includes(q))
-    }, [notes, search])
+        if (!q && !selectedTag) return notes
+        return notes.filter(n => {
+            if (selectedTag && !(n.tags ?? []).includes(selectedTag)) return false
+            if (q && !n.title.toLowerCase().includes(q)) return false
+            return true
+        })
+    }, [notes, search, selectedTag])
 
-    const showSearch = notes.length >= 5 || search.length > 0
+    const showSearch = notes.length >= 5 || search.length > 0 || selectedTag !== null
 
     return (
         <div className="w-full flex flex-col gap-2 overflow-hidden">
@@ -64,6 +83,28 @@ export function NoteListPanel({
                             <X className="w-2.5 h-2.5" />
                         </button>
                     )}
+                </div>
+            )}
+            {topTags.length > 0 && (
+                <div className="flex flex-wrap gap-1 shrink-0">
+                    {topTags.map(([tag, count]) => {
+                        const isActive = selectedTag === tag
+                        return (
+                            <button
+                                key={tag}
+                                type="button"
+                                onClick={() => setSelectedTag(isActive ? null : tag)}
+                                className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors ${
+                                    isActive
+                                        ? 'bg-accent-muted border-accent/40 text-accent'
+                                        : 'bg-hover border-outline-subtle text-foreground-muted hover:text-foreground-secondary'
+                                }`}
+                                title={isActive ? `Clear #${tag} filter` : `Filter by #${tag}`}
+                            >
+                                #{tag} <span className="opacity-50">{count}</span>
+                            </button>
+                        )
+                    })}
                 </div>
             )}
             <div className="flex-1 overflow-y-auto space-y-1">
@@ -161,8 +202,19 @@ export function NoteListPanel({
                     </div>
                 )}
                 {notes.length > 0 && filteredNotes.length === 0 && !loading && (
-                    <div className="p-4 text-center">
-                        <p className="text-xs text-foreground-subtle">No notes match "{search}".</p>
+                    <div className="p-4 text-center space-y-1">
+                        <p className="text-xs text-foreground-subtle">
+                            No notes match{selectedTag ? ` #${selectedTag}` : ''}{search && selectedTag ? ' and' : ''}{search ? ` "${search}"` : ''}.
+                        </p>
+                        {selectedTag && (
+                            <button
+                                type="button"
+                                onClick={() => setSelectedTag(null)}
+                                className="text-[10px] text-accent hover:underline"
+                            >
+                                Clear tag filter
+                            </button>
+                        )}
                     </div>
                 )}
             </div>

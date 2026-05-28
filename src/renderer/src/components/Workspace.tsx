@@ -18,7 +18,20 @@ export function Workspace() {
     const { t } = useTranslation()
     const { toast } = useToast()
     const { activeModel, setPendingChatInput } = useGlobalState()
-    const { activeNoteId, setActiveNoteId, fetchNotes } = useNotes()
+    const { activeNoteId, setActiveNoteId, fetchNotes, notesList } = useNotes()
+
+    // Resolve [[Title]] wiki-links to existing notes (case-insensitive title match).
+    const notesByTitle = useMemo(() => {
+        const m = new Map<string, string>()
+        for (const n of notesList) {
+            m.set(n.title.toLowerCase(), n.id)
+        }
+        return m
+    }, [notesList])
+    const handleWikiLink = useCallback((target: string) => {
+        const id = notesByTitle.get(target.toLowerCase())
+        if (id) setActiveNoteId(id)
+    }, [notesByTitle, setActiveNoteId])
     const fileInputRef = useRef<HTMLInputElement>(null)
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const skipLoadRef = useRef(false)
@@ -570,7 +583,7 @@ export function Workspace() {
                                     className="overflow-y-auto p-6 prose prose-invert prose-sm max-w-none select-text"
                                     style={{ width: `${100 - splitPercent}%` }}
                                 >
-                                    <MarkdownPreview content={documentBody} />
+                                    <MarkdownPreview content={documentBody} onWikiLink={handleWikiLink} notesByTitle={notesByTitle} />
                                 </div>
                             </>
                         )}
@@ -622,13 +635,46 @@ function ToolbarIcon({ icon, title, onClick, active }: {
     )
 }
 
-function MarkdownPreview({ content }: { content: string }) {
+function MarkdownPreview({ content, onWikiLink, notesByTitle }: {
+    content: string
+    onWikiLink?: (title: string) => void
+    notesByTitle?: Map<string, string>
+}) {
     if (!content.trim()) {
         return <p className="text-foreground-subtle italic">Nothing to preview yet.</p>
     }
+    // Pre-process [[Title]] into [Title](wiki:Title) so ReactMarkdown emits an
+    // <a> with a `wiki:` href the custom component below can intercept.
+    const processed = content.replace(/\[\[([^\]\n]+)\]\]/g, (_, t) => {
+        const title = String(t).trim()
+        return `[${title}](wiki:${encodeURIComponent(title)})`
+    })
     return (
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {content}
+        <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+                a: ({ href, children }) => {
+                    if (typeof href === 'string' && href.startsWith('wiki:')) {
+                        const target = decodeURIComponent(href.slice(5))
+                        const exists = notesByTitle?.has(target.toLowerCase()) ?? false
+                        return (
+                            <a
+                                href="#"
+                                onClick={(e) => { e.preventDefault(); onWikiLink?.(target) }}
+                                className={exists
+                                    ? 'text-accent hover:underline cursor-pointer'
+                                    : 'text-danger/70 line-through decoration-danger/40 cursor-not-allowed'}
+                                title={exists ? `Open "${target}"` : `No note titled "${target}"`}
+                            >
+                                {children}
+                            </a>
+                        )
+                    }
+                    return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+                },
+            }}
+        >
+            {processed}
         </ReactMarkdown>
     )
 }
