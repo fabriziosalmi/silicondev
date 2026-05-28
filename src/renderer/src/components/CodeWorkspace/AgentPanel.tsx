@@ -85,12 +85,12 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
   }, [isRunning, activeModel])
 
   const idleInfo = useMemo(() => {
-    if (!activeModel) return [{ text: t('chat.noModel'), color: 'text-gray-500' }]
+    if (!activeModel) return [{ text: t('chat.noModel'), color: 'text-foreground-muted' }]
     const items: { text: string; color: string }[] = [
-      { text: activeModel.name, color: 'text-gray-400' },
+      { text: activeModel.name, color: 'text-foreground-muted' },
     ]
     if (activeModel.context_window) {
-      items.push({ text: `${(activeModel.context_window / 1024).toFixed(0)}K context`, color: 'text-gray-500' })
+      items.push({ text: `${(activeModel.context_window / 1024).toFixed(0)}K context`, color: 'text-foreground-muted' })
     }
     if (feedItems.length > 0 && sessionId && !isRunning) {
       items.push({ text: t('code.idle'), color: 'text-emerald-400/70' })
@@ -184,7 +184,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="border-b border-white/[0.04] bg-black/30 shrink-0">
+      <div className="border-b border-outline-subtle bg-black/30 shrink-0">
         <div className="flex items-center justify-between px-3 py-1.5 gap-2">
           {/* Left: icon + dynamic status */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -211,7 +211,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
               onClick={() => setAgentMode(agentMode === 'edit' ? 'review' : 'edit')}
               className={`p-1 rounded-md transition-colors ${agentMode === 'review'
                 ? 'text-emerald-400 bg-emerald-500/10'
-                : 'text-gray-600 hover:text-blue-400 hover:bg-white/5'
+                : 'text-foreground-subtle hover:text-blue-400 hover:bg-hover'
                 }`}
               title={agentMode === 'review' ? 'Review mode' : 'Edit mode'}
             >
@@ -221,7 +221,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
               <button
                 type="button"
                 onClick={handleUndo}
-                className="p-1 text-gray-600 hover:text-amber-400 hover:bg-white/5 rounded-md transition-colors"
+                className="p-1 text-foreground-subtle hover:text-amber-400 hover:bg-hover rounded-md transition-colors"
                 title="Undo last edit"
               >
                 <Undo2 size={11} />
@@ -231,7 +231,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
               <button
                 type="button"
                 onClick={clearHistory}
-                className="p-1 text-gray-600 hover:text-red-400 hover:bg-white/5 rounded-md transition-colors"
+                className="p-1 text-foreground-subtle hover:text-red-400 hover:bg-hover rounded-md transition-colors"
                 title="Clear history"
               >
                 <Trash2 size={11} />
@@ -242,20 +242,20 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
 
         {/* Telemetry bar — visible when running or after a run */}
         {(isRunning || telemetry.tokensUsed > 0) && (
-          <div className="flex items-center gap-2 px-3 py-1 border-t border-white/[0.03] text-[10px] text-gray-500 font-mono">
+          <div className="flex items-center gap-2 px-3 py-1 border-t border-white/[0.03] text-[10px] text-foreground-muted font-mono">
             <span>{telemetry.tokensUsed.toLocaleString()} tok</span>
-            <span className="text-gray-700">&middot;</span>
+            <span className="text-foreground-disabled">&middot;</span>
             <span>{formatMs(telemetry.elapsedMs)}</span>
             {telemetry.iteration > 0 && (
               <>
-                <span className="text-gray-700">&middot;</span>
+                <span className="text-foreground-disabled">&middot;</span>
                 <span>iter {telemetry.iteration}</span>
               </>
             )}
             <div className="flex-1" />
             {telemetry.tokenBudget > 0 && (
               <div className="flex items-center gap-1">
-                <div className="w-8 h-1 bg-white/5 rounded-full overflow-hidden">
+                <div className="w-8 h-1 bg-hover rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${telemetry.budgetFraction > 0.9 ? 'bg-red-500' :
                       telemetry.budgetFraction > 0.7 ? 'bg-yellow-500' : 'bg-blue-500'
@@ -267,7 +267,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
             )}
             {activeModel?.context_window && (
               <div className="flex items-center gap-1">
-                <div className="w-8 h-1 bg-white/5 rounded-full overflow-hidden">
+                <div className="w-8 h-1 bg-hover rounded-full overflow-hidden">
                   <div
                     className="h-full bg-blue-500/50 rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, (telemetry.tokensUsed / activeModel.context_window) * 100)}%` }}
@@ -305,7 +305,7 @@ export function AgentPanel({ onDiffSynced, onRegisterDiffDecider, session }: Age
             }}
           />
           {checkpoints.length > 0 && (
-            <div className="border-l border-white/[0.04]">
+            <div className="border-l border-outline-subtle">
               <TimelineRail
                 checkpoints={checkpoints}
                 sessionId={sessionId ?? ''}

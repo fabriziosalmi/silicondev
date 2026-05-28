@@ -21,10 +21,10 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
   }, [code])
 
   return (
-    <div className="my-2 rounded-lg overflow-hidden border border-white/[0.06] group">
-      <div className="flex items-center justify-between px-3 py-1 bg-white/[0.03] border-b border-white/[0.06]">
+    <div className="my-2 rounded-lg overflow-hidden border border-outline-subtle group">
+      <div className="flex items-center justify-between px-3 py-1 bg-hover border-b border-outline-subtle">
         {lang ? (
-          <span className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">{lang}</span>
+          <span className="text-[10px] text-foreground-muted font-mono uppercase tracking-wider">{lang}</span>
         ) : (
           <span />
         )}
@@ -32,7 +32,7 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
           <button
             type="button"
             onClick={handleCopy}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-foreground-muted hover:text-foreground hover:bg-active transition-colors"
             title="Copy code"
           >
             {copied ? <Check size={10} className="text-green-400" /> : <Copy size={10} />}
@@ -41,7 +41,7 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
           <button
             type="button"
             onClick={handleApply}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-foreground-muted hover:text-foreground hover:bg-active transition-colors"
             title="Apply to active file"
           >
             <FileInput size={10} />
@@ -49,7 +49,7 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
           </button>
         </div>
       </div>
-      <pre className="px-3 py-2 bg-white/[0.02] text-xs font-mono text-gray-200 leading-relaxed overflow-x-auto">
+      <pre className="px-3 py-2 bg-hover text-xs font-mono text-foreground-secondary leading-relaxed overflow-x-auto">
         <code>{code}</code>
       </pre>
     </div>
@@ -82,7 +82,7 @@ const markdownComponents: ComponentProps<typeof ReactMarkdown>['components'] = {
     <ol className="list-decimal pl-5 mb-2 space-y-0.5">{children}</ol>
   ),
   li: ({ children }) => (
-    <li className="text-gray-200">{children}</li>
+    <li className="text-foreground-secondary">{children}</li>
   ),
   a: ({ href, children }) => (
     <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
@@ -90,12 +90,12 @@ const markdownComponents: ComponentProps<typeof ReactMarkdown>['components'] = {
     </a>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="border-l-2 border-blue-500/30 pl-3 my-2 text-gray-400 italic">
+    <blockquote className="border-l-2 border-blue-500/30 pl-3 my-2 text-foreground-muted italic">
       {children}
     </blockquote>
   ),
   hr: () => (
-    <hr className="border-white/10 my-3" />
+    <hr className="border-outline my-3" />
   ),
   code({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { className?: string }) {
     const match = /language-(\w+)/.exec(className || '')
@@ -107,7 +107,7 @@ const markdownComponents: ComponentProps<typeof ReactMarkdown>['components'] = {
       return <CodeBlock lang={lang} code={codeText} />
     }
     return (
-      <code className="bg-white/[0.06] px-1.5 py-0.5 rounded text-xs font-mono text-blue-300" {...props}>
+      <code className="bg-hover px-1.5 py-0.5 rounded text-xs font-mono text-blue-300" {...props}>
         {children}
       </code>
     )
@@ -117,21 +117,21 @@ const markdownComponents: ComponentProps<typeof ReactMarkdown>['components'] = {
   },
   table: ({ children }) => (
     <div className="overflow-x-auto my-2">
-      <table className="min-w-full text-xs border border-white/10 rounded-lg overflow-hidden">
+      <table className="min-w-full text-xs border border-outline rounded-lg overflow-hidden">
         {children}
       </table>
     </div>
   ),
   thead: ({ children }) => (
-    <thead className="bg-white/[0.03]">{children}</thead>
+    <thead className="bg-hover">{children}</thead>
   ),
   th: ({ children }) => (
-    <th className="px-3 py-1.5 text-left text-xs font-semibold text-white border-b border-white/10">
+    <th className="px-3 py-1.5 text-left text-xs font-semibold text-white border-b border-outline">
       {children}
     </th>
   ),
   td: ({ children }) => (
-    <td className="px-3 py-1.5 text-xs text-gray-300 border-b border-white/[0.06]">
+    <td className="px-3 py-1.5 text-xs text-foreground-secondary border-b border-outline-subtle">
       {children}
     </td>
   ),

@@ -93,12 +93,12 @@ export function ParametersPanel({
 
     return (
         <>
-        <div className="shrink-0 mx-3 mb-2 rounded-xl border border-white/5 bg-black/20 transition-all">
+        <div className="shrink-0 mx-3 mb-2 rounded-xl border border-outline-subtle bg-black/20 transition-all">
             <div className="max-w-4xl mx-auto px-6 py-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-5">
                     {/* Column 1: Core parameters */}
                     <div className="space-y-4">
-                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.parameters')}</div>
+                        <div className="text-[10px] font-bold tracking-wide text-foreground-muted uppercase mb-3">{t('params.parameters')}</div>
                         <ParameterSlider
                             label={t('params.temperature')}
                             hint={t('params.temperatureHint')}
@@ -133,7 +133,7 @@ export function ParametersPanel({
                         />
                         <div>
                             <div className="flex justify-between items-center mb-1.5">
-                                <label className="text-xs text-gray-500" title="Fixed seed for reproducible outputs.">{t('params.seed')}</label>
+                                <label className="text-xs text-foreground-muted" title="Fixed seed for reproducible outputs.">{t('params.seed')}</label>
                                 <input
                                     type="text"
                                     placeholder={t('params.seedPlaceholder')}
@@ -142,7 +142,7 @@ export function ParametersPanel({
                                         const v = e.target.value;
                                         setSettings({ ...settings, seed: v ? parseInt(v) || null : null });
                                     }}
-                                    className="w-16 text-right text-xs font-mono text-gray-400 tabular-nums bg-transparent outline-none border-b border-transparent focus:border-white/20 transition-colors"
+                                    className="w-16 text-right text-xs font-mono text-foreground-muted tabular-nums bg-transparent outline-none border-b border-transparent focus:border-outline-strong transition-colors"
                                 />
                             </div>
                         </div>
@@ -150,7 +150,7 @@ export function ParametersPanel({
 
                     {/* Column 2: Reasoning + Language */}
                     <div className="space-y-4">
-                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.reasoning')}</div>
+                        <div className="text-[10px] font-bold tracking-wide text-foreground-muted uppercase mb-3">{t('params.reasoning')}</div>
                         <div className="flex gap-1">
                             {(['off', 'auto', 'low', 'high'] as const).map(mode => (
                                 <button
@@ -160,14 +160,14 @@ export function ParametersPanel({
                                     className={`flex-1 px-2 py-1.5 rounded text-[10px] font-medium transition-colors ${
                                         settings.reasoningMode === mode
                                             ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                            : 'bg-white/[0.03] text-gray-500 border border-white/5 hover:text-gray-400 hover:bg-white/5'
+                                            : 'bg-hover text-foreground-muted border border-outline-subtle hover:text-foreground-muted hover:bg-hover'
                                     }`}
                                 >
                                     {mode === 'off' ? t('params.reasoningOff') : mode === 'auto' ? t('params.reasoningAuto') : mode === 'low' ? t('params.reasoningLow') : t('params.reasoningHigh')}
                                 </button>
                             ))}
                         </div>
-                        <p className="text-[10px] text-gray-500">
+                        <p className="text-[10px] text-foreground-muted">
                             {settings.reasoningMode === 'off' && t('params.reasoningDescOff')}
                             {settings.reasoningMode === 'auto' && t('params.reasoningDescAuto')}
                             {settings.reasoningMode === 'low' && t('params.reasoningDescLow')}
@@ -175,24 +175,24 @@ export function ParametersPanel({
                         </p>
 
                         <div className="pt-2">
-                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.language')}</div>
+                            <div className="text-[10px] font-bold tracking-wide text-foreground-muted uppercase mb-3">{t('params.language')}</div>
                             <select
                                 title="Translate Language"
                                 value={settings.translateLanguage}
                                 onChange={(e) => setSettings({ ...settings, translateLanguage: e.target.value })}
-                                className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-gray-300 outline-none focus:border-white/20 transition-colors appearance-none cursor-pointer"
+                                className="w-full bg-hover border border-outline rounded-lg px-3 py-1.5 text-xs text-foreground-secondary outline-none focus:border-outline-strong transition-colors appearance-none cursor-pointer"
                             >
                                 <option value="">{t('params.languageAuto')}</option>
                                 {['English', 'Italian', 'French', 'German', 'Spanish', 'Portuguese', 'Japanese', 'Chinese', 'Korean', 'Arabic', 'Hindi', 'Russian', 'Dutch', 'Swedish', 'Polish', 'Turkish'].map(lang => (
                                     <option key={lang} value={lang}>{lang}</option>
                                 ))}
                             </select>
-                            <p className="text-[10px] text-gray-500 mt-1.5">{t('params.languageHint')}</p>
+                            <p className="text-[10px] text-foreground-muted mt-1.5">{t('params.languageHint')}</p>
                         </div>
 
                         <div className="pt-2">
                             <div className="flex items-center justify-between mb-3">
-                                <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase">{t('params.systemPrompt')}</div>
+                                <div className="text-[10px] font-bold tracking-wide text-foreground-muted uppercase">{t('params.systemPrompt')}</div>
                                 <div className="flex items-center gap-1.5">
                                     {/* F-3: Save preset — U-1: flash feedback */}
                                     <button
@@ -201,7 +201,7 @@ export function ParametersPanel({
                                         disabled={!settings.systemPrompt.trim()}
                                         title="Save as preset"
                                         className={`flex items-center gap-1 text-[10px] transition-colors disabled:opacity-30 ${
-                                            savedFlash ? 'text-emerald-400' : 'text-gray-500 hover:text-emerald-400'
+                                            savedFlash ? 'text-emerald-400' : 'text-foreground-muted hover:text-emerald-400'
                                         }`}
                                     >
                                         {savedFlash ? <Check size={10} /> : <Save size={10} />}
@@ -214,25 +214,25 @@ export function ParametersPanel({
                                                 type="button"
                                                 onClick={() => setShowPresetsMenu(p => !p)}
                                                 title="Load preset"
-                                                className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-400 transition-colors"
+                                                className="flex items-center gap-1 text-[10px] text-foreground-muted hover:text-blue-400 transition-colors"
                                             >
                                                 Presets <ChevronDown size={9} />
                                             </button>
                                             {showPresetsMenu && (
-                                                <div className="absolute right-0 top-full mt-1 z-50 bg-background border border-white/10 rounded-lg shadow-xl min-w-[200px] py-1">
+                                                <div className="absolute right-0 top-full mt-1 z-50 bg-background border border-outline rounded-lg shadow-xl min-w-[200px] py-1">
                                                     {presets.map((p, i) => (
                                                         <div key={i} className="flex items-center group">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => { setSettings({ ...settings, systemPrompt: p.prompt }); setShowPresetsMenu(false); }}
-                                                                className="flex-1 px-3 py-1.5 text-left text-[10px] text-gray-300 hover:text-white hover:bg-white/5 transition-colors truncate"
+                                                                className="flex-1 px-3 py-1.5 text-left text-[10px] text-foreground-secondary hover:text-foreground hover:bg-hover transition-colors truncate"
                                                             >
                                                                 {p.name}
                                                             </button>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => deletePreset(i)}
-                                                                className="px-2 py-1.5 text-gray-700 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
+                                                                className="px-2 py-1.5 text-foreground-disabled opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
                                                             >
                                                                 <Trash2 size={10} />
                                                             </button>
@@ -246,7 +246,7 @@ export function ParametersPanel({
                                         type="button"
                                         onClick={() => setShowLibrary(true)}
                                         title={t('promptLibrary.title')}
-                                        className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-400 transition-colors"
+                                        className="flex items-center gap-1 text-[10px] text-foreground-muted hover:text-blue-400 transition-colors"
                                     >
                                         <BookOpen size={11} />
                                         {t('promptLibrary.button')}
@@ -256,7 +256,7 @@ export function ParametersPanel({
                             <textarea
                                 value={settings.systemPrompt}
                                 onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
-                                className="w-full bg-white/[0.03] border border-white/10 rounded-lg p-2.5 text-xs text-gray-300 h-20 resize-none outline-none focus:border-white/20 transition-colors leading-relaxed"
+                                className="w-full bg-hover border border-outline rounded-lg p-2.5 text-xs text-foreground-secondary h-20 resize-none outline-none focus:border-outline-strong transition-colors leading-relaxed"
                                 placeholder={t('params.systemPromptPlaceholder')}
                             />
                         </div>
@@ -264,24 +264,24 @@ export function ParametersPanel({
 
                     {/* Column 3: Toggles */}
                     <div className="space-y-4">
-                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.toggles')}</div>
+                        <div className="text-[10px] font-bold tracking-wide text-foreground-muted uppercase mb-3">{t('params.toggles')}</div>
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <label className="text-xs text-gray-400">{t('params.showPrompt')}</label>
+                                <label className="text-xs text-foreground-muted">{t('params.showPrompt')}</label>
                                 <ToggleSwitch enabled={settings.showPrompt} onChange={(v) => setSettings({ ...settings, showPrompt: v })} size="sm" />
                             </div>
                             <div className="flex items-center justify-between">
-                                <label className="text-xs text-gray-400">{t('params.syntaxCheck')}</label>
+                                <label className="text-xs text-foreground-muted">{t('params.syntaxCheck')}</label>
                                 <ToggleSwitch enabled={settings.syntaxCheck} onChange={(v) => setSettings({ ...settings, syntaxCheck: v })} size="sm" />
                             </div>
                             {settings.syntaxCheck && (
                                 <div className="flex items-center justify-between pl-3">
-                                    <label className="text-xs text-gray-500">{t('params.autoFix')}</label>
+                                    <label className="text-xs text-foreground-muted">{t('params.autoFix')}</label>
                                     <ToggleSwitch enabled={settings.autoFixSyntax} onChange={(v) => setSettings({ ...settings, autoFixSyntax: v })} size="sm" />
                                 </div>
                             )}
                             <div className="flex items-center justify-between">
-                                <label className="text-xs text-gray-400">{t('params.memoryMap')}</label>
+                                <label className="text-xs text-foreground-muted">{t('params.memoryMap')}</label>
                                 <ToggleSwitch enabled={settings.memoryMapEnabled} onChange={(v) => setSettings({ ...settings, memoryMapEnabled: v })} size="sm" />
                             </div>
                             {settings.memoryMapEnabled && (
@@ -296,16 +296,16 @@ export function ParametersPanel({
                                 </div>
                             )}
                             <div className="flex items-center justify-between">
-                                <label className="text-xs text-gray-400">{t('params.piiRedaction')}</label>
+                                <label className="text-xs text-foreground-muted">{t('params.piiRedaction')}</label>
                                 <ToggleSwitch enabled={settings.piiRedaction} onChange={(v) => setSettings({ ...settings, piiRedaction: v })} size="sm" />
                             </div>
                         </div>
 
                         <div className="pt-2">
-                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.context')}</div>
+                            <div className="text-[10px] font-bold tracking-wide text-foreground-muted uppercase mb-3">{t('params.context')}</div>
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <label className="text-xs text-gray-400">{t('params.ragKnowledge')}</label>
+                                    <label className="text-xs text-foreground-muted">{t('params.ragKnowledge')}</label>
                                     <ToggleSwitch enabled={settings.ragEnabled} onChange={(v) => {
                                         setSettings({ ...settings, ragEnabled: v });
                                         if (v && ragCollections.length === 0) fetchRagCollections();
@@ -316,7 +316,7 @@ export function ParametersPanel({
                                         title="RAG collection"
                                         value={settings.ragCollectionId}
                                         onChange={(e) => setSettings({ ...settings, ragCollectionId: e.target.value })}
-                                        className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50"
+                                        className="w-full bg-hover border border-outline rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50"
                                     >
                                         <option value="">{t('params.ragSelectCollection')}</option>
                                         {ragCollections.map(c => (
@@ -325,7 +325,7 @@ export function ParametersPanel({
                                     </select>
                                 )}
                                 <div className="flex items-center justify-between">
-                                    <label className="text-xs text-gray-400">{t('params.webSearch')}</label>
+                                    <label className="text-xs text-foreground-muted">{t('params.webSearch')}</label>
                                     <ToggleSwitch enabled={settings.webSearchEnabled} onChange={(v) => setSettings({ ...settings, webSearchEnabled: v })} size="sm" />
                                 </div>
                             </div>
@@ -334,7 +334,7 @@ export function ParametersPanel({
 
                     {/* Column 4: Actions */}
                     <div className="space-y-4">
-                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-3">{t('params.actions')}</div>
+                        <div className="text-[10px] font-bold tracking-wide text-foreground-muted uppercase mb-3">{t('params.actions')}</div>
                         <div className="flex flex-wrap gap-1.5">
                             {[
                                 { key: 'longer', label: t('params.actionLonger') },
@@ -368,7 +368,7 @@ export function ParametersPanel({
                                         className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
                                             enabled
                                                 ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                                : 'bg-white/[0.03] text-gray-600 border border-white/5 hover:text-gray-400'
+                                                : 'bg-hover text-foreground-subtle border border-outline-subtle hover:text-foreground-muted'
                                         }`}
                                     >
                                         {a.label}

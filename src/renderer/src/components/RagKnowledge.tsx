@@ -67,7 +67,7 @@ export function RagKnowledge() {
             <PageHeader>
                 <button
                     onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors border border-white/5"
+                    className="flex items-center gap-2 px-4 py-2 bg-active hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors border border-outline-subtle"
                 >
                     <Plus className="w-4 h-4" />
                     {t('rag.newCollection')}
@@ -75,11 +75,11 @@ export function RagKnowledge() {
             </PageHeader>
 
             {/* Tabs */}
-            <div className="flex gap-6 mb-6 border-b border-white/10 px-1">
+            <div className="flex gap-6 mb-6 border-b border-outline px-1">
                 <button
                     type="button"
                     onClick={() => setActiveTab('collections')}
-                    className={`pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 ${activeTab === 'collections' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
+                    className={`pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 ${activeTab === 'collections' ? 'text-blue-400' : 'text-foreground-muted hover:text-foreground'}`}
                 >
                     <Database className="w-4 h-4" /> {t('rag.collections')}
                     {activeTab === 'collections' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>}
@@ -87,7 +87,7 @@ export function RagKnowledge() {
                 <button
                     type="button"
                     onClick={() => setActiveTab('ingest')}
-                    className={`pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 ${activeTab === 'ingest' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
+                    className={`pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 ${activeTab === 'ingest' ? 'text-blue-400' : 'text-foreground-muted hover:text-foreground'}`}
                 >
                     <FileText className="w-4 h-4" /> {t('rag.ingest')}
                     {activeTab === 'ingest' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>}
@@ -95,7 +95,7 @@ export function RagKnowledge() {
                 <button
                     type="button"
                     onClick={() => setActiveTab('analytics')}
-                    className={`pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 ${activeTab === 'analytics' ? 'text-purple-400' : 'text-gray-400 hover:text-white'}`}
+                    className={`pb-3 text-sm font-medium transition-colors relative flex items-center gap-2 ${activeTab === 'analytics' ? 'text-purple-400' : 'text-foreground-muted hover:text-foreground'}`}
                 >
                     <BarChart3 className="w-4 h-4" /> Analytics
                     {activeTab === 'analytics' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-400"></div>}
@@ -136,7 +136,7 @@ export function RagKnowledge() {
                         aria-modal="true"
                         aria-labelledby="rag-create-modal-title"
                         ref={modalTrapRef}
-                        className="bg-elevated border border-white/10 rounded-2xl max-w-md w-full p-6"
+                        className="bg-elevated border border-outline rounded-2xl max-w-md w-full p-6"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <h3 id="rag-create-modal-title" className="text-xl font-bold text-white mb-6 flex items-center gap-2">
@@ -145,7 +145,7 @@ export function RagKnowledge() {
                         </h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">{t('rag.collectionName')}</label>
+                                <label className="block text-[10px] font-bold text-foreground-muted uppercase tracking-wide mb-1.5">{t('rag.collectionName')}</label>
                                 <input
                                     type="text"
                                     autoFocus
@@ -153,12 +153,12 @@ export function RagKnowledge() {
                                     onChange={(e) => setNewCollectionName(e.target.value)}
                                     onKeyDown={(e) => { if (e.key === 'Enter' && newCollectionName) handleCreateCollection() }}
                                     placeholder="e.g. Legal Documents 2024"
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500 transition-colors"
+                                    className="w-full bg-black/40 border border-outline rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500 transition-colors"
                                 />
                             </div>
                         </div>
-                        <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-white/5">
-                            <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-white/5 transition-colors">{t('common.cancel')}</button>
+                        <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-outline-subtle">
+                            <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-foreground-muted hover:bg-hover transition-colors">{t('common.cancel')}</button>
                             <button type="button" onClick={handleCreateCollection} disabled={!newCollectionName} className="px-6 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed">{t('rag.create')}</button>
                         </div>
                     </div>

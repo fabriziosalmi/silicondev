@@ -108,7 +108,7 @@ export const ResponseActions = memo(function ResponseActions({
                 <button
                     type="button"
                     onClick={() => onCopy(content, idx)}
-                    className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
+                    className="p-1 rounded text-foreground-subtle hover:text-foreground-secondary hover:bg-hover transition-colors"
                     aria-label="Copy response"
                     title={t('actions.copy')}
                 >
@@ -123,7 +123,7 @@ export const ResponseActions = memo(function ResponseActions({
                         type="button"
                         onClick={() => toggleRow('tone')}
                         disabled={disabled}
-                        className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : expandedRow === 'tone' ? 'text-blue-400 bg-blue-500/10' : 'text-gray-600 hover:text-gray-300 hover:bg-white/5'}`}
+                        className={`p-1 rounded transition-colors ${disabled ? 'text-foreground-disabled cursor-not-allowed' : expandedRow === 'tone' ? 'text-blue-400 bg-blue-500/10' : 'text-foreground-subtle hover:text-foreground-secondary hover:bg-hover'}`}
                         aria-label="Rewrite response"
                         title={t('actions.rewrite')}
                     >
@@ -136,7 +136,7 @@ export const ResponseActions = memo(function ResponseActions({
                         type="button"
                         onClick={() => onAction(content, 'devil')}
                         disabled={disabled}
-                        className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-orange-400 hover:bg-orange-500/5'}`}
+                        className={`p-1 rounded transition-colors ${disabled ? 'text-foreground-disabled cursor-not-allowed' : 'text-foreground-subtle hover:text-orange-400 hover:bg-orange-500/5'}`}
                         aria-label="Devil's advocate"
                         title={t('actions.devil')}
                     >
@@ -149,7 +149,7 @@ export const ResponseActions = memo(function ResponseActions({
                         type="button"
                         onClick={() => toggleRow('perspective')}
                         disabled={disabled}
-                        className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : expandedRow === 'perspective' ? 'text-blue-400 bg-blue-500/10' : 'text-gray-600 hover:text-blue-400 hover:bg-blue-500/5'}`}
+                        className={`p-1 rounded transition-colors ${disabled ? 'text-foreground-disabled cursor-not-allowed' : expandedRow === 'perspective' ? 'text-blue-400 bg-blue-500/10' : 'text-foreground-subtle hover:text-blue-400 hover:bg-blue-500/5'}`}
                         aria-label="Change perspective"
                         title={t('actions.perspective')}
                     >
@@ -162,7 +162,7 @@ export const ResponseActions = memo(function ResponseActions({
                         type="button"
                         onClick={onBranch}
                         disabled={disabled}
-                        className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-blue-400 hover:bg-blue-500/5'}`}
+                        className={`p-1 rounded transition-colors ${disabled ? 'text-foreground-disabled cursor-not-allowed' : 'text-foreground-subtle hover:text-blue-400 hover:bg-blue-500/5'}`}
                         aria-label="Branch conversation"
                         title={t('actions.branch')}
                     >
@@ -175,14 +175,14 @@ export const ResponseActions = memo(function ResponseActions({
                         type="button"
                         onClick={onRegenerate}
                         disabled={disabled}
-                        className={`p-1 rounded transition-colors ${disabled ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/5'}`}
+                        className={`p-1 rounded transition-colors ${disabled ? 'text-foreground-disabled cursor-not-allowed' : 'text-foreground-subtle hover:text-emerald-400 hover:bg-emerald-500/5'}`}
                         aria-label={t('actions.regenerate')}
                         title={t('actions.regenerate')}
                     >
                         <RotateCcw className="w-3.5 h-3.5" />
                     </button>
                 )}
-                <div className="w-px h-3 bg-white/10 mx-0.5" />
+                <div className="w-px h-3 bg-active mx-0.5" />
                 {/* Ethical self-assessment */}
                 {onAssess && (
                     <div className="relative flex items-center" ref={assessRef}>
@@ -196,8 +196,8 @@ export const ResponseActions = memo(function ResponseActions({
                                 assessment && assessment !== 'loading'
                                     ? 'text-emerald-400 hover:bg-emerald-500/10'
                                     : assessment === 'loading'
-                                        ? 'text-gray-500 cursor-wait'
-                                        : 'text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/5'
+                                        ? 'text-foreground-muted cursor-wait'
+                                        : 'text-foreground-subtle hover:text-emerald-400 hover:bg-emerald-500/5'
                             }`}
                             aria-label={assessment === 'loading' ? 'Assessing response' : assessment ? 'View assessment' : 'Assess response'}
                             title={assessment === 'loading' ? t('actions.assessing') : assessment ? t('actions.assessment') : t('actions.assess')}
@@ -218,11 +218,11 @@ export const ResponseActions = memo(function ResponseActions({
                                 <button
                                     type="button"
                                     onClick={() => setShowAssessment(!showAssessment)}
-                                    className="flex items-center gap-1.5 ml-0.5 px-1 py-0.5 rounded hover:bg-white/5 transition-colors"
+                                    className="flex items-center gap-1.5 ml-0.5 px-1 py-0.5 rounded hover:bg-hover transition-colors"
                                     aria-label={`Assessment score: ${avg}`}
                                     title={t('actions.assessDetails')}
                                 >
-                                    <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden">
+                                    <div className="w-12 h-1 bg-active rounded-full overflow-hidden">
                                         <div className={`h-full rounded-full ${color}`} style={{ width: `${avg}%` }} />
                                     </div>
                                     <span className={`text-[10px] font-mono font-medium ${textColor}`}>{avg}</span>
@@ -244,8 +244,8 @@ export const ResponseActions = memo(function ResponseActions({
                             selfCritiqueLoading
                                 ? 'text-amber-400 cursor-wait'
                                 : disabled
-                                    ? 'text-gray-700 cursor-not-allowed'
-                                    : 'text-gray-600 hover:text-amber-400 hover:bg-amber-500/5'
+                                    ? 'text-foreground-disabled cursor-not-allowed'
+                                    : 'text-foreground-subtle hover:text-amber-400 hover:bg-amber-500/5'
                         }`}
                         aria-label={selfCritiqueLoading ? 'Running self-critique' : 'Self-critique'}
                         title={selfCritiqueLoading ? t('actions.critiquing') : t('actions.selfCritique')}
@@ -259,10 +259,10 @@ export const ResponseActions = memo(function ResponseActions({
                 {/* Stats */}
                 {stats && stats.totalTokens > 0 && (
                     <div className="flex items-center gap-2 ml-auto">
-                        <span className="text-[10px] text-gray-600 font-mono tabular-nums">
+                        <span className="text-[10px] text-foreground-subtle font-mono tabular-nums">
                             {stats.tokensPerSecond} tok/s
                         </span>
-                        <span className="text-[10px] text-gray-600 font-mono tabular-nums">
+                        <span className="text-[10px] text-foreground-subtle font-mono tabular-nums">
                             {stats.totalTokens} tok
                         </span>
                     </div>
@@ -277,7 +277,7 @@ export const ResponseActions = memo(function ResponseActions({
                             type="button"
                             key={a.key}
                             onClick={() => { onAction(content, a.key); setExpandedRow(null); }}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] text-gray-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 transition-colors"
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] text-foreground-muted hover:text-foreground bg-hover hover:bg-active border border-outline-subtle transition-colors"
                         >
                             {a.icon}
                             {t(a.i18nKey)}
@@ -294,7 +294,7 @@ export const ResponseActions = memo(function ResponseActions({
                             type="button"
                             key={p.key}
                             onClick={() => { onAction(content, p.key); setExpandedRow(null); }}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] text-gray-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 transition-colors"
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] text-foreground-muted hover:text-foreground bg-hover hover:bg-active border border-outline-subtle transition-colors"
                         >
                             {p.icon}
                             {t(p.i18nKey)}
@@ -306,11 +306,11 @@ export const ResponseActions = memo(function ResponseActions({
             {/* Show Prompt — what was actually sent */}
             {showPrompt && (
                 <details className="mt-1.5" onToggle={(e) => setPromptDetailsOpen(e.currentTarget.open)}>
-                    <summary className="flex items-center gap-1 cursor-pointer text-[10px] text-gray-600 hover:text-gray-400 transition-colors select-none list-none">
+                    <summary className="flex items-center gap-1 cursor-pointer text-[10px] text-foreground-subtle hover:text-foreground-muted transition-colors select-none list-none">
                         <ChevronRight className="w-2.5 h-2.5 chevron-rotate transition-transform" />
                         <span>{t('actions.viewRaw')}</span>
                     </summary>
-                    <div className="mt-1 pl-3 border-l border-white/5 text-[10px] text-gray-500 max-h-32 overflow-y-auto">
+                    <div className="mt-1 pl-3 border-l border-outline-subtle text-[10px] text-foreground-muted max-h-32 overflow-y-auto">
                         <pre className="whitespace-pre-wrap font-mono leading-relaxed">{fullPrompt}</pre>
                     </div>
                 </details>

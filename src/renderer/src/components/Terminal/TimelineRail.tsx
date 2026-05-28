@@ -49,7 +49,7 @@ export function TimelineRail({ checkpoints, sessionId, onRollback }: TimelineRai
   return (
     <div className="w-8 shrink-0 flex flex-col items-center py-3 relative select-none">
       {/* Vertical line */}
-      <div className="absolute top-3 bottom-3 w-px bg-white/[0.06]" />
+      <div className="absolute top-3 bottom-3 w-px bg-hover" />
 
       {checkpoints.map((cp, i) => {
         const isLast = i === checkpoints.length - 1
@@ -97,15 +97,15 @@ export function TimelineRail({ checkpoints, sessionId, onRollback }: TimelineRai
                   border backdrop-blur-sm shadow-lg
                   ${isConfirming
                     ? 'bg-amber-950/90 border-amber-500/30 text-amber-200'
-                    : 'bg-gray-950/90 border-white/10 text-gray-300'
+                    : 'bg-gray-950/90 border-outline text-foreground-secondary'
                   }
                 `}>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-gray-500">{formatTime(cp.timestamp)}</span>
+                    <span className="text-foreground-muted">{formatTime(cp.timestamp)}</span>
                     <span className="text-white/40">&middot;</span>
                     <span>{cp.tool.replace(/_/g, ' ')}</span>
                   </div>
-                  <div className="text-[8px] text-gray-500 mt-0.5 max-w-[180px] truncate">
+                  <div className="text-[8px] text-foreground-muted mt-0.5 max-w-[180px] truncate">
                     {shortPath(cp.file_path)}
                   </div>
                   {isConfirming && !isLast && (

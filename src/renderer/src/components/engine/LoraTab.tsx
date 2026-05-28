@@ -173,12 +173,12 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
 
     if (models.length === 0) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-xl bg-white/[0.02] p-8 mt-4">
-                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4 text-gray-500">
+            <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-outline-subtle rounded-xl bg-hover p-8 mt-4">
+                <div className="w-16 h-16 bg-hover rounded-full flex items-center justify-center mb-4 text-foreground-muted">
                     <Cpu size={32} />
                 </div>
-                <p className="text-gray-300 font-medium text-lg">No base models available</p>
-                <p className="text-gray-500 text-sm mt-2 max-w-sm text-center">
+                <p className="text-foreground-secondary font-medium text-lg">No base models available</p>
+                <p className="text-foreground-muted text-sm mt-2 max-w-sm text-center">
                     You need to download a base foundation model first before you can train it.
                     Go to the Models tab to get started.
                 </p>
@@ -190,9 +190,9 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
         <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
 
             {/* Settings Sidebar — sticky header & footer (CTA), middle scrolls. */}
-            <div className="w-[400px] flex flex-col min-h-0 bg-elevated border border-white/10 rounded-xl overflow-hidden">
+            <div className="w-[400px] flex flex-col min-h-0 bg-elevated border border-outline rounded-xl overflow-hidden">
                 {/* Sticky header */}
-                <div className="px-4 py-3 border-b border-white/10 bg-white/[0.02] flex items-center gap-2 shrink-0">
+                <div className="px-4 py-3 border-b border-outline bg-hover flex items-center gap-2 shrink-0">
                     <Settings2 className="w-4 h-4 text-blue-400" />
                     <h3 className="font-bold text-sm">Job Configuration</h3>
                 </div>
@@ -203,20 +203,20 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                     {/* Target Name + Base Model side-by-side */}
                     <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Target Name</label>
+                            <label className="text-[10px] font-bold text-foreground-muted uppercase tracking-wide">Target Name</label>
                             <input
                                 type="text"
                                 placeholder="My-Finance-Expert"
                                 value={jobName}
                                 onChange={e => setJobName(e.target.value)}
-                                className="w-full bg-black/40 border border-white/10 rounded-md px-2 h-8 text-[12px] text-white outline-none focus:border-blue-500 placeholder-gray-600"
+                                className="w-full bg-black/40 border border-outline rounded-md px-2 h-8 text-[12px] text-white outline-none focus:border-blue-500 placeholder:text-foreground-subtle"
                             />
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">{t('engine.selectModel')}</label>
+                            <label className="text-[10px] font-bold text-foreground-muted uppercase tracking-wide">{t('engine.selectModel')}</label>
                             <select
                                 title="Base Foundation Model"
-                                className="w-full bg-black/40 border border-white/10 rounded-md px-2 h-8 text-[12px] text-white outline-none focus:border-blue-500 appearance-none truncate"
+                                className="w-full bg-black/40 border border-outline rounded-md px-2 h-8 text-[12px] text-white outline-none focus:border-blue-500 appearance-none truncate"
                                 value={selectedModel}
                                 onChange={e => setSelectedModel(e.target.value)}
                             >
@@ -227,16 +227,16 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
 
                     {/* Model Format Info — compact strip */}
                     {modelFormat && (
-                        <div className="flex items-center gap-2 px-2 py-1 rounded bg-black/20 border border-white/5 text-[10px] text-gray-500">
-                            <span className="text-gray-400 font-medium">{modelFormat.model_type}</span>
-                            <span className="w-px h-3 bg-white/10" />
+                        <div className="flex items-center gap-2 px-2 py-1 rounded bg-black/20 border border-outline-subtle text-[10px] text-foreground-muted">
+                            <span className="text-foreground-muted font-medium">{modelFormat.model_type}</span>
+                            <span className="w-px h-3 bg-active" />
                             <span className={modelFormat.has_chat_template ? 'text-green-500/70' : 'text-yellow-500/70'}>
                                 {modelFormat.has_chat_template ? 'chat template' : 'no chat template'}
                             </span>
                             {modelFormat.eos_token && (
                                 <>
-                                    <span className="w-px h-3 bg-white/10" />
-                                    <code className="text-gray-400">{modelFormat.eos_token}</code>
+                                    <span className="w-px h-3 bg-active" />
+                                    <code className="text-foreground-muted">{modelFormat.eos_token}</code>
                                 </>
                             )}
                         </div>
@@ -245,7 +245,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                     {/* Dataset Path */}
                     <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">{t('engine.dataset')}</label>
+                            <label className="text-[10px] font-bold text-foreground-muted uppercase tracking-wide">{t('engine.dataset')}</label>
                             {capturedCount > 0 && (
                                 <button
                                     type="button"
@@ -259,7 +259,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                             )}
                         </div>
                         <div className="flex gap-1.5">
-                            <div className="flex-1 bg-black/40 border border-white/10 rounded-md px-2 h-8 text-[11px] text-blue-100/70 truncate flex items-center gap-1.5">
+                            <div className="flex-1 bg-black/40 border border-outline rounded-md px-2 h-8 text-[11px] text-blue-100/70 truncate flex items-center gap-1.5">
                                 <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                                 {datasetPath.split('/').pop() || "No file selected"}
                             </div>
@@ -269,7 +269,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                                     const path = await window.electronAPI?.selectFile?.()
                                     if (path) setDatasetPath(path)
                                 }}
-                                className="bg-white/10 hover:bg-white/20 text-white px-3 h-8 rounded-md transition-colors text-[11px] font-medium"
+                                className="bg-active hover:bg-white/20 text-white px-3 h-8 rounded-md transition-colors text-[11px] font-medium"
                             >
                                 Select
                             </button>
@@ -277,14 +277,14 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                     </div>
 
                     {/* Hyperparameters */}
-                    <div className="pt-2 border-t border-white/5 space-y-2">
+                    <div className="pt-2 border-t border-outline-subtle space-y-2">
                         <div className="flex justify-between items-center">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Hyperparameters</label>
+                            <label className="text-[10px] font-bold text-foreground-muted uppercase tracking-wide">Hyperparameters</label>
                             <select
                                 title="Hyperparameters Preset"
                                 value={preset}
                                 onChange={(e) => handlePresetChange(e.target.value as keyof typeof PRESETS | 'custom')}
-                                className="bg-white/5 text-gray-300 border border-white/10 text-[10px] rounded px-1.5 py-0.5 outline-none"
+                                className="bg-hover text-foreground-secondary border border-outline text-[10px] rounded px-1.5 py-0.5 outline-none"
                             >
                                 <option value="draft">Draft (Fast)</option>
                                 <option value="balanced">Balanced</option>
@@ -295,46 +295,46 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
 
                         <div className="grid grid-cols-4 gap-1.5">
                             <div className="space-y-0.5">
-                                <label className="text-[9px] text-gray-500 uppercase" title="Number of full passes through the dataset">{t('engine.epochs')}</label>
-                                <input type="number" title="Epochs" value={epochs} onChange={e => { setEpochs(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
+                                <label className="text-[9px] text-foreground-muted uppercase" title="Number of full passes through the dataset">{t('engine.epochs')}</label>
+                                <input type="number" title="Epochs" value={epochs} onChange={e => { setEpochs(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-outline rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                             </div>
                             <div className="space-y-0.5">
-                                <label className="text-[9px] text-gray-500 uppercase" title="Samples processed per training step">{t('engine.batchSize')}</label>
-                                <input type="number" title="Batch Size" value={batchSize} onChange={e => { setBatchSize(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
+                                <label className="text-[9px] text-foreground-muted uppercase" title="Samples processed per training step">{t('engine.batchSize')}</label>
+                                <input type="number" title="Batch Size" value={batchSize} onChange={e => { setBatchSize(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-outline rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                             </div>
                             <div className="space-y-0.5">
-                                <label className="text-[9px] text-gray-500 uppercase" title="How fast the model adapts — lower is safer but slower">{t('engine.learningRate')}</label>
-                                <input type="number" title="Learning Rate" step="0.00001" value={learningRate} onChange={e => { setLearningRate(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
+                                <label className="text-[9px] text-foreground-muted uppercase" title="How fast the model adapts — lower is safer but slower">{t('engine.learningRate')}</label>
+                                <input type="number" title="Learning Rate" step="0.00001" value={learningRate} onChange={e => { setLearningRate(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-outline rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                             </div>
                             <div className="space-y-0.5">
-                                <label className="text-[9px] text-gray-500 uppercase" title="Max tokens per training example — longer uses more memory">Max Seq</label>
-                                <input type="number" title="Max Seq Length" value={maxSeqLength} onChange={e => { setMaxSeqLength(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
+                                <label className="text-[9px] text-foreground-muted uppercase" title="Max tokens per training example — longer uses more memory">Max Seq</label>
+                                <input type="number" title="Max Seq Length" value={maxSeqLength} onChange={e => { setMaxSeqLength(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-outline rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                             </div>
                         </div>
 
                         {/* LoRA Specifics — inline, no inner card */}
-                        <div className="pt-2 border-t border-white/5 space-y-1.5">
-                            <div className="text-[9px] font-bold text-gray-500 uppercase">LoRA Specifics</div>
+                        <div className="pt-2 border-t border-outline-subtle space-y-1.5">
+                            <div className="text-[9px] font-bold text-foreground-muted uppercase">LoRA Specifics</div>
                             <div className="grid grid-cols-5 gap-1.5">
                                 <div className="space-y-0.5">
-                                    <label className="text-[9px] text-gray-500 uppercase" title="Adapter capacity — higher rank = more expressive but uses more memory">Rank</label>
-                                    <input type="number" title="LoRA Rank" value={loraRank} onChange={e => { setLoraRank(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
+                                    <label className="text-[9px] text-foreground-muted uppercase" title="Adapter capacity — higher rank = more expressive but uses more memory">Rank</label>
+                                    <input type="number" title="LoRA Rank" value={loraRank} onChange={e => { setLoraRank(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-outline rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                                 </div>
                                 <div className="space-y-0.5">
-                                    <label className="text-[9px] text-gray-500 uppercase" title="Scaling factor — typically 2x rank">Alpha</label>
-                                    <input type="number" title="LoRA Alpha" value={loraAlpha} onChange={e => { setLoraAlpha(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
+                                    <label className="text-[9px] text-foreground-muted uppercase" title="Scaling factor — typically 2x rank">Alpha</label>
+                                    <input type="number" title="LoRA Alpha" value={loraAlpha} onChange={e => { setLoraAlpha(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-outline rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                                 </div>
                                 <div className="space-y-0.5">
-                                    <label className="text-[9px] text-gray-500 uppercase" title="How many transformer layers get LoRA adapters">Layers</label>
-                                    <input type="number" title="Target Layers" value={loraLayers} onChange={e => { setLoraLayers(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
+                                    <label className="text-[9px] text-foreground-muted uppercase" title="How many transformer layers get LoRA adapters">Layers</label>
+                                    <input type="number" title="Target Layers" value={loraLayers} onChange={e => { setLoraLayers(parseInt(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-outline rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                                 </div>
                                 <div className="space-y-0.5">
-                                    <label className="text-[9px] text-gray-500 uppercase" title="Regularization — 0 disables, 0.05-0.1 helps prevent overfitting">Dropout</label>
-                                    <input type="number" title="LoRA Dropout" step="0.05" value={loraDropout} onChange={e => { setLoraDropout(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
+                                    <label className="text-[9px] text-foreground-muted uppercase" title="Regularization — 0 disables, 0.05-0.1 helps prevent overfitting">Dropout</label>
+                                    <input type="number" title="LoRA Dropout" step="0.05" value={loraDropout} onChange={e => { setLoraDropout(parseFloat(e.target.value)); setPreset('custom') }} className="w-full bg-black/40 border border-outline rounded px-1.5 h-7 text-[11px] font-mono outline-none" />
                                 </div>
                                 <div className="space-y-0.5">
-                                    <label className="text-[9px] text-gray-500 uppercase" title="Fixed random seed for reproducible training runs. Leave empty for random.">Seed</label>
-                                    <input type="number" title="Random Seed" placeholder="Rnd" value={seed ?? ''} onChange={e => setSeed(e.target.value ? parseInt(e.target.value) : null)} className="w-full bg-black/40 border border-white/10 rounded px-1.5 h-7 text-[11px] font-mono outline-none placeholder-gray-600" />
+                                    <label className="text-[9px] text-foreground-muted uppercase" title="Fixed random seed for reproducible training runs. Leave empty for random.">Seed</label>
+                                    <input type="number" title="Random Seed" placeholder="Rnd" value={seed ?? ''} onChange={e => setSeed(e.target.value ? parseInt(e.target.value) : null)} className="w-full bg-black/40 border border-outline rounded px-1.5 h-7 text-[11px] font-mono outline-none placeholder:text-foreground-subtle" />
                                 </div>
                             </div>
                         </div>
@@ -342,7 +342,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                 </div>
 
                 {/* Sticky footer CTA — always visible, never scrolls. */}
-                <div className="px-4 py-3 border-t border-white/10 bg-white/[0.02] shrink-0">
+                <div className="px-4 py-3 border-t border-outline bg-hover shrink-0">
                     <button
                         type="button"
                         onClick={startTraining}
@@ -364,7 +364,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
 
                 {/* Status Strip */}
                 {jobStatus ? (
-                    <div className="bg-black/40 border border-white/10 rounded-xl p-5 shrink-0">
+                    <div className="bg-black/40 border border-outline rounded-xl p-5 shrink-0">
                         <div className="flex justify-between items-center mb-4">
                             <div>
                                 <div className="text-lg font-bold flex items-center gap-3">
@@ -373,20 +373,20 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                                     {jobStatus.status === 'failed' && <div className="w-3 h-3 rounded-full bg-red-500" />}
                                     {jobStatus.job_name || 'Active Run'}
                                 </div>
-                                <div className="text-xs font-mono text-gray-500 mt-1">ID: {jobStatus.job_id}</div>
+                                <div className="text-xs font-mono text-foreground-muted mt-1">ID: {jobStatus.job_id}</div>
                             </div>
                             <div className="text-right">
                                 <div className="text-2xl font-mono text-white mb-1">{jobStatus.progress}%</div>
                                 <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide ${jobStatus.status === 'completed' ? 'bg-green-500/20 text-green-400' :
                                     jobStatus.status === 'training' ? 'bg-blue-500/20 text-blue-400' :
                                         jobStatus.status === 'failed' ? 'bg-red-500/20 text-red-400' :
-                                            'bg-gray-500/20 text-gray-400'
+                                            'bg-gray-500/20 text-foreground-muted'
                                     }`}>
                                     {jobStatus.status}
                                 </span>
                             </div>
                         </div>
-                        <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden border border-white/5">
+                        <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden border border-outline-subtle">
                             <div
                                 className={`h-full transition-all duration-500 ${jobStatus.status === 'completed' ? 'bg-green-500' : jobStatus.status === 'failed' ? 'bg-red-500' : 'bg-blue-500 relative overflow-hidden'}`}
                                 style={{ width: `${jobStatus.progress}%` }}
@@ -398,8 +398,8 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                         </div>
 
                         {jobStatus.status === 'completed' && (
-                            <div className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-3">
-                                <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">{t('engine.completed')}</div>
+                            <div className="mt-4 pt-4 border-t border-outline-subtle flex flex-col gap-3">
+                                <div className="text-[10px] text-foreground-muted uppercase tracking-wide font-bold">{t('engine.completed')}</div>
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
@@ -424,21 +424,21 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                         )}
                     </div>
                 ) : (
-                    <div className="bg-black/20 border border-white/10 border-dashed rounded-xl p-6 text-center shrink-0">
-                        <ShieldAlert className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                        <h4 className="text-gray-400 font-medium">{t('engine.idle')}</h4>
-                        <p className="text-gray-500 text-sm">Configure your parameters and start a job to view live telemetry.</p>
+                    <div className="bg-black/20 border border-outline border-dashed rounded-xl p-6 text-center shrink-0">
+                        <ShieldAlert className="w-8 h-8 text-foreground-subtle mx-auto mb-2" />
+                        <h4 className="text-foreground-muted font-medium">{t('engine.idle')}</h4>
+                        <p className="text-foreground-muted text-sm">Configure your parameters and start a job to view live telemetry.</p>
                     </div>
                 )}
 
                 {/* Telemetry Chart */}
-                <div className="flex-1 bg-elevated border border-white/10 rounded-xl flex flex-col overflow-hidden min-h-[300px]">
-                    <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between z-10">
+                <div className="flex-1 bg-elevated border border-outline rounded-xl flex flex-col overflow-hidden min-h-[300px]">
+                    <div className="p-4 border-b border-outline-subtle bg-hover flex items-center justify-between z-10">
                         <div className="flex items-center gap-2">
                             <Activity className="w-5 h-5 text-blue-400" />
                             <h3 className="font-bold">{t('engine.loss')}</h3>
                         </div>
-                        <div className="text-xs flex gap-4 text-gray-500 items-center">
+                        <div className="text-xs flex gap-4 text-foreground-muted items-center">
                             <span className="flex items-center gap-1">
                                 <div className="w-2 h-2 rounded-full bg-blue-500" />
                                 Validation Loss
@@ -462,7 +462,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                                         // Revoke after 60s to avoid aborting the download.
                                         setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
                                     }}
-                                    className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-gray-400"
+                                    className="flex items-center gap-1 px-2 py-1 rounded bg-hover border border-outline hover:bg-active transition-colors text-foreground-muted"
                                 >
                                     <Download className="w-3 h-3" />
                                     Export CSV
@@ -510,7 +510,7 @@ export function LoraTab({ models, selectedModel, setSelectedModel, capturedCount
                             </ResponsiveContainer>
                         ) : (
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="text-gray-600 opacity-50 font-mono text-sm">Waiting for training data...</div>
+                                <div className="text-foreground-subtle opacity-50 font-mono text-sm">Waiting for training data...</div>
                             </div>
                         )}
                     </div>

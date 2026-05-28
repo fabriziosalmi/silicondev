@@ -395,7 +395,7 @@ export function Workspace() {
                     <button
                         type="button"
                         onClick={handleNewNote}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/5 font-medium"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-active hover:bg-white/20 text-white transition-colors border border-outline-subtle font-medium"
                         title="New note"
                     >
                         <Plus className="w-3.5 h-3.5" />
@@ -407,14 +407,14 @@ export function Workspace() {
                         type="button"
                         onClick={handleSave}
                         disabled={!documentBody.trim()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Save (Ctrl+S)"
                     >
                         <Save className="w-3.5 h-3.5" />
                         {t('common.save')}
                     </button>
 
-                    <div className="w-px h-5 bg-white/10 mx-1" />
+                    <div className="w-px h-5 bg-active mx-1" />
 
                     {/* Import */}
                     <input
@@ -428,7 +428,7 @@ export function Workspace() {
                     <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors"
                         title="Import file"
                     >
                         <Upload className="w-3.5 h-3.5" />
@@ -441,7 +441,7 @@ export function Workspace() {
                             type="button"
                             onClick={() => setShowExportMenu(p => !p)}
                             disabled={!documentBody.trim()}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Export"
                         >
                             <Download className="w-3.5 h-3.5" />
@@ -449,17 +449,17 @@ export function Workspace() {
                             <ChevronDown className="w-3 h-3" />
                         </button>
                         {showExportMenu && (
-                            <div className="absolute top-full left-0 mt-1 bg-elevated border border-white/10 rounded-lg shadow-xl py-1 z-50 min-w-[140px]">
-                                <button type="button" onClick={() => { handleExport('md'); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
+                            <div className="absolute top-full left-0 mt-1 bg-elevated border border-outline rounded-lg shadow-xl py-1 z-50 min-w-[140px]">
+                                <button type="button" onClick={() => { handleExport('md'); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground-secondary hover:bg-hover hover:text-foreground transition-colors">
                                     <Download size={12} /> Markdown (.md)
                                 </button>
-                                <button type="button" onClick={() => { handleExport('txt'); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
+                                <button type="button" onClick={() => { handleExport('txt'); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground-secondary hover:bg-hover hover:text-foreground transition-colors">
                                     <FileText size={12} /> Plain text (.txt)
                                 </button>
-                                <button type="button" onClick={() => { handleExportXlsx(); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
+                                <button type="button" onClick={() => { handleExportXlsx(); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground-secondary hover:bg-hover hover:text-foreground transition-colors">
                                     <Sheet size={12} /> Excel SpreadsheetML (.xls)
                                 </button>
-                                <button type="button" onClick={() => { handleExportPdf(); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
+                                <button type="button" onClick={() => { handleExportPdf(); setShowExportMenu(false) }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground-secondary hover:bg-hover hover:text-foreground transition-colors">
                                     <Printer size={12} /> PDF (print)
                                 </button>
                             </div>
@@ -471,34 +471,34 @@ export function Workspace() {
             <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
                 {/* Full-width editor */}
-                <div className="flex-1 bg-elevated border border-white/10 rounded-xl overflow-hidden flex flex-col">
+                <div className="flex-1 bg-elevated border border-outline rounded-xl overflow-hidden flex flex-col">
 
                     {/* Status bar */}
-                    <div className="h-8 border-b border-white/5 bg-white/[0.02] flex items-center px-4 justify-between shrink-0">
-                        <div className="flex items-center gap-3 text-[10px] text-gray-500 font-mono tabular-nums">
+                    <div className="h-8 border-b border-outline-subtle bg-hover flex items-center px-4 justify-between shrink-0">
+                        <div className="flex items-center gap-3 text-[10px] text-foreground-muted font-mono tabular-nums">
                             <span>{documentBody.length} chars</span>
                             <span>{documentBody.trim() ? documentBody.trim().split(/\s+/).length : 0} words</span>
                             <span>{documentBody.split('\n').length} lines</span>
                         </div>
-                        <div className="flex items-center gap-3 text-[10px] text-gray-500 font-mono">
+                        <div className="flex items-center gap-3 text-[10px] text-foreground-muted font-mono">
                             {activeModel && (
                                 <span className="flex items-center gap-1.5">
                                     <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
                                     {cleanModelName(activeModel.name)}
                                 </span>
                             )}
-                            <span className="text-gray-600">Ctrl+B bold · Ctrl+I italic · Ctrl+S save</span>
+                            <span className="text-foreground-subtle">Ctrl+B bold · Ctrl+I italic · Ctrl+S save</span>
                         </div>
                     </div>
 
                     {/* Formatting + AI toolbar */}
-                    <div className="border-b border-white/5 bg-white/[0.01] px-3 py-1.5 flex items-center gap-1 overflow-x-auto shrink-0">
+                    <div className="border-b border-outline-subtle bg-white/[0.01] px-3 py-1.5 flex items-center gap-1 overflow-x-auto shrink-0">
                         {/* Markdown formatting */}
                         <ToolbarIcon icon={<Bold size={13} />} title="Bold" onClick={() => insertFormat('**')} />
                         <ToolbarIcon icon={<Italic size={13} />} title="Italic" onClick={() => insertFormat('_')} />
                         <ToolbarIcon icon={<Strikethrough size={13} />} title="Strikethrough" onClick={() => insertFormat('~~')} />
                         <ToolbarIcon icon={<Code size={13} />} title="Inline code" onClick={() => insertFormat('`')} />
-                        <div className="w-px h-4 bg-white/[0.06] mx-0.5 shrink-0" />
+                        <div className="w-px h-4 bg-hover mx-0.5 shrink-0" />
                         <ToolbarIcon icon={<Heading1 size={13} />} title="Heading 1" onClick={() => insertFormat('# ', '', true)} />
                         <ToolbarIcon icon={<Heading2 size={13} />} title="Heading 2" onClick={() => insertFormat('## ', '', true)} />
                         <ToolbarIcon icon={<Quote size={13} />} title="Blockquote" onClick={() => insertFormat('> ', '', true)} />
@@ -506,7 +506,7 @@ export function Workspace() {
                         <ToolbarIcon icon={<ListOrdered size={13} />} title="Numbered list" onClick={() => insertFormat('1. ', '', true)} />
                         <ToolbarIcon icon={<Minus size={13} />} title="Horizontal rule" onClick={() => insertFormat('\n---\n', '', false)} />
                         <ToolbarIcon icon={<Link size={13} />} title="Link" onClick={() => insertFormat('[', '](url)')} />
-                        <div className="w-px h-4 bg-white/[0.06] mx-0.5 shrink-0" />
+                        <div className="w-px h-4 bg-hover mx-0.5 shrink-0" />
                         <ToolbarIcon
                             icon={showPreview ? <EyeOff size={13} /> : <Eye size={13} />}
                             title={showPreview ? 'Hide preview' : 'Show preview'}
@@ -518,19 +518,19 @@ export function Workspace() {
                         <div className="flex-1" />
 
                         {/* AI commands */}
-                        <div className="flex items-center gap-1 text-[10px] text-gray-500 mr-1 shrink-0">
-                            <Sparkles size={11} className="text-gray-600" />
+                        <div className="flex items-center gap-1 text-[10px] text-foreground-muted mr-1 shrink-0">
+                            <Sparkles size={11} className="text-foreground-subtle" />
                             <span className="font-medium uppercase tracking-wider">AI</span>
                         </div>
                         <ToolbarBtn icon={<Wand2 size={12} />} label="Continue" onClick={() => handleAiCommand('continue')} disabled={isGenerating || !activeModel} loading={isGenerating} />
                         <ToolbarBtn icon={<Copy size={12} />} label="Summarize" onClick={() => handleAiCommand('summarize')} disabled={isGenerating || !activeModel || !documentBody.trim()} />
                         <ToolbarBtn icon={<FileText size={12} />} label="Draft Intro" onClick={() => handleAiCommand('draft')} disabled={isGenerating || !activeModel} />
-                        <div className="w-px h-4 bg-white/[0.06] mx-0.5 shrink-0" />
+                        <div className="w-px h-4 bg-hover mx-0.5 shrink-0" />
                         <ToolbarBtn icon={<Table size={12} />} label="To Table" onClick={() => handleAiCommand('toTable')} disabled={isGenerating || !activeModel || !documentBody.trim()} />
                         <ToolbarBtn icon={<List size={12} />} label="Key Points" onClick={() => handleAiCommand('keyPoints')} disabled={isGenerating || !activeModel || !documentBody.trim()} />
                         <ToolbarBtn icon={<Expand size={12} />} label="Expand" onClick={() => handleAiCommand('expand')} disabled={isGenerating || !activeModel || !documentBody.trim()} />
                         <ToolbarBtn icon={<ListTree size={12} />} label="Outline" onClick={() => handleAiCommand('outline')} disabled={isGenerating || !activeModel || !documentBody.trim()} />
-                        <div className="w-px h-4 bg-white/[0.06] mx-0.5 shrink-0" />
+                        <div className="w-px h-4 bg-hover mx-0.5 shrink-0" />
                         <ToolbarBtn icon={<Send size={12} />} label="Send to Chat" onClick={handleSendToChat} disabled={!documentBody.trim()} />
                     </div>
 
@@ -560,7 +560,7 @@ export function Workspace() {
                         {showPreview && (
                             <>
                                 <div
-                                    className="w-1 shrink-0 cursor-col-resize bg-white/[0.04] hover:bg-blue-500/30 active:bg-blue-500/40 transition-colors relative group"
+                                    className="w-1 shrink-0 cursor-col-resize bg-hover hover:bg-blue-500/30 active:bg-blue-500/40 transition-colors relative group"
                                     onMouseDown={(e) => { e.preventDefault(); isDraggingRef.current = true }}
                                 >
                                     <div className="absolute inset-y-0 -left-1 -right-1" />
@@ -593,7 +593,7 @@ function ToolbarBtn({ icon, label, onClick, disabled, loading }: {
             type="button"
             onClick={onClick}
             disabled={disabled}
-            className="group/tb flex items-center gap-0 hover:gap-1.5 w-7 hover:w-auto px-0 hover:px-2 py-1 rounded-md text-[11px] text-gray-400 hover:text-white hover:bg-white/[0.06] transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap shrink-0 justify-center hover:justify-start"
+            className="group/tb flex items-center gap-0 hover:gap-1.5 w-7 hover:w-auto px-0 hover:px-2 py-1 rounded-md text-[11px] text-foreground-muted hover:text-foreground hover:bg-hover transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap shrink-0 justify-center hover:justify-start"
             title={label}
         >
             <span className="shrink-0">{loading ? <Loader2 size={12} className="animate-spin" /> : icon}</span>
@@ -613,7 +613,7 @@ function ToolbarIcon({ icon, title, onClick, active }: {
             type="button"
             onClick={onClick}
             className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors shrink-0 ${
-                active ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white hover:bg-white/[0.06]'
+                active ? 'bg-active text-white' : 'text-foreground-muted hover:text-foreground hover:bg-hover'
             }`}
             title={title}
         >
@@ -624,7 +624,7 @@ function ToolbarIcon({ icon, title, onClick, active }: {
 
 function MarkdownPreview({ content }: { content: string }) {
     if (!content.trim()) {
-        return <p className="text-gray-600 italic">Nothing to preview yet.</p>
+        return <p className="text-foreground-subtle italic">Nothing to preview yet.</p>
     }
     return (
         <ReactMarkdown remarkPlugins={[remarkGfm]}>

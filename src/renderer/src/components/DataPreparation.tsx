@@ -142,15 +142,15 @@ export function DataPreparation() {
             {error && (
                 <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg text-sm flex justify-between items-center transition-all">
                     <span>{error}</span>
-                    <button onClick={() => setError(null)} className="text-white/40 hover:text-white">✕</button>
+                    <button onClick={() => setError(null)} className="text-white/40 hover:text-foreground">✕</button>
                 </div>
             )}
 
             {/* Top Navigation Tabs */}
-            <div className="flex gap-6 border-b border-white/10 px-1">
+            <div className="flex gap-6 border-b border-outline px-1">
                 <button
                     onClick={() => { setDataMode('file'); setPreview([]); setError(null); }}
-                    className={`px-2 pb-3 text-sm font-medium transition-colors relative flex items-center gap-2.5 ${dataMode === 'file' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
+                    className={`px-2 pb-3 text-sm font-medium transition-colors relative flex items-center gap-2.5 ${dataMode === 'file' ? 'text-blue-400' : 'text-foreground-muted hover:text-foreground'}`}
                 >
                     <FileText className="w-4 h-4 shrink-0" />
                     <span>Import from File</span>
@@ -158,7 +158,7 @@ export function DataPreparation() {
                 </button>
                 <button
                     onClick={() => { setDataMode('mcp'); setPreview([]); setError(null); }}
-                    className={`px-2 pb-3 text-sm font-medium transition-colors relative flex items-center gap-2.5 ${dataMode === 'mcp' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
+                    className={`px-2 pb-3 text-sm font-medium transition-colors relative flex items-center gap-2.5 ${dataMode === 'mcp' ? 'text-blue-400' : 'text-foreground-muted hover:text-foreground'}`}
                 >
                     <Server className="w-4 h-4 shrink-0" />
                     <span>Generate via MCP</span>
@@ -171,7 +171,7 @@ export function DataPreparation() {
                     // --- FILE MODE CONFIGURATION ---
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                         <div className="flex flex-col space-y-1.5">
-                            <label className="text-xs font-bold text-gray-500 uppercase">{t('dataPrep.upload')}</label>
+                            <label className="text-xs font-bold text-foreground-muted uppercase">{t('dataPrep.upload')}</label>
                             <button
                                 onClick={handleFileSelect}
                                 onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -192,7 +192,7 @@ export function DataPreparation() {
                                         ? 'bg-blue-500/20 border-blue-400 text-blue-300'
                                         : fileName
                                             ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
-                                            : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20'
+                                            : 'bg-black/40 border-outline text-foreground-muted hover:bg-active hover:border-outline-strong'
                                 }`}
                             >
                                 <span className="truncate">{dragOver ? 'Drop CSV here…' : fileName || 'Select or drop CSV…'}</span>
@@ -200,7 +200,7 @@ export function DataPreparation() {
                             </button>
                         </div>
                         <div className="flex flex-col space-y-1.5">
-                            <label className="text-xs font-bold text-gray-500 uppercase">{t('dataPrep.convert')}</label>
+                            <label className="text-xs font-bold text-foreground-muted uppercase">{t('dataPrep.convert')}</label>
                             <button
                                 onClick={async () => {
                                     const path = await window.electronAPI?.selectDirectory?.();
@@ -208,7 +208,7 @@ export function DataPreparation() {
                                 }}
                                 className={`flex items-center justify-between px-3 h-10 rounded-lg border text-[13px] font-medium transition-all text-left ${outputPath
                                     ? 'bg-green-500/10 border-green-500/30 text-green-200'
-                                    : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20'
+                                    : 'bg-black/40 border-outline text-foreground-muted hover:bg-active hover:border-outline-strong'
                                     }`}
                                 title={outputPath}
                             >
@@ -222,13 +222,13 @@ export function DataPreparation() {
                     <div className="flex flex-col space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="flex flex-col space-y-1.5">
-                                <label className="text-xs font-bold text-gray-500 uppercase">Active MCP Server</label>
+                                <label className="text-xs font-bold text-foreground-muted uppercase">Active MCP Server</label>
                                 <div className="relative">
                                     <Database className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400" />
                                     <select
                                         value={mcpServer}
                                         onChange={(e) => setMcpServer(e.target.value)}
-                                        className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-white text-sm outline-none focus:border-blue-500"
+                                        className="w-full bg-black/40 border border-outline rounded-lg pl-9 pr-3 py-2.5 text-white text-sm outline-none focus:border-blue-500"
                                     >
                                         {mcpServers.length === 0 && (
                                             <option value="">No servers configured — add in Settings</option>
@@ -241,7 +241,7 @@ export function DataPreparation() {
                             </div>
 
                             <div className="flex flex-col space-y-1.5">
-                                <label className="text-xs font-bold text-gray-500 uppercase">Bridge Model (Generator)</label>
+                                <label className="text-xs font-bold text-foreground-muted uppercase">Bridge Model (Generator)</label>
                                 <div className={`flex items-center px-3 py-2.5 rounded-lg border text-sm text-left ${activeModel ? 'bg-blue-500/10 border-blue-500/30 text-blue-200' : 'bg-black/40 border-red-500/30 text-red-400'}`}>
                                     {activeModel ? (
                                         <>
@@ -255,7 +255,7 @@ export function DataPreparation() {
                             </div>
 
                             <div className="flex flex-col space-y-1.5">
-                                <label className="text-xs font-bold text-gray-500 uppercase">Output Path (JSONL)</label>
+                                <label className="text-xs font-bold text-foreground-muted uppercase">Output Path (JSONL)</label>
                                 <button
                                     onClick={async () => {
                                         const path = await window.electronAPI?.selectDirectory?.();
@@ -263,7 +263,7 @@ export function DataPreparation() {
                                     }}
                                     className={`flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm transition-all text-left ${outputPath
                                         ? 'bg-green-500/10 border-green-500/30 text-green-200'
-                                        : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/5'
+                                        : 'bg-black/40 border-outline text-foreground-muted hover:bg-hover'
                                         }`}
                                     title={outputPath}
                                 >
@@ -274,14 +274,14 @@ export function DataPreparation() {
                         </div>
 
                         <div className="flex flex-col space-y-1.5">
-                            <label className="text-xs font-bold text-gray-500 uppercase">System Prompt / Goal</label>
+                            <label className="text-xs font-bold text-foreground-muted uppercase">System Prompt / Goal</label>
                             <div className="relative">
-                                <MessageSquare className="absolute left-3 top-3 w-4 h-4 text-gray-500" />
+                                <MessageSquare className="absolute left-3 top-3 w-4 h-4 text-foreground-muted" />
                                 <textarea
                                     value={mcpPrompt}
                                     onChange={(e) => setMcpPrompt(e.target.value)}
                                     rows={3}
-                                    className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-white outline-none focus:border-blue-500 text-sm resize-none"
+                                    className="w-full bg-black/40 border border-outline rounded-lg pl-9 pr-4 py-2 text-white outline-none focus:border-blue-500 text-sm resize-none"
                                     placeholder="Tell the Bridge Model what kind of Instruction/Output pairs to generate from the MCP server..."
                                 />
                             </div>
@@ -314,24 +314,24 @@ export function DataPreparation() {
             {preview.length > 0 ? (
                 <Card className="flex-1 flex flex-col gap-4 overflow-hidden p-0 bg-transparent shadow-none border-none">
                     {/* Column Mapping Bar (Only relevant for File mode mostly, but kept for MCP sanity checks) */}
-                    <div className="bg-black/20 border border-white/10 rounded-xl p-3 flex flex-wrap items-center gap-4">
-                        <span className="text-xs font-bold text-gray-500 uppercase mr-2">{t('dataPrep.preview')}:</span>
+                    <div className="bg-black/20 border border-outline rounded-xl p-3 flex flex-wrap items-center gap-4">
+                        <span className="text-xs font-bold text-foreground-muted uppercase mr-2">{t('dataPrep.preview')}:</span>
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-blue-300">{t('dataPrep.inputColumn')}:</span>
-                            <select value={instructionCol} onChange={(e) => setInstructionCol(e.target.value)} className="bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500">
+                            <select value={instructionCol} onChange={(e) => setInstructionCol(e.target.value)} className="bg-black/40 border border-outline rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500">
                                 {columns.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">Input (Opt):</span>
-                            <select value={inputCol} onChange={(e) => setInputCol(e.target.value)} className="bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500">
+                            <span className="text-xs text-foreground-muted">Input (Opt):</span>
+                            <select value={inputCol} onChange={(e) => setInputCol(e.target.value)} className="bg-black/40 border border-outline rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500">
                                 <option value="">(None)</option>
                                 {columns.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-green-300">{t('dataPrep.outputColumn')}:</span>
-                            <select value={outputCol} onChange={(e) => setOutputCol(e.target.value)} className="bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500">
+                            <select value={outputCol} onChange={(e) => setOutputCol(e.target.value)} className="bg-black/40 border border-outline rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500">
                                 {columns.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
@@ -349,13 +349,13 @@ export function DataPreparation() {
                     </div>
 
                     {/* Table */}
-                    <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-background">
-                        <table className="w-full text-left text-sm text-gray-400 border-separate border-spacing-0">
-                            <thead className="bg-elevated text-gray-500 uppercase font-bold text-[10px] tracking-wide sticky top-0 z-20">
+                    <div className="flex-1 overflow-auto rounded-xl border border-outline bg-background">
+                        <table className="w-full text-left text-sm text-foreground-muted border-separate border-spacing-0">
+                            <thead className="bg-elevated text-foreground-muted uppercase font-bold text-[10px] tracking-wide sticky top-0 z-20">
                                 <tr>
-                                    <th className="px-4 py-3 bg-elevated border-b border-white/10 w-12 text-center">#</th>
+                                    <th className="px-4 py-3 bg-elevated border-b border-outline w-12 text-center">#</th>
                                     {columns.map(header => (
-                                        <th key={header} className={`px-4 py-3 bg-elevated border-b border-white/10 whitespace-nowrap ${header === instructionCol ? 'text-blue-400 shadow-[inset_0_-2px_0_#3b82f6]' : header === outputCol ? 'text-green-400 shadow-[inset_0_-2px_0_#22c55e]' : header === inputCol ? 'text-indigo-400 shadow-[inset_0_-2px_0_#6366f1]' : ''}`}>
+                                        <th key={header} className={`px-4 py-3 bg-elevated border-b border-outline whitespace-nowrap ${header === instructionCol ? 'text-blue-400 shadow-[inset_0_-2px_0_#3b82f6]' : header === outputCol ? 'text-green-400 shadow-[inset_0_-2px_0_#22c55e]' : header === inputCol ? 'text-indigo-400 shadow-[inset_0_-2px_0_#6366f1]' : ''}`}>
                                             <div className="flex items-center gap-2">
                                                 {header}
                                                 {header === instructionCol && <span className="text-[8px] bg-blue-500/20 px-1 rounded">PROMPT</span>}
@@ -367,10 +367,10 @@ export function DataPreparation() {
                             </thead>
                             <tbody className="divide-y divide-white/5">
                                 {preview.map((row, idx) => (
-                                    <tr key={idx} className="hover:bg-white/[0.02] transition-colors group">
-                                        <td className="px-4 py-3 text-[11px] font-mono text-gray-600 bg-black/20 text-center border-r border-white/5">{idx + 1}</td>
+                                    <tr key={idx} className="hover:bg-hover transition-colors group">
+                                        <td className="px-4 py-3 text-[11px] font-mono text-foreground-subtle bg-black/20 text-center border-r border-outline-subtle">{idx + 1}</td>
                                         {columns.map((col, cIdx) => (
-                                            <td key={cIdx} className={`px-4 py-3 text-[13px] border-r border-white/5 last:border-0 max-w-sm transition-opacity ${(!instructionCol || !outputCol) ? 'opacity-100' : (col === instructionCol || col === outputCol || col === inputCol) ? 'opacity-100 font-medium' : 'opacity-30 group-hover:opacity-60'}`} title={String(row[col])}>
+                                            <td key={cIdx} className={`px-4 py-3 text-[13px] border-r border-outline-subtle last:border-0 max-w-sm transition-opacity ${(!instructionCol || !outputCol) ? 'opacity-100' : (col === instructionCol || col === outputCol || col === inputCol) ? 'opacity-100 font-medium' : 'opacity-30 group-hover:opacity-60'}`} title={String(row[col])}>
                                                 <div className="line-clamp-2 leading-relaxed">
                                                     {String(row[col])}
                                                 </div>
@@ -383,14 +383,14 @@ export function DataPreparation() {
                     </div>
                 </Card>
             ) : (
-                <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-white/20 rounded-2xl bg-black/20 hover:bg-black/40 transition-all cursor-pointer group">
-                    <div className="w-16 h-16 bg-elevated rounded-2xl flex items-center justify-center mb-4 border border-white/5 group-hover:scale-105 transition-transform">
+                <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-outline hover:border-outline-strong rounded-2xl bg-black/20 hover:bg-black/40 transition-all cursor-pointer group">
+                    <div className="w-16 h-16 bg-elevated rounded-2xl flex items-center justify-center mb-4 border border-outline-subtle group-hover:scale-105 transition-transform">
                         {dataMode === 'file' ? <FileText className="w-8 h-8 text-blue-400/80 group-hover:text-blue-400" /> : <Server className="w-8 h-8 text-blue-400/80 group-hover:text-blue-400" />}
                     </div>
-                    <p className="text-gray-300 font-bold tracking-wide">
+                    <p className="text-foreground-secondary font-bold tracking-wide">
                         {dataMode === 'file' ? "Select a CSV dataset to begin" : "Configure MCP and Model to generate Data"}
                     </p>
-                    <p className="text-gray-500 text-[13px] mt-2 max-w-md text-center leading-relaxed">
+                    <p className="text-foreground-muted text-[13px] mt-2 max-w-md text-center leading-relaxed">
                         {dataMode === 'file'
                             ? "Configure your settings above, map your columns, and generate a clean JSONL file for training."
                             : "The generator will utilize the selected MCP server context and the bridge model to automatically output Fine-Tuning rows."}

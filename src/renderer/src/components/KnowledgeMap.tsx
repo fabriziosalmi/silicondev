@@ -94,7 +94,7 @@ const KnowledgeMap: React.FC<KnowledgeMapProps> = ({ isOpen, onClose }) => {
           className="fixed inset-0 z-modal bg-overlay/95 backdrop-blur-xl flex flex-col overflow-hidden"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
+          <div className="flex items-center justify-between p-4 border-b border-outline bg-hover">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-indigo-500/20 rounded-lg">
                 <Brain className="w-5 h-5 text-indigo-400" />
@@ -108,14 +108,14 @@ const KnowledgeMap: React.FC<KnowledgeMapProps> = ({ isOpen, onClose }) => {
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => fetchGraphData()}
-                className="p-2 hover:bg-white/10 rounded-lg text-slate-300 transition-colors"
+                className="p-2 hover:bg-active rounded-lg text-slate-300 transition-colors"
                 title="Refresh Graph"
               >
                 <Zap className="w-5 h-5" />
               </button>
               <button 
                 onClick={onClose}
-                className="p-2 hover:bg-white/10 rounded-lg text-slate-300 transition-colors"
+                className="p-2 hover:bg-active rounded-lg text-slate-300 transition-colors"
                 title="Close"
               >
                 <X className="w-6 h-6" />
@@ -151,7 +151,7 @@ const KnowledgeMap: React.FC<KnowledgeMapProps> = ({ isOpen, onClose }) => {
             )}
 
             {/* Legend */}
-            <div className="absolute bottom-6 left-6 p-4 bg-black/40 backdrop-blur-md rounded-xl border border-white/10">
+            <div className="absolute bottom-6 left-6 p-4 bg-black/40 backdrop-blur-md rounded-xl border border-outline">
               <h4 className="text-white/80 text-xs font-bold uppercase tracking-wider mb-3">Nodes</h4>
               <div className="space-y-2">
                 {[

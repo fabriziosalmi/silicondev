@@ -28,7 +28,7 @@ export function ParameterSlider({
     return (
         <div>
             <div className="flex justify-between items-center mb-1.5">
-                <label className="text-xs text-gray-500" title={hint}>{label}</label>
+                <label className="text-xs text-foreground-muted" title={hint}>{label}</label>
                 <input
                     type="text"
                     title={label}
@@ -37,7 +37,7 @@ export function ParameterSlider({
                     onBlur={applyValue}
                     onKeyDown={(e) => { if (e.key === 'Enter') { applyValue(); (e.target as HTMLInputElement).blur(); } if (e.key === 'Escape') { setEditing(false); } }}
                     onChange={(e) => setEditValue(e.target.value)}
-                    className="w-16 text-right text-xs font-mono text-gray-400 tabular-nums bg-transparent outline-none border-b border-transparent focus:border-white/20 transition-colors"
+                    className="w-16 text-right text-xs font-mono text-foreground-muted tabular-nums bg-transparent outline-none border-b border-transparent focus:border-outline-strong transition-colors"
                 />
             </div>
             <input
@@ -46,7 +46,7 @@ export function ParameterSlider({
                 min={min} max={max} step={step}
                 value={value}
                 onChange={(e) => onChange(parseFloat(e.target.value))}
-                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-white/50"
+                className="w-full h-1 bg-active rounded-full appearance-none cursor-pointer accent-white/50"
             />
         </div>
     )

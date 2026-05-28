@@ -1373,7 +1373,7 @@ Return exactly this JSON structure (no other text):
             const codeString = String(children).replace(/\n$/, '');
             // Inline code (no language class, short, no newlines)
             if (!match && !codeString.includes('\n')) {
-                return <code className="bg-white/5 px-1.5 py-0.5 rounded text-blue-300 text-[13px]">{children}</code>;
+                return <code className="bg-hover px-1.5 py-0.5 rounded text-blue-300 text-[13px]">{children}</code>;
             }
             // Fenced code block
             return (
@@ -1465,7 +1465,7 @@ Return exactly this JSON structure (no other text):
                                         if (e.key === 'Escape') setRenamingTitle(null);
                                     }}
                                     autoFocus
-                                    className="text-xs text-gray-300 bg-white/5 border border-white/10 rounded px-2 py-1 outline-none focus:border-white/20 max-w-[200px]"
+                                    className="text-xs text-foreground-secondary bg-hover border border-outline rounded px-2 py-1 outline-none focus:border-outline-strong max-w-[200px]"
                                     placeholder={t('chat.titlePlaceholder')}
                                 />
                             );
@@ -1474,7 +1474,7 @@ Return exactly this JSON structure (no other text):
                             <button
                                 type="button"
                                 onClick={() => setRenamingTitle(title)}
-                                className="group/rename flex items-center gap-1.5 px-2 py-1 rounded text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors max-w-[200px] truncate"
+                                className="group/rename flex items-center gap-1.5 px-2 py-1 rounded text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors max-w-[200px] truncate"
                                 title={t('chat.rename')}
                             >
                                 <Pencil className="w-3 h-3 shrink-0 opacity-0 group-hover/rename:opacity-100 transition-opacity" />
@@ -1482,12 +1482,12 @@ Return exactly this JSON structure (no other text):
                             </button>
                         );
                     })()}
-                    {activeConversationId && <div className="w-px h-4 bg-white/10" />}
+                    {activeConversationId && <div className="w-px h-4 bg-active" />}
                     {messages.length > 0 && (
                         <button
                             type="button"
                             onClick={handleNewConversation}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors"
                         >
                             <Plus className="w-3.5 h-3.5" />
                             {t('chat.new')}
@@ -1497,24 +1497,24 @@ Return exactly this JSON structure (no other text):
                         <div className="relative group/export">
                             <button
                                 type="button"
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors"
                             >
                                 <Download className="w-3.5 h-3.5" />
                                 {t('chat.export')}
                             </button>
                             <div className="hidden group-hover/export:block absolute top-full left-0 pt-1 z-50">
-                                <div className="bg-elevated border border-white/10 rounded-lg shadow-xl py-1 min-w-[110px]">
+                                <div className="bg-elevated border border-outline rounded-lg shadow-xl py-1 min-w-[110px]">
                                     <button
                                         type="button"
                                         onClick={() => handleExport('md')}
-                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors"
                                     >
                                         {t('chat.exportMarkdown')}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => handleExport('json')}
-                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors"
                                     >
                                         {t('chat.exportJson')}
                                     </button>
@@ -1526,7 +1526,7 @@ Return exactly this JSON structure (no other text):
                         <div className="relative group/redact">
                             <button
                                 type="button"
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors"
                             >
                                 <Shield className="w-3.5 h-3.5" />
                                 {t('chat.redact')}
@@ -1535,18 +1535,18 @@ Return exactly this JSON structure (no other text):
                                 )}
                             </button>
                             <div className="hidden group-hover/redact:block absolute top-full left-0 pt-1 z-50">
-                                <div className="bg-elevated border border-white/10 rounded-lg shadow-xl py-1 min-w-[140px]">
+                                <div className="bg-elevated border border-outline rounded-lg shadow-xl py-1 min-w-[140px]">
                                     <button
                                         type="button"
                                         onClick={() => handleRedactConversation('all')}
-                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors"
                                     >
                                         {t('chat.redactAll')}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => handleRedactConversation('outgoing')}
-                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors"
                                     >
                                         {t('chat.redactMyOnly')}
                                     </button>
@@ -1558,7 +1558,7 @@ Return exactly this JSON structure (no other text):
                         <button
                             type="button"
                             onClick={toggleSearch}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showSearch ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showSearch ? 'bg-active text-white' : 'text-foreground-muted hover:text-foreground hover:bg-hover'}`}
                             title={t('chat.searchTitle')}
                         >
                             <Search className="w-3.5 h-3.5" />
@@ -1569,7 +1569,7 @@ Return exactly this JSON structure (no other text):
                         <button
                             type="button"
                             onClick={() => setShowMemoryMap(!showMemoryMap)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showMemoryMap ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showMemoryMap ? 'bg-active text-white' : 'text-foreground-muted hover:text-foreground hover:bg-hover'}`}
                         >
                             <Brain className="w-3.5 h-3.5" />
                             {memoryBuilding ? t('chat.memoryBuilding') : t('chat.memory')}
@@ -1578,7 +1578,7 @@ Return exactly this JSON structure (no other text):
                     <button
                         type="button"
                         onClick={toggleParams}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${paramsExpanded ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${paramsExpanded ? 'bg-active text-white' : 'text-foreground-muted hover:text-foreground hover:bg-hover'}`}
                     >
                         <Settings2 className="w-3.5 h-3.5" />
                         {t('chat.parameters')}
@@ -1588,7 +1588,7 @@ Return exactly this JSON structure (no other text):
                         <button
                             type="button"
                             onClick={() => window.dispatchEvent(new CustomEvent('silicon-studio:open-model-picker'))}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-colors border border-white/5 hover:border-white/15 max-w-[180px]"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-foreground-muted hover:text-foreground hover:bg-hover transition-colors border border-outline-subtle hover:border-white/15 max-w-[180px]"
                             title="Switch model"
                         >
                             <Cpu className="w-3.5 h-3.5 shrink-0" />
@@ -1634,8 +1634,8 @@ Return exactly this JSON structure (no other text):
 
                     {/* Search Bar */}
                     {showSearch && (
-                        <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5 bg-black/30 shrink-0">
-                            <Search size={14} className="text-gray-500 shrink-0" />
+                        <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-subtle bg-black/30 shrink-0">
+                            <Search size={14} className="text-foreground-muted shrink-0" />
                             <input
                                 ref={searchInputRef}
                                 value={searchQuery}
@@ -1651,11 +1651,11 @@ Return exactly this JSON structure (no other text):
                                     if (e.key === 'Escape') toggleSearch();
                                 }}
                                 placeholder={t('chat.searchPlaceholder')}
-                                className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none"
+                                className="flex-1 bg-transparent text-sm text-white placeholder:text-foreground-subtle outline-none"
                             />
                             {searchQuery && (
                                 <div className="flex items-center gap-1 shrink-0">
-                                    <span className="text-[10px] text-gray-500 tabular-nums">
+                                    <span className="text-[10px] text-foreground-muted tabular-nums">
                                         {searchMatches.length > 0
                                             ? `${searchMatchIndex + 1}/${searchMatches.length}`
                                             : t('chat.searchNoResults')}
@@ -1669,7 +1669,7 @@ Return exactly this JSON structure (no other text):
                                                     setSearchMatchIndex(prev);
                                                     document.getElementById(`msg-${searchMatches[prev]}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                                 }}
-                                                className="p-0.5 rounded text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+                                                className="p-0.5 rounded text-foreground-muted hover:text-foreground hover:bg-active transition-colors"
                                                 title={t('chat.searchPrev')}
                                             >
                                                 <ChevronUp size={14} />
@@ -1681,7 +1681,7 @@ Return exactly this JSON structure (no other text):
                                                     setSearchMatchIndex(next);
                                                     document.getElementById(`msg-${searchMatches[next]}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                                 }}
-                                                className="p-0.5 rounded text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+                                                className="p-0.5 rounded text-foreground-muted hover:text-foreground hover:bg-active transition-colors"
                                                 title={t('chat.searchNext')}
                                             >
                                                 <ChevronDown size={14} />
@@ -1690,7 +1690,7 @@ Return exactly this JSON structure (no other text):
                                     )}
                                 </div>
                             )}
-                            <button type="button" onClick={toggleSearch} className="text-gray-500 hover:text-white transition-colors shrink-0" title={t('chat.searchClose')}>
+                            <button type="button" onClick={toggleSearch} className="text-foreground-muted hover:text-foreground transition-colors shrink-0" title={t('chat.searchClose')}>
                                 <X size={14} />
                             </button>
                         </div>
@@ -1701,19 +1701,19 @@ Return exactly this JSON structure (no other text):
                         {messages.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center">
                                 <div className="text-center max-w-md">
-                                    <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
-                                        <Cpu className="w-5 h-5 text-gray-500" />
+                                    <div className="w-10 h-10 rounded-xl bg-hover border border-outline flex items-center justify-center mx-auto mb-4">
+                                        <Cpu className="w-5 h-5 text-foreground-muted" />
                                     </div>
                                     {currentModelName ? (
-                                        <p className="text-sm text-gray-400 mb-1">
+                                        <p className="text-sm text-foreground-muted mb-1">
                                             {t('chat.readyWith', { model: currentModelName })}
                                         </p>
                                     ) : (
                                         <div className="flex items-center justify-center gap-2 mb-1">
-                                            <span className="text-sm text-gray-400">{t('chat.noModel')}</span>
+                                            <span className="text-sm text-foreground-muted">{t('chat.noModel')}</span>
                                             {suggestedModel && (
                                                 <>
-                                                    <span className="text-sm text-gray-600">—</span>
+                                                    <span className="text-sm text-foreground-subtle">—</span>
                                                     <button
                                                         type="button"
                                                         onClick={handleLoadSuggested}
@@ -1734,7 +1734,7 @@ Return exactly this JSON structure (no other text):
                                             )}
                                         </div>
                                     )}
-                                    <p className="text-xs text-gray-500">
+                                    <p className="text-xs text-foreground-muted">
                                         {currentModelId
                                             ? t('chat.typeMessage')
                                             : !suggestedModel ? t('chat.loadModelPrompt') : ''
@@ -1743,10 +1743,10 @@ Return exactly this JSON structure (no other text):
 
                                     {/* One-click model download walkthrough */}
                                     {!currentModelId && backendReady && !hasDownloadedModels && walkthroughStep !== 'done' && (
-                                        <div className="mt-6 p-4 bg-white/[0.02] border border-white/5 rounded-xl max-w-sm mx-auto">
+                                        <div className="mt-6 p-4 bg-hover border border-outline-subtle rounded-xl max-w-sm mx-auto">
                                             {walkthroughStep === 'idle' && (
                                                 <>
-                                                    <p className="text-xs text-gray-400 mb-3">{t('chat.walkthrough.noModels')}</p>
+                                                    <p className="text-xs text-foreground-muted mb-3">{t('chat.walkthrough.noModels')}</p>
                                                     <button
                                                         type="button"
                                                         onClick={() => startWalkthrough('mlx-community/Qwen3-0.6B-4bit')}
@@ -1758,7 +1758,7 @@ Return exactly this JSON structure (no other text):
                                                     <button
                                                         type="button"
                                                         onClick={() => startWalkthrough('mlx-community/Llama-3.2-1B-Instruct-4bit')}
-                                                        className="w-full flex items-center gap-3 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg text-xs transition-colors"
+                                                        className="w-full flex items-center gap-3 px-4 py-2.5 bg-hover hover:bg-active text-foreground-secondary rounded-lg text-xs transition-colors"
                                                     >
                                                         <Download className="w-3.5 h-3.5" />
                                                         {t('chat.walkthrough.downloadLlama')}
@@ -1766,20 +1766,20 @@ Return exactly this JSON structure (no other text):
                                                 </>
                                             )}
                                             {walkthroughStep === 'downloading' && (
-                                                <div className="flex items-center gap-3 text-sm text-gray-300">
+                                                <div className="flex items-center gap-3 text-sm text-foreground-secondary">
                                                     <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin shrink-0" />
                                                     <div className="text-left">
                                                         <p className="font-medium">{t('chat.walkthrough.downloading', { model: walkthroughModel?.split('/').pop() })}</p>
-                                                        <p className="text-xs text-gray-500 mt-0.5">{t('chat.walkthrough.downloadWait')}</p>
+                                                        <p className="text-xs text-foreground-muted mt-0.5">{t('chat.walkthrough.downloadWait')}</p>
                                                     </div>
                                                 </div>
                                             )}
                                             {walkthroughStep === 'loading' && (
-                                                <div className="flex items-center gap-3 text-sm text-gray-300">
+                                                <div className="flex items-center gap-3 text-sm text-foreground-secondary">
                                                     <div className="w-5 h-5 border-2 border-green-500/30 border-t-green-500 rounded-full animate-spin shrink-0" />
                                                     <div className="text-left">
                                                         <p className="font-medium">{t('chat.walkthrough.loadingModel')}</p>
-                                                        <p className="text-xs text-gray-500 mt-0.5">{t('chat.walkthrough.almostReady')}</p>
+                                                        <p className="text-xs text-foreground-muted mt-0.5">{t('chat.walkthrough.almostReady')}</p>
                                                     </div>
                                                 </div>
                                             )}
@@ -1805,7 +1805,7 @@ Return exactly this JSON structure (no other text):
                                     <button
                                         type="button"
                                         onClick={() => setRenderStart(Math.max(0, renderStart - RENDER_PAGE))}
-                                        className="w-full py-2 mb-4 text-xs text-gray-500 hover:text-gray-300 bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 rounded-lg transition-colors"
+                                        className="w-full py-2 mb-4 text-xs text-foreground-muted hover:text-foreground-secondary bg-hover hover:bg-hover border border-outline-subtle rounded-lg transition-colors"
                                     >
                                         {t('chat.showEarlier', { count: Math.min(renderStart, RENDER_PAGE), hidden: renderStart })}
                                     </button>
@@ -1834,14 +1834,14 @@ Return exactly this JSON structure (no other text):
                                         const isActiveHit = isSearchHit && searchMatches[searchMatchIndex] === idx;
 
                                         return (
-                                            <div key={idx} id={`msg-${idx}`} className={`mb-6 group rounded-lg transition-colors ${isActiveHit ? 'bg-yellow-500/10 ring-1 ring-yellow-500/30' : isSearchHit ? 'bg-white/[0.02]' : ''}`}>
+                                            <div key={idx} id={`msg-${idx}`} className={`mb-6 group rounded-lg transition-colors ${isActiveHit ? 'bg-yellow-500/10 ring-1 ring-yellow-500/30' : isSearchHit ? 'bg-hover' : ''}`}>
                                                 <div className="flex items-start gap-3">
-                                                    <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center shrink-0 mt-0.5">
-                                                        <User size={14} className="text-gray-400" />
+                                                    <div className="w-6 h-6 rounded-md bg-active flex items-center justify-center shrink-0 mt-0.5">
+                                                        <User size={14} className="text-foreground-muted" />
                                                     </div>
                                                     {msg.displayContent ? (
                                                         <details className="min-w-0 group/action">
-                                                            <summary className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-gray-300 cursor-pointer select-none list-none hover:bg-white/[0.06] transition-colors">
+                                                            <summary className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-hover border border-outline-subtle text-sm text-foreground-secondary cursor-pointer select-none list-none hover:bg-hover transition-colors">
                                                                 <span className="text-blue-400 shrink-0">
                                                                     {(msg.actionType && ACTION_ICONS[msg.actionType]) || <Settings2 className="w-3.5 h-3.5" />}
                                                                 </span>
@@ -1855,14 +1855,14 @@ Return exactly this JSON structure (no other text):
                                                                 {showSpinner && (
                                                                     <div className="w-3 h-3 border border-blue-400/40 border-t-blue-400 rounded-full animate-spin shrink-0 ml-1" />
                                                                 )}
-                                                                <ChevronRight className="w-3 h-3 text-gray-600 shrink-0 ml-auto transition-transform chevron-rotate" />
+                                                                <ChevronRight className="w-3 h-3 text-foreground-subtle shrink-0 ml-auto transition-transform chevron-rotate" />
                                                             </summary>
-                                                            <div className="mt-2 ml-1 pl-3 border-l border-white/5 text-xs text-gray-500 max-h-48 overflow-y-auto">
+                                                            <div className="mt-2 ml-1 pl-3 border-l border-outline-subtle text-xs text-foreground-muted max-h-48 overflow-y-auto">
                                                                 <pre className="whitespace-pre-wrap font-mono leading-relaxed">{msg.content}</pre>
                                                             </div>
                                                         </details>
                                                     ) : (
-                                                        <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-black/30 prose-pre:border prose-pre:border-white/5 prose-pre:rounded-lg prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 prose-hr:border-transparent min-w-0">
+                                                        <div className="prose prose-invert prose-sm max-w-none text-foreground-secondary leading-relaxed prose-p:my-2 prose-pre:bg-black/30 prose-pre:border prose-pre:border-outline-subtle prose-pre:rounded-lg prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 prose-hr:border-transparent min-w-0">
                                                             <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}
                                                                 rehypePlugins={[rehypeSanitize]}
                                                                 components={{ hr: () => <hr className="border-white/[0.03] my-3" /> }}
@@ -1875,7 +1875,7 @@ Return exactly this JSON structure (no other text):
                                                 {msg.images && msg.images.length > 0 && (
                                                     <div className="flex gap-2 mt-2 ml-9">
                                                         {msg.images.map((src, i) => (
-                                                            <img key={i} src={src} className="max-w-[200px] max-h-[200px] rounded-lg border border-white/10 object-cover" alt="Attached" />
+                                                            <img key={i} src={src} className="max-w-[200px] max-h-[200px] rounded-lg border border-outline object-cover" alt="Attached" />
                                                         ))}
                                                     </div>
                                                 )}
@@ -1891,7 +1891,7 @@ Return exactly this JSON structure (no other text):
                                                                 if (e.key === 'Escape') { setEditingMsgIdx(null); setEditingMsgText(''); }
                                                             }}
                                                             rows={Math.max(2, editingMsgText.split('\n').length)}
-                                                            className="w-full bg-white/[0.05] border border-blue-500/30 rounded-lg px-3 py-2 text-sm text-white outline-none resize-none focus:border-blue-500/60 font-mono"
+                                                            className="w-full bg-hover border border-blue-500/30 rounded-lg px-3 py-2 text-sm text-white outline-none resize-none focus:border-blue-500/60 font-mono"
                                                         />
                                                         <div className="flex gap-2">
                                                             <button
@@ -1904,7 +1904,7 @@ Return exactly this JSON structure (no other text):
                                                             <button
                                                                 type="button"
                                                                 onClick={() => { setEditingMsgIdx(null); setEditingMsgText(''); }}
-                                                                className="px-3 py-1 bg-white/5 hover:bg-white/10 text-gray-400 text-xs rounded-lg transition-colors"
+                                                                className="px-3 py-1 bg-hover hover:bg-active text-foreground-muted text-xs rounded-lg transition-colors"
                                                             >
                                                                 Cancel
                                                             </button>
@@ -1915,7 +1915,7 @@ Return exactly this JSON structure (no other text):
                                                         <button
                                                             type="button"
                                                             onClick={() => { setEditingMsgIdx(idx); setEditingMsgText(typeof msg.content === 'string' ? msg.content : ''); }}
-                                                            className="p-1 rounded text-gray-700 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                                                            className="p-1 rounded text-foreground-disabled hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
                                                             aria-label="Edit message"
                                                             title="Edit & resend"
                                                         >
@@ -1924,7 +1924,7 @@ Return exactly this JSON structure (no other text):
                                                         <button
                                                             type="button"
                                                             onClick={() => handleDeleteMessage(idx)}
-                                                            className="p-1 rounded text-gray-700 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                                            className="p-1 rounded text-foreground-disabled hover:text-red-400 hover:bg-red-500/10 transition-colors"
                                                             aria-label="Delete message"
                                                             title={t('chat.deleteMessage')}
                                                         >
@@ -1940,21 +1940,21 @@ Return exactly this JSON structure (no other text):
                                     const isActiveHitAst = isSearchHitAst && searchMatches[searchMatchIndex] === idx;
 
                                     return (
-                                        <div key={idx} id={`msg-${idx}`} className={`mb-6 group rounded-lg transition-colors ${isActiveHitAst ? 'bg-yellow-500/10 ring-1 ring-yellow-500/30' : isSearchHitAst ? 'bg-white/[0.02]' : ''}`}>
+                                        <div key={idx} id={`msg-${idx}`} className={`mb-6 group rounded-lg transition-colors ${isActiveHitAst ? 'bg-yellow-500/10 ring-1 ring-yellow-500/30' : isSearchHitAst ? 'bg-hover' : ''}`}>
                                             <div className="flex items-start gap-3">
                                                 <img src="./icon.svg" alt="" className="w-6 h-6 rounded-md shrink-0 mt-1" />
                                                 <div className="min-w-0 flex-1">
                                                     {/* Reasoning trace */}
                                                     {thinkingContent && (
                                                         <details className="mb-3">
-                                                            <summary className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500 hover:text-gray-400 transition-colors select-none py-0.5">
+                                                            <summary className="flex items-center gap-1.5 cursor-pointer text-xs text-foreground-muted hover:text-foreground-muted transition-colors select-none py-0.5">
                                                                 <ChevronRight className="w-3 h-3 transition-transform details-open:rotate-90" />
                                                                 <span>{t('chat.reasoning')}</span>
-                                                                <span className="text-gray-600 ml-1">
+                                                                <span className="text-foreground-subtle ml-1">
                                                                     {t('chat.reasoningWords', { count: thinkingContent.split(/\s+/).length })}
                                                                 </span>
                                                             </summary>
-                                                            <div className="mt-2 pl-4 border-l border-white/5 text-xs text-gray-500 leading-relaxed max-h-64 overflow-y-auto">
+                                                            <div className="mt-2 pl-4 border-l border-outline-subtle text-xs text-foreground-muted leading-relaxed max-h-64 overflow-y-auto">
                                                                 <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[rehypeSanitize]} components={{ hr: () => <hr className="border-white/[0.03] my-2" /> }}>
                                                                     {thinkingContent}
                                                                 </ReactMarkdown>
@@ -1970,7 +1970,7 @@ Return exactly this JSON structure (no other text):
                                                                 <div className="w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-bounce [animation-delay:150ms]" />
                                                                 <div className="w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-bounce [animation-delay:300ms]" />
                                                             </div>
-                                                            <span className="text-xs text-gray-500 ml-1">{t('chat.thinking')}</span>
+                                                            <span className="text-xs text-foreground-muted ml-1">{t('chat.thinking')}</span>
                                                             {/* F-6: live tok/s during generation */}
                                                             {msg.stats && msg.stats.tokensPerSecond > 0 && (
                                                                 <span className="text-[10px] font-mono text-blue-400/60 ml-1 tabular-nums">
@@ -1979,7 +1979,7 @@ Return exactly this JSON structure (no other text):
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed prose-p:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0 prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 prose-hr:border-transparent">
+                                                        <div className="prose prose-invert prose-sm max-w-none text-foreground-secondary leading-relaxed prose-p:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0 prose-code:text-blue-300 prose-code:font-normal prose-headings:font-semibold prose-headings:text-gray-100 prose-hr:border-transparent">
                                                             <ReactMarkdown
                                                                 remarkPlugins={[remarkGfm, remarkBreaks]}
                                                                 rehypePlugins={[rehypeSanitize]}
@@ -1992,8 +1992,8 @@ Return exactly this JSON structure (no other text):
 
                                                     {/* Sources citations */}
                                                     {msg.sources && msg.sources.length > 0 && visibleContent && (
-                                                        <details className="group mt-2 border border-white/5 rounded-lg overflow-hidden">
-                                                            <summary className="flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-500 hover:text-gray-400 cursor-pointer select-none bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+                                                        <details className="group mt-2 border border-outline-subtle rounded-lg overflow-hidden">
+                                                            <summary className="flex items-center gap-2 px-3 py-1.5 text-[11px] text-foreground-muted hover:text-foreground-muted cursor-pointer select-none bg-hover hover:bg-hover transition-colors">
                                                                 <Database size={12} className="shrink-0" />
                                                                 <span>{t('chat.sources', { count: msg.sources.length })}</span>
                                                                 <ChevronDown size={12} className="ml-auto group-open:rotate-180 transition-transform" />
@@ -2001,12 +2001,12 @@ Return exactly this JSON structure (no other text):
                                                             <div className="px-3 py-2 space-y-1.5 bg-white/[0.01]">
                                                                 {msg.sources.map(src => (
                                                                     <div key={src.index} className="flex items-start gap-2 text-[11px]">
-                                                                        <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded bg-white/5 text-gray-500 font-mono text-[10px]">{src.index}</span>
+                                                                        <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded bg-hover text-foreground-muted font-mono text-[10px]">{src.index}</span>
                                                                         <div className="min-w-0 flex-1">
                                                                             {src.url ? (
                                                                                 <a href={src.url} target="_blank" rel="noopener noreferrer" className="text-blue-400/80 hover:text-blue-300 truncate block" title={src.url}>{src.title}</a>
                                                                             ) : (
-                                                                                <span className="text-gray-400 truncate block">{src.title}</span>
+                                                                                <span className="text-foreground-muted truncate block">{src.title}</span>
                                                                             )}
                                                                         </div>
                                                                         <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-medium ${src.method === 'web' ? 'bg-green-500/10 text-green-500/70' : 'bg-blue-500/10 text-blue-500/70'}`}>
@@ -2067,7 +2067,7 @@ Return exactly this JSON structure (no other text):
                         <button
                             type="button"
                             onClick={scrollToBottom}
-                            className="absolute bottom-20 right-6 z-20 p-2 rounded-full bg-white/10 border border-white/10 text-gray-400 hover:text-white hover:bg-white/15 transition-colors shadow-lg backdrop-blur-sm"
+                            className="absolute bottom-20 right-6 z-20 p-2 rounded-full bg-active border border-outline text-foreground-muted hover:text-foreground hover:bg-white/15 transition-colors shadow-lg backdrop-blur-sm"
                             title={t('chat.scrollToBottom')}
                         >
                             <ChevronDown className="w-4 h-4" />
@@ -2089,13 +2089,13 @@ Return exactly this JSON structure (no other text):
                             {pendingImages.length > 0 && (
                                 <div className="flex gap-2 px-2 pb-2">
                                     {pendingImages.map((img, i) => (
-                                        <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/10 group">
+                                        <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-outline group">
                                             <img src={img.preview} className="w-full h-full object-cover" alt="" />
                                             <button
                                                 type="button"
                                                 title="Remove image"
                                                 onClick={() => removeImage(i)}
-                                                className="absolute top-0 right-0 p-0.5 bg-black/70 rounded-bl text-gray-300 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="absolute top-0 right-0 p-0.5 bg-black/70 rounded-bl text-foreground-secondary hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                                 <X className="w-3 h-3" />
                                             </button>
@@ -2114,7 +2114,7 @@ Return exactly this JSON structure (no other text):
                                 onChange={(e) => { if (e.target.files) addImages(e.target.files); e.target.value = '' }}
                             />
                             {/* Input field */}
-                            <div ref={inputWrapperRef} className="relative bg-white/[0.03] border border-white/10 rounded-xl focus-within:border-white/20 transition-colors">
+                            <div ref={inputWrapperRef} className="relative bg-hover border border-outline rounded-xl focus-within:border-outline-strong transition-colors">
                                 {/* Autocomplete overlay */}
                                 <InputOverlay
                                     input={input}
@@ -2137,7 +2137,7 @@ Return exactly this JSON structure (no other text):
                                     onClick={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
                                     placeholder={activeModel?.is_vision ? t('chat.sendPlaceholderVision') : t('chat.sendPlaceholder')}
                                     maxLength={32000}
-                                    className={`w-full bg-transparent px-4 py-3 ${activeModel?.is_vision ? 'pr-24' : 'pr-14'} text-sm text-gray-200 placeholder-gray-500 outline-none resize-none min-h-[44px] max-h-[200px]`}
+                                    className={`w-full bg-transparent px-4 py-3 ${activeModel?.is_vision ? 'pr-24' : 'pr-14'} text-sm text-foreground-secondary placeholder:text-foreground-subtle outline-none resize-none min-h-[44px] max-h-[200px]`}
                                     rows={1}
                                 />
                                 {/* Character counter — only shown when nearing the limit */}
@@ -2145,7 +2145,7 @@ Return exactly this JSON structure (no other text):
                                     <div className={`absolute left-3 bottom-2 text-[10px] font-mono tabular-nums ${
                                         input.length >= 32000 ? 'text-red-400' :
                                         input.length >= 28800 ? 'text-amber-400' :
-                                        'text-gray-600'
+                                        'text-foreground-subtle'
                                     }`}>
                                         {input.length.toLocaleString()}/32,000
                                     </div>
@@ -2155,7 +2155,7 @@ Return exactly this JSON structure (no other text):
                                         <button
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+                                            className="p-1.5 rounded-lg text-foreground-muted hover:text-foreground hover:bg-active transition-colors"
                                             aria-label={t('chat.attachImage')}
                                             title={t('chat.attachImage')}
                                         >
@@ -2166,7 +2166,7 @@ Return exactly this JSON structure (no other text):
                                         <button
                                             type="button"
                                             onClick={handleStop}
-                                            className="p-1.5 rounded-lg bg-white/10 text-gray-400 hover:text-white hover:bg-white/15 transition-colors"
+                                            className="p-1.5 rounded-lg bg-active text-foreground-muted hover:text-foreground hover:bg-white/15 transition-colors"
                                             aria-label="Stop generating"
                                             title={t('chat.stop')}
                                         >
@@ -2179,7 +2179,7 @@ Return exactly this JSON structure (no other text):
                                             disabled={(!input.trim() && pendingImages.length === 0) || !currentModelId}
                                             aria-label="Send message"
                                             title={!currentModelId ? t('chat.sendDisabledNoModel') : (!input.trim() && pendingImages.length === 0) ? t('chat.sendDisabledEmpty') : t('chat.send')}
-                                            className={`p-1.5 rounded-lg transition-colors ${(input.trim() || pendingImages.length > 0) && currentModelId ? 'bg-white text-black hover:bg-gray-200' : 'bg-white/5 text-gray-700 cursor-not-allowed'}`}
+                                            className={`p-1.5 rounded-lg transition-colors ${(input.trim() || pendingImages.length > 0) && currentModelId ? 'bg-white text-black hover:bg-gray-200' : 'bg-hover text-foreground-disabled cursor-not-allowed'}`}
                                         >
                                             <ArrowUp className="w-4 h-4" />
                                         </button>
@@ -2188,11 +2188,11 @@ Return exactly this JSON structure (no other text):
                             </div>
                             {/* Context transparency strip */}
                             {(settings.ragEnabled || settings.webSearchEnabled || settings.memoryMapEnabled || gitBranch) && (
-                                <div className="flex items-center gap-2 px-1 py-1 text-[10px] text-gray-600">
+                                <div className="flex items-center gap-2 px-1 py-1 text-[10px] text-foreground-subtle">
                                     {gitBranch && (
                                         <span className="flex items-center gap-1" title={t('chatInput.gitBranch')}>
                                             <GitBranch className="w-3 h-3" />
-                                            <span className={gitBranch.clean ? 'text-gray-500' : 'text-amber-500/70'}>{gitBranch.branch}</span>
+                                            <span className={gitBranch.clean ? 'text-foreground-muted' : 'text-amber-500/70'}>{gitBranch.branch}</span>
                                         </span>
                                     )}
                                     {settings.ragEnabled && settings.ragCollectionId && (
@@ -2214,7 +2214,7 @@ Return exactly this JSON structure (no other text):
                                         </span>
                                     )}
                                     {settings.systemPrompt && settings.systemPrompt !== getDefaultSettings().systemPrompt && (
-                                        <span className="flex items-center gap-1 text-gray-500" title={settings.systemPrompt.slice(0, 100)}>
+                                        <span className="flex items-center gap-1 text-foreground-muted" title={settings.systemPrompt.slice(0, 100)}>
                                             <Eye className="w-3 h-3" />
                                             {t('chatInput.customSystem')}
                                         </span>
@@ -2222,13 +2222,13 @@ Return exactly this JSON structure (no other text):
                                 </div>
                             )}
                             <div className="flex items-center justify-between mt-0.5 mx-1">
-                                <div className="flex items-center gap-3 text-[10px] text-gray-600">
+                                <div className="flex items-center gap-3 text-[10px] text-foreground-subtle">
                                     {!currentModelId && !isGenerating && messages.length > 0 ? (
                                         <p>{t('chat.noModelSuggestion')}</p>
                                     ) : null}
                                     {/* Token counter */}
                                     {showTokenCounter && tokenEstimate > 0 && (
-                                        <span className="flex items-center gap-1 text-gray-500" title={t('chatInput.tokenEstimateHint')}>
+                                        <span className="flex items-center gap-1 text-foreground-muted" title={t('chatInput.tokenEstimateHint')}>
                                             <Hash className="w-3 h-3" />
                                             ~{tokenEstimate} tok
                                         </span>
@@ -2240,12 +2240,12 @@ Return exactly this JSON structure (no other text):
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-3 text-[10px] text-gray-600 ml-auto">
-                                    <span><kbd className="text-gray-500">/</kbd> {t('chatInput.commandsHint')}</span>
-                                    <span><kbd className="text-gray-500">@</kbd> {t('chatInput.filesHint')}</span>
-                                    <span><kbd className="text-gray-500">↑</kbd> {t('chatInput.historyHint')}</span>
-                                    <span><kbd className="text-gray-500">Enter</kbd> {t('chat.enterSend')}</span>
-                                    <span><kbd className="text-gray-500">Shift+Enter</kbd> {t('chat.shiftEnterNewline')}</span>
+                                <div className="flex items-center gap-3 text-[10px] text-foreground-subtle ml-auto">
+                                    <span><kbd className="text-foreground-muted">/</kbd> {t('chatInput.commandsHint')}</span>
+                                    <span><kbd className="text-foreground-muted">@</kbd> {t('chatInput.filesHint')}</span>
+                                    <span><kbd className="text-foreground-muted">↑</kbd> {t('chatInput.historyHint')}</span>
+                                    <span><kbd className="text-foreground-muted">Enter</kbd> {t('chat.enterSend')}</span>
+                                    <span><kbd className="text-foreground-muted">Shift+Enter</kbd> {t('chat.shiftEnterNewline')}</span>
                                 </div>
                             </div>
                             {/* B-4: Context window usage bar */}
@@ -2258,11 +2258,11 @@ Return exactly this JSON structure (no other text):
                                 );
                                 const pct = Math.min(100, Math.round((usedTokens / ctxMax) * 100));
                                 const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-blue-500/60';
-                                const textColor = pct >= 90 ? 'text-red-400' : pct >= 70 ? 'text-amber-400' : 'text-gray-600';
+                                const textColor = pct >= 90 ? 'text-red-400' : pct >= 70 ? 'text-amber-400' : 'text-foreground-subtle';
                                 if (usedTokens < 100) return null; // hide when conversation is empty
                                 return (
                                     <div className="flex items-center gap-2 mx-1 mt-1" title={`~${usedTokens.toLocaleString()} / ${ctxMax.toLocaleString()} tokens used`}>
-                                        <div className="flex-1 h-0.5 bg-white/5 rounded-full overflow-hidden">
+                                        <div className="flex-1 h-0.5 bg-hover rounded-full overflow-hidden">
                                             <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
                                         </div>
                                         <span className={`text-[9px] font-mono tabular-nums shrink-0 ${textColor}`}>

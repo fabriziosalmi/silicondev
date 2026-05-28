@@ -79,7 +79,7 @@ export function DiffEditor({ filePath, originalContent, modifiedContent, languag
       </div>
 
       {/* Action bar */}
-      <div className="px-3 py-2 bg-black/30 border-t border-white/5 flex items-center gap-2 shrink-0">
+      <div className="px-3 py-2 bg-black/30 border-t border-outline-subtle flex items-center gap-2 shrink-0">
         {showRejectInput ? (
           <>
             <input
@@ -91,7 +91,7 @@ export function DiffEditor({ filePath, originalContent, modifiedContent, languag
                 if (e.key === 'Escape') { setShowRejectInput(false); setRejectReason('') }
               }}
               placeholder="Reason (optional, press Enter to reject)"
-              className="flex-1 px-2 py-1 bg-black/40 border border-white/10 rounded text-[11px] text-gray-300 placeholder-gray-600 outline-none focus:border-red-500/40"
+              className="flex-1 px-2 py-1 bg-black/40 border border-outline rounded text-[11px] text-foreground-secondary placeholder:text-foreground-subtle outline-none focus:border-red-500/40"
               autoFocus
             />
             <button
@@ -105,7 +105,7 @@ export function DiffEditor({ filePath, originalContent, modifiedContent, languag
             <button
               type="button"
               onClick={() => { setShowRejectInput(false); setRejectReason('') }}
-              className="px-2 py-1 text-gray-500 hover:text-gray-300 text-[11px] transition-colors"
+              className="px-2 py-1 text-foreground-muted hover:text-foreground-secondary text-[11px] transition-colors"
             >
               Cancel
             </button>
@@ -130,7 +130,7 @@ export function DiffEditor({ filePath, originalContent, modifiedContent, languag
               <X size={12} />
               Reject
             </button>
-            <span className="ml-auto text-[10px] text-gray-600">Review the proposed changes above</span>
+            <span className="ml-auto text-[10px] text-foreground-subtle">Review the proposed changes above</span>
           </>
         )}
       </div>

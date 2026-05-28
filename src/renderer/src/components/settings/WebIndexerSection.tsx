@@ -112,8 +112,8 @@ export function WebIndexerSection() {
             </div>
 
             {status && (
-                <div className="flex items-center gap-4 mb-3 text-[10px] text-gray-500">
-                    <span className={`flex items-center gap-1 ${status.running ? 'text-green-500' : 'text-gray-600'}`}>
+                <div className="flex items-center gap-4 mb-3 text-[10px] text-foreground-muted">
+                    <span className={`flex items-center gap-1 ${status.running ? 'text-green-500' : 'text-foreground-subtle'}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${status.running ? 'bg-green-500' : 'bg-gray-600'}`} />
                         {status.running ? 'Running (hourly)' : 'Stopped'}
                     </span>
@@ -125,29 +125,29 @@ export function WebIndexerSection() {
             )}
 
             {showAdd && (
-                <div className="mb-4 p-3 rounded-lg bg-black/30 border border-white/5 space-y-3">
+                <div className="mb-4 p-3 rounded-lg bg-black/30 border border-outline-subtle space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase">URL</label>
+                            <label className="text-[10px] font-bold text-foreground-muted uppercase">URL</label>
                             <input
                                 value={newUrl}
                                 onChange={(e) => setNewUrl(e.target.value)}
                                 placeholder="https://docs.example.com"
-                                className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500"
+                                className="bg-black/40 border border-outline rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500"
                             />
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase">Label (optional)</label>
+                            <label className="text-[10px] font-bold text-foreground-muted uppercase">Label (optional)</label>
                             <input
                                 value={newLabel}
                                 onChange={(e) => setNewLabel(e.target.value)}
                                 placeholder="Python docs"
-                                className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500"
+                                className="bg-black/40 border border-outline rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500"
                             />
                         </div>
                     </div>
                     <div className="flex justify-end gap-2">
-                        <button onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors">Cancel</button>
+                        <button onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-xs text-foreground-muted hover:text-foreground transition-colors">Cancel</button>
                         <button
                             onClick={handleAdd}
                             disabled={!newUrl.trim()}
@@ -161,26 +161,26 @@ export function WebIndexerSection() {
 
             {loading ? (
                 <div className="flex justify-center py-4">
-                    <Loader2 size={16} className="animate-spin text-gray-500" />
+                    <Loader2 size={16} className="animate-spin text-foreground-muted" />
                 </div>
             ) : sources.length === 0 ? (
-                <p className="text-sm text-gray-500">No URLs configured. Add URLs to automatically crawl, chunk, and index web content into your RAG knowledge base.</p>
+                <p className="text-sm text-foreground-muted">No URLs configured. Add URLs to automatically crawl, chunk, and index web content into your RAG knowledge base.</p>
             ) : (
                 <div className="space-y-2">
                     {sources.map(s => (
-                        <div key={s.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-black/20 border border-white/5 ${!s.enabled ? 'opacity-50' : ''}`}>
+                        <div key={s.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-black/20 border border-outline-subtle ${!s.enabled ? 'opacity-50' : ''}`}>
                             <ToggleSwitch
                                 enabled={s.enabled}
                                 onChange={(v) => handleToggle(s.id, v)}
                                 size="sm"
                                 label={`Toggle ${s.label}`}
                             />
-                            <Globe size={14} className="text-gray-500 shrink-0" />
+                            <Globe size={14} className="text-foreground-muted shrink-0" />
                             <div className="flex-1 min-w-0">
                                 <div className="text-sm text-white font-medium truncate">{s.label}</div>
-                                <div className="text-[10px] text-gray-600 truncate">{s.url}</div>
+                                <div className="text-[10px] text-foreground-subtle truncate">{s.url}</div>
                             </div>
-                            <button onClick={() => handleRemove(s.id)} title="Remove source" className="text-gray-600 hover:text-red-400 transition-colors">
+                            <button onClick={() => handleRemove(s.id)} title="Remove source" className="text-foreground-subtle hover:text-red-400 transition-colors">
                                 <Trash2 size={14} />
                             </button>
                         </div>
@@ -189,7 +189,7 @@ export function WebIndexerSection() {
             )}
 
             {crawlResult && (
-                <div className="mt-3 text-xs text-gray-400 bg-black/20 rounded px-3 py-2">
+                <div className="mt-3 text-xs text-foreground-muted bg-black/20 rounded px-3 py-2">
                     {crawlResult}
                 </div>
             )}

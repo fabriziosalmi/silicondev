@@ -251,10 +251,10 @@ function App() {
 
           <div className="text-center">
             <h1 className="text-[26px] font-bold text-white tracking-tight mb-1">{t('app.title')}</h1>
-            <p className="text-[11px] text-gray-600 font-mono mb-5">v{__APP_VERSION__}</p>
+            <p className="text-[11px] text-foreground-subtle font-mono mb-5">v{__APP_VERSION__}</p>
 
-            <p className="text-[12px] text-gray-500 mb-3">{loadingMessage || t('app.loading.initializing')}</p>
-            <div className="w-48 h-[2px] rounded-full bg-white/5 overflow-hidden">
+            <p className="text-[12px] text-foreground-muted mb-3">{loadingMessage || t('app.loading.initializing')}</p>
+            <div className="w-48 h-[2px] rounded-full bg-hover overflow-hidden">
               <div
                 className="h-full rounded-full bg-white/25 transition-all duration-300 ease-out"
                 style={{ width: `${loadProgress}%` }}
@@ -264,8 +264,8 @@ function App() {
         </div>
 
         <div className="absolute bottom-6 left-0 right-0 text-center">
-          <p className="text-[10px] font-semibold text-gray-700/50">Made with ❤️ by Fabrizio Salmi</p>
-          <p className="text-[10px] font-semibold text-gray-700/50 mt-0.5">MIT License</p>
+          <p className="text-[10px] font-semibold text-foreground-disabled/50">Made with ❤️ by Fabrizio Salmi</p>
+          <p className="text-[10px] font-semibold text-foreground-disabled/50 mt-0.5">MIT License</p>
         </div>
       </div>
     );
@@ -301,7 +301,7 @@ function App() {
           <nav className={`flex-1 flex flex-col min-h-0 overflow-y-auto space-y-6 ${sidebarCollapsed ? 'px-1.5' : 'px-4'} transition-all duration-200`}>
 
             <div>
-              {!sidebarCollapsed && <div className="px-3 mb-2 text-[10px] font-bold tracking-wide text-gray-500 uppercase">{t('sidebar.localServer')}</div>}
+              {!sidebarCollapsed && <div className="px-3 mb-2 text-[10px] font-bold tracking-wide text-foreground-muted uppercase">{t('sidebar.localServer')}</div>}
               <div className="space-y-1">
                 <div>
                   <SidebarItem
@@ -315,7 +315,7 @@ function App() {
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setChatSearchOpen(!chatSearchOpen); if (!chatSearchOpen && !historyExpanded) { setHistoryExpanded(true); conversations.fetchConversations(); } }}
-                          className={`p-1 rounded transition-colors ${chatSearchOpen ? 'text-blue-400 bg-blue-500/10' : 'text-gray-500 hover:text-white hover:bg-white/10'}`}
+                          className={`p-1 rounded transition-colors ${chatSearchOpen ? 'text-blue-400 bg-blue-500/10' : 'text-foreground-muted hover:text-foreground hover:bg-active'}`}
                           title={t('sidebar.searchConversations')}
                         >
                           <Search size={14} />
@@ -323,7 +323,7 @@ function App() {
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); conversations.setActiveConversationId(null); }}
-                          className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
+                          className="p-1 text-foreground-muted hover:text-foreground hover:bg-active rounded transition-colors"
                           title={t('sidebar.newConversation')}
                         >
                           <Plus size={14} />
@@ -331,7 +331,7 @@ function App() {
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setHistoryExpanded(!historyExpanded); if (!historyExpanded) conversations.fetchConversations(); }}
-                          className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
+                          className="p-1 text-foreground-muted hover:text-foreground hover:bg-active rounded transition-colors"
                           title={historyExpanded ? t('sidebar.hideHistory') : t('sidebar.showHistory')}
                         >
                           {historyExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -341,7 +341,7 @@ function App() {
                   />
                   {/* Conversation history list — collapsible under Chat */}
                   {!sidebarCollapsed && activeTab === 'chat' && historyExpanded && (
-                    <div className="ml-2 mt-1 border-l border-white/5 pl-2">
+                    <div className="ml-2 mt-1 border-l border-outline-subtle pl-2">
                       <ConversationListPanel
                         conversations={conversations.conversationList}
                         activeId={conversations.activeConversationId}
@@ -399,7 +399,7 @@ function App() {
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); notes.setActiveNoteId(null); }}
-                          className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
+                          className="p-1 text-foreground-muted hover:text-foreground hover:bg-active rounded transition-colors"
                           title={t('sidebar.newNote')}
                         >
                           <Plus size={14} />
@@ -407,7 +407,7 @@ function App() {
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setNotesExpanded(!notesExpanded); if (!notesExpanded) notes.fetchNotes(); }}
-                          className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
+                          className="p-1 text-foreground-muted hover:text-foreground hover:bg-active rounded transition-colors"
                           title={notesExpanded ? t('sidebar.hideNotes') : t('sidebar.showNotes')}
                         >
                           {notesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -416,7 +416,7 @@ function App() {
                     ) : undefined}
                   />
                   {!sidebarCollapsed && activeTab === 'workspace' && notesExpanded && (
-                    <div className="ml-2 mt-1 border-l border-white/5 pl-2">
+                    <div className="ml-2 mt-1 border-l border-outline-subtle pl-2">
                       <NoteListPanel
                         notes={notes.notesList}
                         activeId={notes.activeNoteId}
@@ -438,7 +438,7 @@ function App() {
             </div>
 
             <div>
-              {!sidebarCollapsed && <div className="px-3 mb-2 text-[10px] font-bold tracking-wide text-gray-500 uppercase">{t('sidebar.advancedTools')}</div>}
+              {!sidebarCollapsed && <div className="px-3 mb-2 text-[10px] font-bold tracking-wide text-foreground-muted uppercase">{t('sidebar.advancedTools')}</div>}
               <div className="space-y-1">
                 <SidebarItem
                   label={t('sidebar.dataPrep')}
@@ -503,7 +503,7 @@ function App() {
 
           {/* Docs & Settings — bottom of sidebar */}
           <div className={`${sidebarCollapsed ? 'px-1.5' : 'px-4'} mb-2`}>
-            <div className="border-t border-white/5 pt-2 space-y-1">
+            <div className="border-t border-outline-subtle pt-2 space-y-1">
               <SidebarItem
                 label={t('sidebar.docs')}
                 active={activeTab === 'docs'}
@@ -524,7 +524,7 @@ function App() {
           {/* Collapse toggle */}
           <button
             onClick={toggleSidebar}
-            className={`mx-auto mb-4 p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors shrink-0 ${sidebarCollapsed ? '' : 'ml-auto mr-4'}`}
+            className={`mx-auto mb-4 p-1.5 rounded-lg text-foreground-muted hover:text-foreground hover:bg-active transition-colors shrink-0 ${sidebarCollapsed ? '' : 'ml-auto mr-4'}`}
             title={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
           >
             {sidebarCollapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}

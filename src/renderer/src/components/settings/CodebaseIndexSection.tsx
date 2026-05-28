@@ -97,11 +97,11 @@ export function CodebaseIndexSection() {
 
             {loading ? (
                 <div className="flex justify-center py-4">
-                    <Loader2 size={16} className="animate-spin text-gray-500" />
+                    <Loader2 size={16} className="animate-spin text-foreground-muted" />
                 </div>
             ) : status?.indexed ? (
                 <div className="space-y-2">
-                    <div className="flex items-center gap-4 text-[10px] text-gray-500">
+                    <div className="flex items-center gap-4 text-[10px] text-foreground-muted">
                         <span className="flex items-center gap-1 text-green-500">
                             <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                             Indexed
@@ -113,12 +113,12 @@ export function CodebaseIndexSection() {
                             <span>Last indexed: {new Date(status.indexed_at * 1000).toLocaleString()}</span>
                         )}
                     </div>
-                    <div className="flex items-center px-3 py-2 rounded-lg bg-black/30 border border-white/5">
-                        <span className="text-xs text-gray-400 font-mono truncate">{status.directory}</span>
+                    <div className="flex items-center px-3 py-2 rounded-lg bg-black/30 border border-outline-subtle">
+                        <span className="text-xs text-foreground-muted font-mono truncate">{status.directory}</span>
                     </div>
                 </div>
             ) : (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-foreground-muted">
                     Select a project directory to enable semantic code search in the NanoCore terminal. AST-aware chunking for Python, line-based for other languages.
                 </p>
             )}
@@ -134,7 +134,7 @@ export function CodebaseIndexSection() {
                             if (e.key === 'Escape') { setShowManualPath(false); setManualPath(""); }
                         }}
                         placeholder="/absolute/path/to/project"
-                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500/50 font-mono"
+                        className="flex-1 bg-black/40 border border-outline rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-foreground-subtle outline-none focus:border-blue-500/50 font-mono"
                         autoFocus
                     />
                     <button
@@ -148,7 +148,7 @@ export function CodebaseIndexSection() {
                     <button
                         type="button"
                         onClick={() => { setShowManualPath(false); setManualPath(""); }}
-                        className="px-2 py-1.5 text-gray-500 hover:text-gray-300 text-xs transition-colors"
+                        className="px-2 py-1.5 text-foreground-muted hover:text-foreground-secondary text-xs transition-colors"
                     >
                         Cancel
                     </button>
@@ -156,7 +156,7 @@ export function CodebaseIndexSection() {
             )}
 
             {indexResult && (
-                <div className="mt-3 text-xs text-gray-400 bg-black/20 rounded px-3 py-2">
+                <div className="mt-3 text-xs text-foreground-muted bg-black/20 rounded px-3 py-2">
                     {indexResult}
                 </div>
             )}

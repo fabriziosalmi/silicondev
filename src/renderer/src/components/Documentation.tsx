@@ -81,38 +81,38 @@ const sections: DocSection[] = [
 // Custom renderers for markdown elements (no @tailwindcss/typography needed)
 const mdComponents = {
     h1: (props: ComponentPropsWithoutRef<'h1'>) => <h1 className="text-xl font-bold text-white mb-4 mt-0" {...props} />,
-    h2: (props: ComponentPropsWithoutRef<'h2'>) => <h2 className="text-lg font-semibold text-white mt-8 mb-3 pb-2 border-b border-white/10" {...props} />,
+    h2: (props: ComponentPropsWithoutRef<'h2'>) => <h2 className="text-lg font-semibold text-white mt-8 mb-3 pb-2 border-b border-outline" {...props} />,
     h3: (props: ComponentPropsWithoutRef<'h3'>) => <h3 className="text-base font-medium text-white mt-6 mb-2" {...props} />,
     h4: (props: ComponentPropsWithoutRef<'h4'>) => <h4 className="text-sm font-medium text-white mt-4 mb-1" {...props} />,
-    p: (props: ComponentPropsWithoutRef<'p'>) => <p className="text-sm text-gray-300 leading-relaxed mb-3" {...props} />,
+    p: (props: ComponentPropsWithoutRef<'p'>) => <p className="text-sm text-foreground-secondary leading-relaxed mb-3" {...props} />,
     a: (props: ComponentPropsWithoutRef<'a'>) => <a className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
     strong: (props: ComponentPropsWithoutRef<'strong'>) => <strong className="text-white font-semibold" {...props} />,
-    em: (props: ComponentPropsWithoutRef<'em'>) => <em className="text-gray-200" {...props} />,
-    ul: (props: ComponentPropsWithoutRef<'ul'>) => <ul className="list-disc list-outside ml-5 mb-3 space-y-1 text-sm text-gray-300" {...props} />,
-    ol: (props: ComponentPropsWithoutRef<'ol'>) => <ol className="list-decimal list-outside ml-5 mb-3 space-y-1 text-sm text-gray-300" {...props} />,
-    li: (props: ComponentPropsWithoutRef<'li'>) => <li className="text-sm text-gray-300 leading-relaxed" {...props} />,
-    blockquote: (props: ComponentPropsWithoutRef<'blockquote'>) => <blockquote className="border-l-2 border-blue-500 pl-4 my-3 text-sm text-gray-400 italic" {...props} />,
-    hr: () => <hr className="border-white/10 my-6" />,
+    em: (props: ComponentPropsWithoutRef<'em'>) => <em className="text-foreground-secondary" {...props} />,
+    ul: (props: ComponentPropsWithoutRef<'ul'>) => <ul className="list-disc list-outside ml-5 mb-3 space-y-1 text-sm text-foreground-secondary" {...props} />,
+    ol: (props: ComponentPropsWithoutRef<'ol'>) => <ol className="list-decimal list-outside ml-5 mb-3 space-y-1 text-sm text-foreground-secondary" {...props} />,
+    li: (props: ComponentPropsWithoutRef<'li'>) => <li className="text-sm text-foreground-secondary leading-relaxed" {...props} />,
+    blockquote: (props: ComponentPropsWithoutRef<'blockquote'>) => <blockquote className="border-l-2 border-blue-500 pl-4 my-3 text-sm text-foreground-muted italic" {...props} />,
+    hr: () => <hr className="border-outline my-6" />,
     code: ({ children, className, ...props }: ComponentPropsWithoutRef<'code'> & { className?: string }) => {
         // Inline code (no language class) vs code block (has language class from ```lang)
         const isBlock = className?.startsWith('language-')
         if (isBlock) {
-            return <code className="text-[13px] text-gray-200" {...props}>{children}</code>
+            return <code className="text-[13px] text-foreground-secondary" {...props}>{children}</code>
         }
-        return <code className="text-[13px] text-blue-300 bg-white/5 px-1.5 py-0.5 rounded font-mono" {...props}>{children}</code>
+        return <code className="text-[13px] text-blue-300 bg-hover px-1.5 py-0.5 rounded font-mono" {...props}>{children}</code>
     },
     pre: (props: ComponentPropsWithoutRef<'pre'>) => (
-        <pre className="bg-black/50 border border-white/5 rounded-lg p-4 mb-3 overflow-x-auto font-mono text-[13px] leading-relaxed" {...props} />
+        <pre className="bg-black/50 border border-outline-subtle rounded-lg p-4 mb-3 overflow-x-auto font-mono text-[13px] leading-relaxed" {...props} />
     ),
     table: (props: ComponentPropsWithoutRef<'table'>) => (
         <div className="overflow-x-auto mb-3">
             <table className="w-full text-sm" {...props} />
         </div>
     ),
-    thead: (props: ComponentPropsWithoutRef<'thead'>) => <thead className="border-b border-white/10" {...props} />,
-    th: (props: ComponentPropsWithoutRef<'th'>) => <th className="text-left text-xs font-bold text-gray-400 uppercase tracking-wide py-2 px-3" {...props} />,
-    td: (props: ComponentPropsWithoutRef<'td'>) => <td className="py-2 px-3 text-gray-300 border-b border-white/5" {...props} />,
-    tr: (props: ComponentPropsWithoutRef<'tr'>) => <tr className="hover:bg-white/[0.02]" {...props} />,
+    thead: (props: ComponentPropsWithoutRef<'thead'>) => <thead className="border-b border-outline" {...props} />,
+    th: (props: ComponentPropsWithoutRef<'th'>) => <th className="text-left text-xs font-bold text-foreground-muted uppercase tracking-wide py-2 px-3" {...props} />,
+    td: (props: ComponentPropsWithoutRef<'td'>) => <td className="py-2 px-3 text-foreground-secondary border-b border-outline-subtle" {...props} />,
+    tr: (props: ComponentPropsWithoutRef<'tr'>) => <tr className="hover:bg-hover" {...props} />,
 }
 
 export function Documentation() {
@@ -131,7 +131,7 @@ export function Documentation() {
                 </div>
                 {sections.map(section => (
                     <div key={section.label}>
-                        <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-1 px-2">{section.label}</div>
+                        <div className="text-[10px] font-bold tracking-wide text-foreground-muted uppercase mb-1 px-2">{section.label}</div>
                         <div className="space-y-0.5">
                             {section.docs.map(doc => (
                                 <button
@@ -140,7 +140,7 @@ export function Documentation() {
                                     className={`w-full text-left flex items-center gap-1.5 px-2 py-1.5 rounded text-[13px] transition-colors ${
                                         activeDoc === doc.id
                                             ? 'bg-blue-500/10 text-blue-400 font-medium'
-                                            : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                            : 'text-foreground-muted hover:text-foreground hover:bg-hover'
                                     }`}
                                 >
                                     {activeDoc === doc.id && <ChevronRight size={12} />}
@@ -159,7 +159,7 @@ export function Documentation() {
                         {current.content}
                     </ReactMarkdown>
                 ) : (
-                    <p className="text-gray-500">Select a document from the sidebar.</p>
+                    <p className="text-foreground-muted">Select a document from the sidebar.</p>
                 )}
             </div>
         </div>

@@ -81,15 +81,15 @@ export function DpoTab({ models, selectedModel, setSelectedModel, capturedCount,
 
     return (
         <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
-            <Card className="p-0 overflow-hidden bg-elevated border border-white/10">
-                <div className="p-4 border-b border-white/10 bg-white/[0.02] flex items-center gap-2">
+            <Card className="p-0 overflow-hidden bg-elevated border border-outline">
+                <div className="p-4 border-b border-outline bg-hover flex items-center gap-2">
                     <GitCompare className="w-5 h-5 text-purple-400" />
                     <h3 className="font-bold">Preference Training (DPO)</h3>
                 </div>
                 <div className="p-5 space-y-6">
-                    <div className="bg-black/20 rounded-lg border border-white/5 p-4 space-y-3">
-                        <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">How it works</div>
-                        <p className="text-sm text-gray-400 leading-relaxed">
+                    <div className="bg-black/20 rounded-lg border border-outline-subtle p-4 space-y-3">
+                        <div className="text-[10px] font-bold text-foreground-muted uppercase tracking-wide">How it works</div>
+                        <p className="text-sm text-foreground-muted leading-relaxed">
                             Every time you approve or reject a code change, SiliconDev captures that preference as a DPO training pair.
                             Approved diffs become "chosen" examples, rejected diffs become "rejected" examples.
                             When you have enough pairs, you can train your model to learn your coding preferences.
@@ -98,29 +98,29 @@ export function DpoTab({ models, selectedModel, setSelectedModel, capturedCount,
 
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-4">
-                        <div className="bg-black/30 rounded-lg border border-white/5 p-4 text-center">
+                        <div className="bg-black/30 rounded-lg border border-outline-subtle p-4 text-center">
                             <div className="text-3xl font-mono font-bold text-purple-400">{dpoCount}</div>
-                            <div className="text-[10px] text-gray-500 uppercase mt-1">DPO Pairs</div>
+                            <div className="text-[10px] text-foreground-muted uppercase mt-1">DPO Pairs</div>
                         </div>
-                        <div className="bg-black/30 rounded-lg border border-white/5 p-4 text-center">
-                            <div className="text-3xl font-mono font-bold text-gray-400">{capturedCount}</div>
-                            <div className="text-[10px] text-gray-500 uppercase mt-1">SFT Samples</div>
+                        <div className="bg-black/30 rounded-lg border border-outline-subtle p-4 text-center">
+                            <div className="text-3xl font-mono font-bold text-foreground-muted">{capturedCount}</div>
+                            <div className="text-[10px] text-foreground-muted uppercase mt-1">SFT Samples</div>
                         </div>
-                        <div className="bg-black/30 rounded-lg border border-white/5 p-4 text-center">
+                        <div className="bg-black/30 rounded-lg border border-outline-subtle p-4 text-center">
                             <div className={`text-3xl font-mono font-bold ${dpoCount >= 50 ? 'text-green-400' : dpoCount >= 20 ? 'text-yellow-400' : 'text-red-400'}`}>
                                 {dpoCount >= 50 ? 'Ready' : dpoCount >= 20 ? 'Almost' : 'Low'}
                             </div>
-                            <div className="text-[10px] text-gray-500 uppercase mt-1">Status</div>
+                            <div className="text-[10px] text-foreground-muted uppercase mt-1">Status</div>
                         </div>
                     </div>
 
                     {/* Progress bar to 50 pairs */}
                     <div>
-                        <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                        <div className="flex justify-between text-[10px] text-foreground-muted mb-1">
                             <span>Progress to minimum (50 pairs)</span>
                             <span>{Math.min(dpoCount, 50)}/50</span>
                         </div>
-                        <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden border border-white/5">
+                        <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden border border-outline-subtle">
                             <div
                                 className={`h-full transition-all duration-500 ${dpoCount >= 50 ? 'bg-green-500' : 'bg-purple-500'}`}
                                 style={{ width: `${Math.min((dpoCount / 50) * 100, 100)}%` }}
@@ -131,10 +131,10 @@ export function DpoTab({ models, selectedModel, setSelectedModel, capturedCount,
                     {/* Model selector + Train button */}
                     <div className="space-y-3">
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Base Model</label>
+                            <label className="text-xs font-bold text-foreground-muted uppercase tracking-wide">Base Model</label>
                             <select
                                 title="Base model for DPO training"
-                                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-purple-500 appearance-none"
+                                className="w-full bg-black/40 border border-outline rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-purple-500 appearance-none"
                                 value={selectedModel}
                                 onChange={e => setSelectedModel(e.target.value)}
                             >
@@ -154,7 +154,7 @@ export function DpoTab({ models, selectedModel, setSelectedModel, capturedCount,
                             {dpoTraining ? 'Training with preferences...' : 'Train with Preferences (DPO)'}
                         </button>
                         {dpoCount < 20 && (
-                            <p className="text-[11px] text-gray-500 text-center">
+                            <p className="text-[11px] text-foreground-muted text-center">
                                 Keep using the agent — every approve/reject captures a preference pair automatically.
                             </p>
                         )}
@@ -162,7 +162,7 @@ export function DpoTab({ models, selectedModel, setSelectedModel, capturedCount,
 
                     {/* File path */}
                     {dpoPath && (
-                        <div className="text-[10px] text-gray-600 font-mono truncate px-1">
+                        <div className="text-[10px] text-foreground-subtle font-mono truncate px-1">
                             {dpoPath}
                         </div>
                     )}

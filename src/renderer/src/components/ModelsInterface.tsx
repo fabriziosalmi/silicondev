@@ -231,7 +231,7 @@ export function ModelsInterface() {
                     <button
                         type="button"
                         onClick={handleOpenGguf}
-                        className="bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors border border-white/5 whitespace-nowrap flex items-center gap-2"
+                        className="bg-hover hover:bg-active text-foreground-secondary hover:text-foreground px-3 py-2 rounded-lg text-sm font-medium transition-colors border border-outline-subtle whitespace-nowrap flex items-center gap-2"
                         title="Open a local .gguf file"
                     >
                         <FileDown size={14} />
@@ -241,7 +241,7 @@ export function ModelsInterface() {
                 <button
                     type="button"
                     onClick={() => setShowAddModal(true)}
-                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/5 whitespace-nowrap flex items-center gap-2"
+                    className="bg-active hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-outline-subtle whitespace-nowrap flex items-center gap-2"
                 >
                     <FolderOpen size={14} />
                     {t('models.addLocalFolder', { defaultValue: 'Add Local Folder' })}
@@ -249,12 +249,12 @@ export function ModelsInterface() {
             </PageHeader>
 
             {/* Tabs + Stats bar */}
-            <div className="flex items-center justify-between mb-5 border-b border-white/10 px-1">
+            <div className="flex items-center justify-between mb-5 border-b border-outline px-1">
                 <div className="flex gap-6">
                     <button
                         type="button"
                         onClick={() => { setActiveTab('discover'); setSearchQuery(''); setTabAutoSwitched(true) }}
-                        className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'discover' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
+                        className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'discover' ? 'text-blue-400' : 'text-foreground-muted hover:text-foreground'}`}
                     >
                         {t('models.discover')}
                         {activeTab === 'discover' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400 rounded-full" />}
@@ -262,13 +262,13 @@ export function ModelsInterface() {
                     <button
                         type="button"
                         onClick={() => { setActiveTab('my-models'); setSearchQuery(''); setTabAutoSwitched(true) }}
-                        className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'my-models' ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
+                        className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'my-models' ? 'text-blue-400' : 'text-foreground-muted hover:text-foreground'}`}
                     >
                         {t('models.myModels')} ({downloadedModels.length})
                         {activeTab === 'my-models' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400 rounded-full" />}
                     </button>
                 </div>
-                <div className="flex items-center gap-4 pb-3 text-[11px] text-gray-500">
+                <div className="flex items-center gap-4 pb-3 text-[11px] text-foreground-muted">
                     {activeTab === 'my-models' && downloadedModels.length > 0 && (
                         <>
                             <span>{downloadedModels.length} models</span>
@@ -293,7 +293,7 @@ export function ModelsInterface() {
             {error && (
                 <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg text-sm flex justify-between items-center">
                     <span>{error}</span>
-                    <button type="button" onClick={() => setError(null)} className="text-white/40 hover:text-white">✕</button>
+                    <button type="button" onClick={() => setError(null)} className="text-white/40 hover:text-foreground">✕</button>
                 </div>
             )}
 

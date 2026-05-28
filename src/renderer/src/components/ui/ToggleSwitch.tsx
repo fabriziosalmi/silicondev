@@ -32,7 +32,7 @@ export function ToggleSwitch({ enabled, onChange, size = 'md', disabled = false,
         transition-colors duration-200 ease-in-out
         focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent
         ${track}
-        ${enabled ? 'bg-blue-500' : 'bg-white/10'}
+        ${enabled ? 'bg-blue-500' : 'bg-active'}
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
       `}
     >

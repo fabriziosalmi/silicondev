@@ -552,9 +552,9 @@ export function CodeWorkspace() {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center space-y-3 max-w-sm">
-          <FolderSearch size={40} className="mx-auto text-gray-600" />
-          <h3 className="text-sm font-medium text-gray-400">{t('code.noSession')}</h3>
-          <p className="text-xs text-gray-600">
+          <FolderSearch size={40} className="mx-auto text-foreground-subtle" />
+          <h3 className="text-sm font-medium text-foreground-muted">{t('code.noSession')}</h3>
+          <p className="text-xs text-foreground-subtle">
             {t('settings.codebase.title')}
           </p>
           <button
@@ -575,7 +575,7 @@ export function CodeWorkspace() {
   return (
     <div className="h-full flex flex-col">
       {/* Tab bar */}
-      <div className="flex items-center border-b border-white/5 bg-black/20 overflow-x-auto shrink-0">
+      <div className="flex items-center border-b border-outline-subtle bg-black/20 overflow-x-auto shrink-0">
         {openFiles.map(f => (
           <div
             key={f.path}
@@ -583,9 +583,9 @@ export function CodeWorkspace() {
             tabIndex={0}
             onClick={() => setActiveFile(f.path)}
             onKeyDown={(e) => { if (e.key === 'Enter') setActiveFile(f.path) }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border-r border-white/5 cursor-pointer shrink-0 transition-colors ${f.path === activeFile
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border-r border-outline-subtle cursor-pointer shrink-0 transition-colors ${f.path === activeFile
               ? 'bg-elevated text-white'
-              : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+              : 'text-foreground-muted hover:text-foreground-secondary hover:bg-hover'
               }`}
           >
             {f.dirty && <Circle size={6} className="text-blue-400 fill-blue-400" />}
@@ -596,7 +596,7 @@ export function CodeWorkspace() {
               title="Close"
               onClick={(e) => handleCloseFile(f.path, e as unknown as React.MouseEvent)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleCloseFile(f.path) } }}
-              className="ml-1 p-0.5 rounded hover:bg-white/10 text-gray-600 hover:text-white transition-colors"
+              className="ml-1 p-0.5 rounded hover:bg-active text-foreground-subtle hover:text-foreground transition-colors"
               aria-label={`Close ${f.name}`}
             >
               <X size={10} />
@@ -604,7 +604,7 @@ export function CodeWorkspace() {
           </div>
         ))}
         {saveStatus && (
-          <div className="ml-auto px-3 py-1.5 text-[10px] text-gray-500 flex items-center gap-1 shrink-0">
+          <div className="ml-auto px-3 py-1.5 text-[10px] text-foreground-muted flex items-center gap-1 shrink-0">
             <Save size={10} />
             {saveStatus}
           </div>
@@ -613,7 +613,7 @@ export function CodeWorkspace() {
         <button
           type="button"
           onClick={() => setPreviewOpen(!previewOpen)}
-          className={`ml-auto p-1.5 hover:bg-white/5 transition-colors shrink-0 ${previewOpen || preview.running ? 'text-blue-400' : 'text-gray-600 hover:text-white'}`}
+          className={`ml-auto p-1.5 hover:bg-hover transition-colors shrink-0 ${previewOpen || preview.running ? 'text-blue-400' : 'text-foreground-subtle hover:text-foreground'}`}
           title="Live Preview"
         >
           <Globe size={14} />
@@ -622,7 +622,7 @@ export function CodeWorkspace() {
         <button
           type="button"
           onClick={() => setAgentPanelOpen(!agentPanelOpen)}
-          className="p-1.5 text-gray-600 hover:text-white hover:bg-white/5 transition-colors shrink-0"
+          className="p-1.5 text-foreground-subtle hover:text-foreground hover:bg-hover transition-colors shrink-0"
           title={agentPanelOpen ? t('code.agent') : t('code.agent')}
         >
           {agentPanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
@@ -632,22 +632,22 @@ export function CodeWorkspace() {
       {/* Main content: three-column layout */}
       <div ref={containerRef} className="flex-1 flex overflow-hidden">
         {/* File tree sidebar */}
-        <div style={{ width: sidebarWidth }} className="border-r border-white/5 bg-black/20 shrink-0 overflow-hidden flex flex-col">
-          <div className="px-2 py-1.5 flex items-center justify-between border-b border-white/5">
-            <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wide truncate">
+        <div style={{ width: sidebarWidth }} className="border-r border-outline-subtle bg-black/20 shrink-0 overflow-hidden flex flex-col">
+          <div className="px-2 py-1.5 flex items-center justify-between border-b border-outline-subtle">
+            <span className="text-[10px] font-bold text-foreground-subtle uppercase tracking-wide truncate">
               {tree?.name || t('code.files')}
             </span>
             <button
               type="button"
               title="New File"
               onClick={() => { setCreatingFile(true); setTimeout(() => newFileInputRef.current?.focus(), 50) }}
-              className="p-0.5 rounded hover:bg-white/10 text-gray-600 hover:text-gray-300 transition-colors"
+              className="p-0.5 rounded hover:bg-active text-foreground-subtle hover:text-foreground-secondary transition-colors"
             >
               <FilePlus size={13} />
             </button>
           </div>
           {creatingFile && (
-            <div className="px-2 py-1 border-b border-white/5 bg-black/30">
+            <div className="px-2 py-1 border-b border-outline-subtle bg-black/30">
               <input
                 ref={newFileInputRef}
                 type="text"
@@ -659,17 +659,17 @@ export function CodeWorkspace() {
                 }}
                 onBlur={() => { if (!newFileName.trim()) { setCreatingFile(false); setNewFileName('') } }}
                 placeholder="filename.py (or path/to/file.py)"
-                className="w-full px-1.5 py-1 bg-black/40 border border-white/10 rounded text-[11px] text-gray-300 placeholder-gray-600 outline-none focus:border-blue-500/40"
+                className="w-full px-1.5 py-1 bg-black/40 border border-outline rounded text-[11px] text-foreground-secondary placeholder:text-foreground-subtle outline-none focus:border-blue-500/40"
               />
             </div>
           )}
           {loading ? (
-            <div className="flex items-center justify-center py-8 text-gray-600 text-xs">
+            <div className="flex items-center justify-center py-8 text-foreground-subtle text-xs">
               {t('common.loading')}
             </div>
           ) : tree && (!tree.children || tree.children.length === 0) ? (
             <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-3">
-              <p className="text-[11px] text-gray-600">Empty directory</p>
+              <p className="text-[11px] text-foreground-subtle">Empty directory</p>
               <button
                 type="button"
                 onClick={() => { setCreatingFile(true); setTimeout(() => newFileInputRef.current?.focus(), 50) }}
@@ -733,7 +733,7 @@ export function CodeWorkspace() {
                     <button
                       type="button"
                       onClick={() => handleDiffReject(active.path)}
-                      className="px-3 py-1 bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-medium rounded transition-all"
+                      className="px-3 py-1 bg-hover hover:bg-active text-foreground-secondary text-[11px] font-medium rounded transition-all"
                     >
                       Reject
                     </button>
@@ -763,12 +763,12 @@ export function CodeWorkspace() {
               </>
             ) : (
               <div className="h-full flex items-center justify-center bg-elevated">
-                <p className="text-sm text-gray-600">{t('code.noSession')}</p>
+                <p className="text-sm text-foreground-subtle">{t('code.noSession')}</p>
               </div>
             )}
           </div>
           {debugSessionId && (
-            <div className="h-64 border-t border-white/5 bg-elevated shrink-0">
+            <div className="h-64 border-t border-outline-subtle bg-elevated shrink-0">
               <DebuggerPanel
                 sessionId={debugSessionId}
                 onStop={() => {
@@ -813,7 +813,7 @@ export function CodeWorkspace() {
               onMouseDown={handleAgentDrag}
               className="w-1 shrink-0 cursor-col-resize hover:bg-blue-500/30 active:bg-blue-500/50 transition-colors"
             />
-            <div style={{ width: agentWidth }} className="border-l border-white/5 shrink-0 overflow-hidden">
+            <div style={{ width: agentWidth }} className="border-l border-outline-subtle shrink-0 overflow-hidden">
               <AgentPanel
                 onOpenFile={handleFileSelect}
                 onDiffProposal={handleDiffProposal}

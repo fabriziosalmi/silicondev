@@ -72,7 +72,7 @@ const EscalationCard = memo(function EscalationCard({
           <AlertTriangle size={12} />
           <span>Agent paused: {meta.reason}</span>
         </div>
-        <div className="text-xs text-gray-400">
+        <div className="text-xs text-foreground-muted">
           Your guidance: <span className="text-white">{meta.userMessage}</span>
         </div>
       </div>
@@ -85,7 +85,7 @@ const EscalationCard = memo(function EscalationCard({
         <AlertTriangle size={14} />
         <span>Agent is stuck and needs your help</span>
       </div>
-      <p className="text-xs text-gray-400">{meta.reason}</p>
+      <p className="text-xs text-foreground-muted">{meta.reason}</p>
       <div className="flex gap-2">
         <input
           type="text"
@@ -93,7 +93,7 @@ const EscalationCard = memo(function EscalationCard({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
           placeholder="Type guidance for the agent..."
-          className="flex-1 bg-black/30 border border-white/10 rounded px-2 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-yellow-500/40"
+          className="flex-1 bg-black/30 border border-outline rounded px-2 py-1.5 text-xs text-white placeholder:text-foreground-subtle focus:outline-none focus:border-yellow-500/40"
           disabled={sending}
         />
         <button
@@ -135,20 +135,20 @@ function CollapsibleToolOutput({ item, onFixError }: { item: FeedItem; onFixErro
   }, [isError, command, item.content, item.toolMeta?.exitCode])
 
   return (
-    <div className="rounded-[10px] overflow-hidden border border-white/[0.06] bg-white/[0.02]">
+    <div className="rounded-[10px] overflow-hidden border border-outline-subtle bg-hover">
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-white/[0.04] transition-colors cursor-pointer"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-hover transition-colors cursor-pointer"
       >
         <ChevronRight
           size={12}
-          className={`text-gray-500 transition-transform shrink-0 ${open ? 'rotate-90' : ''}`}
+          className={`text-foreground-muted transition-transform shrink-0 ${open ? 'rotate-90' : ''}`}
         />
         <TerminalSquare size={12} className={isError ? 'text-red-400 shrink-0' : 'text-blue-400 shrink-0'} />
-        <span className="text-[11px] font-medium text-gray-300">Terminal</span>
+        <span className="text-[11px] font-medium text-foreground-secondary">Terminal</span>
         {command && (
-          <span className="text-[11px] text-gray-500 font-mono truncate flex-1">
+          <span className="text-[11px] text-foreground-muted font-mono truncate flex-1">
             $ {command}
           </span>
         )}
@@ -160,10 +160,10 @@ function CollapsibleToolOutput({ item, onFixError }: { item: FeedItem; onFixErro
       </button>
 
       {open && (
-        <div className="border-t border-white/[0.04]">
+        <div className="border-t border-outline-subtle">
           {hasMore && (
-            <div className="flex items-center justify-between px-3 py-1 border-b border-white/[0.04]">
-              <span className="text-[10px] text-gray-500">
+            <div className="flex items-center justify-between px-3 py-1 border-b border-outline-subtle">
+              <span className="text-[10px] text-foreground-muted">
                 {showFull ? 'Full output' : `Last 20 of ${lines.length} lines`}
               </span>
               <button
@@ -182,11 +182,11 @@ function CollapsibleToolOutput({ item, onFixError }: { item: FeedItem; onFixErro
             </pre>
           </div>
           {isError && onFixError && (
-            <div className="flex items-center gap-2 px-3 py-1.5 border-t border-white/[0.04]">
+            <div className="flex items-center gap-2 px-3 py-1.5 border-t border-outline-subtle">
               <button
                 type="button"
                 onClick={() => onFixError(item.content, command)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] text-red-400 hover:text-foreground bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors"
               >
                 <Wrench size={11} />
                 Fix this
@@ -220,7 +220,7 @@ function ThinkingBlock({ item, autoExpand }: { item: FeedItem; autoExpand?: bool
         <Brain size={12} className="text-purple-400/60 shrink-0" />
         <span className="text-[11px] font-medium text-purple-300/70">Thinking</span>
         {!open && preview && (
-          <span className="text-[11px] text-gray-500 truncate flex-1 italic">
+          <span className="text-[11px] text-foreground-muted truncate flex-1 italic">
             {preview}{item.content.length > 80 ? '…' : ''}
           </span>
         )}
@@ -228,7 +228,7 @@ function ThinkingBlock({ item, autoExpand }: { item: FeedItem; autoExpand?: bool
 
       {open && (
         <div className="border-t border-purple-500/10 px-3 py-2 max-h-48 overflow-y-auto">
-          <p className="text-xs text-gray-400 whitespace-pre-wrap select-text leading-relaxed">
+          <p className="text-xs text-foreground-muted whitespace-pre-wrap select-text leading-relaxed">
             {item.content}
           </p>
         </div>
@@ -256,7 +256,7 @@ function TraceBlock({ item }: { item: FeedItem }) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-white/[0.02] transition-colors cursor-pointer"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-hover transition-colors cursor-pointer"
       >
         <ChevronRight
           size={12}
@@ -274,12 +274,12 @@ function TraceBlock({ item }: { item: FeedItem }) {
       </button>
 
       {open && (
-        <div className="border-t border-white/[0.05] px-3 py-2 max-h-60 overflow-y-auto">
-          <div className="text-[11px] text-gray-300 whitespace-pre-wrap select-text leading-relaxed font-mono">
+        <div className="border-t border-outline-subtle px-3 py-2 max-h-60 overflow-y-auto">
+          <div className="text-[11px] text-foreground-secondary whitespace-pre-wrap select-text leading-relaxed font-mono">
             <StreamingMarkdown content={meta.content} />
           </div>
           {meta.target && (
-            <div className="mt-2 pt-2 border-t border-white/[0.03] text-[9px] text-gray-500 font-mono">
+            <div className="mt-2 pt-2 border-t border-white/[0.03] text-[9px] text-foreground-muted font-mono">
               Target: {meta.target}
             </div>
           )}
@@ -305,39 +305,39 @@ function RAGSearchBlock({ item }: { item: FeedItem }) {
   const methodSummary = Array.from(methodCounts.entries()).map(([m, c]) => `${c} ${m}`).join(', ')
 
   return (
-    <div className="rounded-[10px] overflow-hidden border border-white/[0.06] bg-white/[0.02]">
+    <div className="rounded-[10px] overflow-hidden border border-outline-subtle bg-hover">
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-white/[0.04] transition-colors cursor-pointer"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-hover transition-colors cursor-pointer"
       >
         <ChevronRight
           size={12}
-          className={`text-gray-500 transition-transform shrink-0 ${open ? 'rotate-90' : ''}`}
+          className={`text-foreground-muted transition-transform shrink-0 ${open ? 'rotate-90' : ''}`}
         />
         <Info size={11} className="text-blue-400/60 shrink-0" />
-        <span className="text-[10px] text-gray-400 font-mono">
+        <span className="text-[10px] text-foreground-muted font-mono">
           {meta.results.length} snippets
         </span>
         {methodSummary && (
-          <span className="text-[9px] text-gray-600 font-mono truncate">
+          <span className="text-[9px] text-foreground-subtle font-mono truncate">
             ({methodSummary})
           </span>
         )}
         {!open && (
-          <span className="text-[10px] text-gray-600 truncate flex-1 italic ml-1">
+          <span className="text-[10px] text-foreground-subtle truncate flex-1 italic ml-1">
             "{meta.query}"
           </span>
         )}
       </button>
 
       {open && (
-        <div className="border-t border-white/[0.04] px-3 py-2 max-h-40 overflow-y-auto">
+        <div className="border-t border-outline-subtle px-3 py-2 max-h-40 overflow-y-auto">
           <div className="space-y-1">
             {meta.results.map((r, i) => (
               <div key={i} className="flex items-center justify-between text-[10px] font-mono">
-                <span className="text-gray-300 truncate mr-4">{r.file_path}</span>
-                <span className="text-gray-600 shrink-0">{(r.score * 100).toFixed(0)}% · {r.method}</span>
+                <span className="text-foreground-secondary truncate mr-4">{r.file_path}</span>
+                <span className="text-foreground-subtle shrink-0">{(r.score * 100).toFixed(0)}% · {r.method}</span>
               </div>
             ))}
           </div>
@@ -382,8 +382,8 @@ const FeedItemView = memo(function FeedItemView({
                 <span className="font-mono">{item.content}</span>
               )}
             </div>
-            <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center shrink-0 mt-0.5">
-              <User size={14} className="text-gray-400" />
+            <div className="w-6 h-6 rounded-full bg-hover flex items-center justify-center shrink-0 mt-0.5">
+              <User size={14} className="text-foreground-muted" />
             </div>
           </div>
         </div>
@@ -394,7 +394,7 @@ const FeedItemView = memo(function FeedItemView({
       const cleanContent = stripModelTags(item.content)
       if (!cleanContent) return null
       return (
-        <div className="min-w-0 prose prose-invert prose-sm max-w-none text-[11px] text-gray-200 select-text break-words overflow-hidden font-mono">
+        <div className="min-w-0 prose prose-invert prose-sm max-w-none text-[11px] text-foreground-secondary select-text break-words overflow-hidden font-mono">
           <StreamingMarkdown content={cleanContent} />
         </div>
       )
@@ -403,8 +403,8 @@ const FeedItemView = memo(function FeedItemView({
     case 'tool_start':
       return (
         <div className="flex items-center gap-1.5 mt-0.5">
-          <Cpu size={10} className="text-gray-500 shrink-0" />
-          <span className="text-[10px] text-gray-500 font-mono truncate">
+          <Cpu size={10} className="text-foreground-muted shrink-0" />
+          <span className="text-[10px] text-foreground-muted font-mono truncate">
             {item.toolMeta?.tool === 'run_bash' ? `$ ${item.toolMeta?.command || ''}` : item.toolMeta?.tool?.replace(/_/g, ' ') || 'tool'}
           </span>
         </div>
@@ -452,7 +452,7 @@ const FeedItemView = memo(function FeedItemView({
             <span className="text-xs text-amber-400 font-mono">
               Self-heal attempt {meta.attempt}/{meta.maxAttempts}
             </span>
-            <span className="text-[10px] text-gray-500 truncate max-w-[300px]">{meta.command}</span>
+            <span className="text-[10px] text-foreground-muted truncate max-w-[300px]">{meta.command}</span>
           </div>
         )
       }
@@ -475,7 +475,7 @@ const FeedItemView = memo(function FeedItemView({
           <span className="text-xs text-red-400 font-mono">
             Self-heal failed after {meta.attempt} attempts
           </span>
-          <span className="text-[10px] text-gray-500 truncate max-w-[300px]">{meta.command}</span>
+          <span className="text-[10px] text-foreground-muted truncate max-w-[300px]">{meta.command}</span>
         </div>
       )
     }
@@ -519,7 +519,7 @@ const FeedItemView = memo(function FeedItemView({
             <button
               type="button"
               onClick={() => onFixError(item.content)}
-              className="flex items-center gap-1.5 mt-1.5 ml-5 px-2.5 py-1 rounded-md text-[11px] text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors"
+              className="flex items-center gap-1.5 mt-1.5 ml-5 px-2.5 py-1 rounded-md text-[11px] text-red-400 hover:text-foreground bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors"
             >
               <Wrench size={11} />
               Fix this
@@ -546,14 +546,14 @@ const FeedItemView = memo(function FeedItemView({
         return (
           <div className="flex items-center gap-2 py-1">
             <div className="w-1 h-1 bg-gray-500 rounded-full" />
-            <span className="text-[10px] text-gray-500 font-mono">{item.content}</span>
+            <span className="text-[10px] text-foreground-muted font-mono">{item.content}</span>
           </div>
         )
       }
       return (
         <div className="flex items-center gap-2">
-          <Info size={12} className="text-gray-500 shrink-0" />
-          <span className="text-xs text-gray-500">{item.content}</span>
+          <Info size={12} className="text-foreground-muted shrink-0" />
+          <span className="text-xs text-foreground-muted">{item.content}</span>
         </div>
       )
     }
@@ -587,7 +587,7 @@ const TaskRecapStrip = memo(function TaskRecapStrip({ items }: { items: FeedItem
   if (stats.commands === 0 && stats.diffs === 0 && stats.steps === 0) return null
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 bg-white/[0.02] border border-white/[0.04] rounded-lg text-[10px] font-mono text-gray-500">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 bg-hover border border-outline-subtle rounded-lg text-[10px] font-mono text-foreground-muted">
       {stats.steps > 0 && <span>{stats.steps} steps</span>}
       {stats.commands > 0 && <span>{stats.commands} commands</span>}
       {stats.diffs > 0 && <span>{stats.diffs} changes</span>}
@@ -665,8 +665,8 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
         <div className="text-center space-y-3">
           <img src="./icon.svg" alt="" className="w-10 h-10 rounded-xl mx-auto" />
           <div className="space-y-1">
-            <p className="text-xs text-gray-400 font-medium">{t('terminal.emptyState')}</p>
-            <p className="text-[10px] text-gray-600">{t('terminal.emptyHint')}</p>
+            <p className="text-xs text-foreground-muted font-medium">{t('terminal.emptyState')}</p>
+            <p className="text-[10px] text-foreground-subtle">{t('terminal.emptyHint')}</p>
           </div>
         </div>
       </div>

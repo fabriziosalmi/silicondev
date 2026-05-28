@@ -75,9 +75,9 @@ export function DebuggerPanel({ sessionId, onStop, onUpdateState }: DebuggerPane
 
     if (!sessionId) {
         return (
-            <div className="h-full flex flex-col items-center justify-center text-gray-500 p-8 text-center">
+            <div className="h-full flex flex-col items-center justify-center text-foreground-muted p-8 text-center">
                 <Bug className="w-12 h-12 mb-4 opacity-20" />
-                <h3 className="text-sm font-bold text-gray-400 mb-1">Debugger Inactive</h3>
+                <h3 className="text-sm font-bold text-foreground-muted mb-1">Debugger Inactive</h3>
                 <p className="text-xs max-w-[200px]">Start a debug session from the Terminal or Agent panel to inspect code execution.</p>
             </div>
         )
@@ -86,42 +86,42 @@ export function DebuggerPanel({ sessionId, onStop, onUpdateState }: DebuggerPane
     return (
         <div className="h-full flex flex-col bg-elevated text-xs">
             {/* Header / Controls */}
-            <div className="flex items-center justify-between p-2 border-b border-white/5 bg-white/5">
+            <div className="flex items-center justify-between p-2 border-b border-outline-subtle bg-hover">
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => sendCommand('continue')}
-                        className="p-1 hover:bg-white/10 rounded-md text-green-500 transition-colors"
+                        className="p-1 hover:bg-active rounded-md text-green-500 transition-colors"
                         title="Continue (F5)"
                     >
                         <Play size={16} fill="currentColor" />
                     </button>
                     <button
                         onClick={() => sendCommand('next')}
-                        className="p-1 hover:bg-white/10 rounded-md text-blue-400 transition-colors"
+                        className="p-1 hover:bg-active rounded-md text-blue-400 transition-colors"
                         title="Step Over (F10)"
                     >
                         <StepForward size={16} />
                     </button>
                     <button
                         onClick={() => sendCommand('step')}
-                        className="p-1 hover:bg-white/10 rounded-md text-blue-300 transition-colors"
+                        className="p-1 hover:bg-active rounded-md text-blue-300 transition-colors"
                         title="Step Into (F11)"
                     >
                         <ArrowDown size={16} />
                     </button>
-                    <div className="w-px h-4 bg-white/10 mx-1" />
+                    <div className="w-px h-4 bg-active mx-1" />
                     <button
                         onClick={() => {
                             sendCommand('stop')
                             onStop()
                         }}
-                        className="p-1 hover:bg-white/10 rounded-md text-red-500 transition-colors"
+                        className="p-1 hover:bg-active rounded-md text-red-500 transition-colors"
                         title="Stop"
                     >
                         <Square size={14} fill="currentColor" />
                     </button>
                 </div>
-                <div className="text-[10px] text-gray-500 font-mono">
+                <div className="text-[10px] text-foreground-muted font-mono">
                     PID: {sessionId.split('-')[0]}
                 </div>
             </div>
@@ -131,7 +131,7 @@ export function DebuggerPanel({ sessionId, onStop, onUpdateState }: DebuggerPane
                 <div>
                     <button
                         onClick={() => toggleGroup('locals')}
-                        className="flex items-center gap-1 font-bold text-gray-400 uppercase tracking-widest text-[9px] mb-1 w-full text-left"
+                        className="flex items-center gap-1 font-bold text-foreground-muted uppercase tracking-widest text-[9px] mb-1 w-full text-left"
                     >
                         {expandedGroups.locals ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                         Variables (Locals)
@@ -146,7 +146,7 @@ export function DebuggerPanel({ sessionId, onStop, onUpdateState }: DebuggerPane
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-gray-600 italic">No local variables</div>
+                                <div className="text-foreground-subtle italic">No local variables</div>
                             )}
                         </div>
                     )}
@@ -156,7 +156,7 @@ export function DebuggerPanel({ sessionId, onStop, onUpdateState }: DebuggerPane
                 <div>
                     <button
                         onClick={() => toggleGroup('stack')}
-                        className="flex items-center gap-1 font-bold text-gray-400 uppercase tracking-widest text-[9px] mb-1 w-full text-left"
+                        className="flex items-center gap-1 font-bold text-foreground-muted uppercase tracking-widest text-[9px] mb-1 w-full text-left"
                     >
                         {expandedGroups.stack ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                         Call Stack
@@ -164,7 +164,7 @@ export function DebuggerPanel({ sessionId, onStop, onUpdateState }: DebuggerPane
                     {expandedGroups.stack && (
                         <div className="space-y-1 pl-3">
                             {debugState?.stack?.map((frame, i) => (
-                                <div key={i} className={`flex items-center gap-2 p-1 rounded ${i === 0 ? 'bg-blue-500/10 text-blue-300' : 'text-gray-500'}`}>
+                                <div key={i} className={`flex items-center gap-2 p-1 rounded ${i === 0 ? 'bg-blue-500/10 text-blue-300' : 'text-foreground-muted'}`}>
                                     <span className="truncate">{frame.function}</span>
                                     <span className="text-[10px] opacity-50">:{frame.line}</span>
                                 </div>

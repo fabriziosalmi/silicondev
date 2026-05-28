@@ -344,14 +344,14 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
             }}
         >
             <div
-                className="w-full max-w-5xl max-h-[80vh] flex flex-col bg-overlay border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+                className="w-full max-w-5xl max-h-[80vh] flex flex-col bg-overlay border border-outline rounded-2xl shadow-2xl overflow-hidden"
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-outline-subtle">
                     <div className="flex items-center gap-2.5">
                         <BookOpen size={15} className="text-blue-400" />
                         <span className="text-sm font-semibold text-white">{t('promptLibrary.title')}</span>
-                        <span className="text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] text-foreground-muted bg-hover px-1.5 py-0.5 rounded">
                             {t('promptLibrary.promptCount', { count: library.length })}
                         </span>
                     </div>
@@ -360,7 +360,7 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                             type="button"
                             onClick={importMarkdown}
                             title={t('promptLibrary.importTitle')}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium text-gray-400 bg-white/[0.03] border border-white/[0.06] hover:text-white hover:bg-white/[0.06] transition-colors"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium text-foreground-muted bg-hover border border-outline-subtle hover:text-foreground hover:bg-hover transition-colors"
                         >
                             <Upload size={11} />
                             {t('promptLibrary.import')}
@@ -370,7 +370,7 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                             onClick={exportImportedPrompts}
                             title={t('promptLibrary.backupTitle')}
                             disabled={importedPrompts.length === 0}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium text-gray-400 bg-white/[0.03] border border-white/[0.06] hover:text-white hover:bg-white/[0.06] transition-colors disabled:opacity-40 disabled:hover:text-gray-400 disabled:hover:bg-white/[0.03]"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium text-foreground-muted bg-hover border border-outline-subtle hover:text-foreground hover:bg-hover transition-colors disabled:opacity-40 disabled:hover:text-foreground-muted disabled:hover:bg-hover"
                         >
                             <Download size={11} />
                             {t('promptLibrary.backup')}
@@ -379,7 +379,7 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                             type="button"
                             onClick={onClose}
                             title={t('common.close')}
-                            className="text-gray-500 hover:text-white transition-colors p-1"
+                            className="text-foreground-muted hover:text-foreground transition-colors p-1"
                         >
                             <X size={16} />
                         </button>
@@ -389,13 +389,13 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                 {/* Search */}
                 <div className="px-5 pt-3 pb-2">
                     <div className="relative">
-                        <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                        <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-muted pointer-events-none" />
                         <input
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder={t('promptLibrary.searchPlaceholder')}
-                            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder:text-gray-600 outline-none focus:border-white/20 transition-colors"
+                            className="w-full bg-hover border border-white/[0.08] rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder:text-foreground-subtle outline-none focus:border-outline-strong transition-colors"
                             autoFocus
                         />
                     </div>
@@ -410,8 +410,8 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                             onClick={() => setActiveCategory(cat)}
                             className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors whitespace-nowrap border ${
                                 activeCategory === cat
-                                    ? 'bg-white/10 text-white border-white/20'
-                                    : 'border-transparent text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
+                                    ? 'bg-active text-white border-outline-strong'
+                                    : 'border-transparent text-foreground-muted hover:text-foreground-secondary hover:bg-hover'
                             }`}
                         >
                             {categoryTabLabels[cat]}
@@ -427,7 +427,7 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                 {/* Cards grid */}
                 <div className="flex-1 overflow-y-auto px-5 pb-5">
                     {filtered.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 text-gray-600">
+                        <div className="flex flex-col items-center justify-center py-16 text-foreground-subtle">
                             <BookOpen size={28} className="mb-3 opacity-30" />
                             <p className="text-xs">{t('promptLibrary.empty')}</p>
                         </div>
@@ -444,8 +444,8 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                                         key={template.id}
                                         className={`flex flex-col gap-2 p-3.5 rounded-xl border transition-all cursor-pointer ${
                                             isExpanded
-                                                ? 'border-white/20 bg-white/[0.06]'
-                                                : 'border-white/[0.06] bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04]'
+                                                ? 'border-outline-strong bg-hover'
+                                                : 'border-outline-subtle bg-hover hover:border-outline hover:bg-hover'
                                         }`}
                                         onClick={() => setExpanded(isExpanded ? null : template.id)}
                                     >
@@ -455,7 +455,7 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                                                 <div className="text-xs font-semibold text-white truncate">
                                                     {template.title}
                                                 </div>
-                                                <div className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">
+                                                <div className="text-[10px] text-foreground-muted mt-0.5 line-clamp-2">
                                                     {template.description}
                                                 </div>
                                             </div>
@@ -470,7 +470,7 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                                                     className={`p-1 rounded-md border transition-colors ${
                                                         favoriteSet.has(template.id)
                                                             ? 'text-amber-300 bg-amber-500/10 border-amber-500/20'
-                                                            : 'text-gray-500 border-white/[0.06] hover:text-amber-300 hover:border-amber-500/20'
+                                                            : 'text-foreground-muted border-outline-subtle hover:text-amber-300 hover:border-amber-500/20'
                                                     }`}
                                                 >
                                                     <Star size={11} fill={favoriteSet.has(template.id) ? 'currentColor' : 'none'} />
@@ -487,7 +487,7 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                                                 {template.tags.slice(0, 3).map(tag => (
                                                     <span
                                                         key={tag}
-                                                        className="text-[9px] text-gray-600 bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded"
+                                                        className="text-[9px] text-foreground-subtle bg-hover border border-outline-subtle px-1.5 py-0.5 rounded"
                                                     >
                                                         {tag}
                                                     </span>
@@ -508,20 +508,20 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                                                             value={draftTitle}
                                                             onChange={(e) => setDraftTitle(e.target.value)}
                                                             placeholder={t('promptLibrary.promptTitlePlaceholder')}
-                                                            className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-white/20"
+                                                            className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-outline-strong"
                                                         />
                                                         <input
                                                             type="text"
                                                             value={draftDescription}
                                                             onChange={(e) => setDraftDescription(e.target.value)}
                                                             placeholder={t('promptLibrary.shortDescriptionPlaceholder')}
-                                                            className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-white/20"
+                                                            className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-outline-strong"
                                                         />
                                                         <textarea
                                                             value={draftPrompt}
                                                             onChange={(e) => setDraftPrompt(e.target.value)}
                                                             placeholder={t('promptLibrary.promptContentPlaceholder')}
-                                                            className="w-full bg-black/40 border border-white/[0.08] rounded-lg p-3 min-h-32 text-[11px] text-gray-300 font-mono leading-relaxed resize-y outline-none focus:border-white/20"
+                                                            className="w-full bg-black/40 border border-white/[0.08] rounded-lg p-3 min-h-32 text-[11px] text-foreground-secondary font-mono leading-relaxed resize-y outline-none focus:border-outline-strong"
                                                         />
                                                         <div className="grid grid-cols-2 gap-2">
                                                             <button
@@ -536,7 +536,7 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                                                             <button
                                                                 type="button"
                                                                 onClick={cancelEditing}
-                                                                className="py-1.5 rounded-lg text-xs font-medium text-gray-300 bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors"
+                                                                className="py-1.5 rounded-lg text-xs font-medium text-foreground-secondary bg-hover border border-white/[0.08] hover:bg-active transition-colors"
                                                             >
                                                                 {t('common.cancel')}
                                                             </button>
@@ -544,8 +544,8 @@ export function PromptLibraryPanel({ onSelect, onClose }: PromptLibraryPanelProp
                                                     </div>
                                                 ) : (
                                                     <>
-                                                        <div className="bg-black/40 border border-white/[0.06] rounded-lg p-2.5 max-h-36 overflow-y-auto">
-                                                            <p className="text-[10px] text-gray-400 leading-relaxed font-mono whitespace-pre-wrap">
+                                                        <div className="bg-black/40 border border-outline-subtle rounded-lg p-2.5 max-h-36 overflow-y-auto">
+                                                            <p className="text-[10px] text-foreground-muted leading-relaxed font-mono whitespace-pre-wrap">
                                                                 {template.prompt}
                                                             </p>
                                                         </div>

@@ -52,7 +52,7 @@ export function ConversationListPanel({
             {/* Search input — controlled by parent via searchOpen prop */}
             {searchOpen && (
                 <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground-muted pointer-events-none" />
                     <input
                         ref={searchInputRef}
                         type="text"
@@ -63,7 +63,7 @@ export function ConversationListPanel({
                         onKeyDown={(e) => {
                             if (e.key === 'Escape') onCloseSearch()
                         }}
-                        className="w-full bg-white/[0.03] border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500/50 transition-all"
+                        className="w-full bg-hover border border-outline rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-foreground-subtle outline-none focus:border-blue-500/50 transition-all"
                     />
                 </div>
             )}
@@ -74,10 +74,10 @@ export function ConversationListPanel({
                     <div className="space-y-1">
                         {[1,2,3,4].map(i => (
                             <div key={i} className="flex items-center gap-2 p-2.5 rounded-lg">
-                                <div className="w-4 h-4 rounded bg-white/5 animate-pulse shrink-0" />
+                                <div className="w-4 h-4 rounded bg-hover animate-pulse shrink-0" />
                                 <div className="flex-1 space-y-1.5">
-                                    <div className="h-2.5 rounded bg-white/5 animate-pulse" style={{ width: `${60 + i * 8}%` }} />
-                                    <div className="h-2 w-16 rounded bg-white/[0.03] animate-pulse" />
+                                    <div className="h-2.5 rounded bg-hover animate-pulse" style={{ width: `${60 + i * 8}%` }} />
+                                    <div className="h-2 w-16 rounded bg-hover animate-pulse" />
                                 </div>
                             </div>
                         ))}
@@ -90,7 +90,7 @@ export function ConversationListPanel({
                         className={`group/conv flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer ${
                             activeId === conv.id
                                 ? 'bg-blue-500/10 border-blue-500/30'
-                                : 'bg-transparent border-transparent hover:bg-white/[0.03] hover:border-white/5'
+                                : 'bg-transparent border-transparent hover:bg-hover hover:border-outline-subtle'
                         }`}
                     >
                         <div className="min-w-0 flex-1">
@@ -99,7 +99,7 @@ export function ConversationListPanel({
                                     <input
                                         value={renameValue}
                                         onChange={(e) => onRenameValueChange(e.target.value)}
-                                        className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-blue-500/50"
+                                        className="flex-1 min-w-0 bg-hover border border-outline rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-blue-500/50"
                                         autoFocus
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') onRename(conv.id, renameValue);
@@ -116,7 +116,7 @@ export function ConversationListPanel({
                                     <button
                                         type="button"
                                         onClick={(e) => { e.stopPropagation(); onCancelRename(); }}
-                                        className="p-0.5 text-gray-500 hover:text-gray-400"
+                                        className="p-0.5 text-foreground-muted hover:text-foreground-muted"
                                     >
                                         <X className="w-3 h-3" />
                                     </button>
@@ -126,14 +126,14 @@ export function ConversationListPanel({
                                     <div className="flex items-center gap-1.5">
                                         {conv.pinned && <Pin className="w-3 h-3 text-blue-400 shrink-0" />}
                                         {conv.branched_from && <GitFork className="w-3 h-3 text-blue-400 shrink-0" />}
-                                        <span className="text-xs font-medium text-gray-200 truncate">{conv.title}</span>
+                                        <span className="text-xs font-medium text-foreground-secondary truncate">{conv.title}</span>
                                     </div>
-                                    <div className="text-[10px] text-gray-600 mt-0.5 flex items-center gap-2">
+                                    <div className="text-[10px] text-foreground-subtle mt-0.5 flex items-center gap-2">
                                         <span>{conv.message_count} msgs</span>
                                         <span>{formatTimeAgo(conv.updated_at)}</span>
                                     </div>
                                     {conv.match_context && (
-                                        <p className="text-[10px] text-gray-500 mt-1 truncate italic">
+                                        <p className="text-[10px] text-foreground-muted mt-1 truncate italic">
                                             {conv.match_context}
                                         </p>
                                     )}
@@ -146,7 +146,7 @@ export function ConversationListPanel({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onTogglePin(conv.id, conv.pinned); }}
-                                    className="p-1 text-gray-600 hover:text-blue-400 rounded transition-colors"
+                                    className="p-1 text-foreground-subtle hover:text-blue-400 rounded transition-colors"
                                     title={conv.pinned ? 'Unpin' : 'Pin'}
                                 >
                                     {conv.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
@@ -154,7 +154,7 @@ export function ConversationListPanel({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onStartRename(conv.id, conv.title); }}
-                                    className="p-1 text-gray-600 hover:text-white rounded transition-colors"
+                                    className="p-1 text-foreground-subtle hover:text-foreground rounded transition-colors"
                                     title="Rename"
                                 >
                                     <Edit3 className="w-3 h-3" />
@@ -162,7 +162,7 @@ export function ConversationListPanel({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onDelete(conv.id); }}
-                                    className="p-1 text-gray-600 hover:text-red-400 rounded transition-colors"
+                                    className="p-1 text-foreground-subtle hover:text-red-400 rounded transition-colors"
                                     title="Delete"
                                 >
                                     <Trash2 className="w-3 h-3" />
@@ -173,8 +173,8 @@ export function ConversationListPanel({
                 ))}
                 {conversations.length === 0 && !loading && (
                     <div className="p-6 text-center">
-                        <MessageSquare className="w-6 h-6 text-gray-700 mx-auto mb-2" />
-                        <p className="text-xs text-gray-600">
+                        <MessageSquare className="w-6 h-6 text-foreground-disabled mx-auto mb-2" />
+                        <p className="text-xs text-foreground-subtle">
                             {searchQuery ? 'No matches found.' : 'No conversations yet.'}
                         </p>
                     </div>

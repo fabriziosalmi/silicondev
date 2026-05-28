@@ -13,7 +13,7 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
         <Card className="p-4">
             <div className="flex items-center gap-2 mb-2">
                 {icon}
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">{label}</span>
+                <span className="text-[10px] font-bold text-foreground-muted uppercase tracking-wide">{label}</span>
             </div>
             <span className="text-2xl font-bold text-white font-mono tabular-nums">{value}</span>
         </Card>
@@ -65,13 +65,13 @@ export function AnalyticsTab({ collections }: AnalyticsTabProps) {
                     title="Collection"
                     value={analyticsCollectionId}
                     onChange={(e) => setAnalyticsCollectionId(e.target.value)}
-                    className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white outline-none focus:border-purple-500 appearance-none"
+                    className="bg-black/40 border border-outline rounded-lg px-4 py-2 text-sm text-white outline-none focus:border-purple-500 appearance-none"
                 >
                     {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 <button
                     onClick={() => analyticsCollectionId && fetchAnalytics(analyticsCollectionId)}
-                    className="px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg text-xs transition-colors"
+                    className="px-3 py-2 bg-hover hover:bg-active text-foreground-muted hover:text-foreground rounded-lg text-xs transition-colors"
                 >
                     Refresh
                 </button>
@@ -79,12 +79,12 @@ export function AnalyticsTab({ collections }: AnalyticsTabProps) {
 
             {loadingAnalytics ? (
                 <Card className="p-8 flex items-center justify-center">
-                    <div className="w-5 h-5 border-2 border-white/20 border-t-purple-400 rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-outline-strong border-t-purple-400 rounded-full animate-spin" />
                 </Card>
             ) : !analytics ? (
                 <Card className="p-8 text-center">
-                    <BarChart3 className="w-8 h-8 text-gray-600 mx-auto mb-3" />
-                    <p className="text-sm text-gray-500">Select a collection to view analytics.</p>
+                    <BarChart3 className="w-8 h-8 text-foreground-subtle mx-auto mb-3" />
+                    <p className="text-sm text-foreground-muted">Select a collection to view analytics.</p>
                 </Card>
             ) : (
                 <>
@@ -105,19 +105,19 @@ export function AnalyticsTab({ collections }: AnalyticsTabProps) {
 
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                         <Card className="p-5">
-                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-4 flex items-center gap-2">
+                            <h3 className="text-xs font-bold text-foreground-muted uppercase tracking-wide mb-4 flex items-center gap-2">
                                 <Clock className="w-3.5 h-3.5" />
                                 Recent Queries
                             </h3>
                             {analytics.recent_queries.length === 0 ? (
-                                <p className="text-xs text-gray-600">No queries yet.</p>
+                                <p className="text-xs text-foreground-subtle">No queries yet.</p>
                             ) : (
                                 <div className="space-y-1.5 max-h-80 overflow-y-auto">
                                     {[...analytics.recent_queries].reverse().map((q, i) => (
-                                        <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/[0.03] transition-colors">
-                                            <span className="text-[10px] text-gray-600 font-mono tabular-nums shrink-0">{formatTimestamp(q.timestamp)}</span>
-                                            <span className="text-xs text-gray-300 truncate flex-1">{q.query}</span>
-                                            <span className="text-[10px] text-gray-600 font-mono shrink-0">{q.n_results} hit{q.n_results !== 1 ? 's' : ''}</span>
+                                        <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-hover transition-colors">
+                                            <span className="text-[10px] text-foreground-subtle font-mono tabular-nums shrink-0">{formatTimestamp(q.timestamp)}</span>
+                                            <span className="text-xs text-foreground-secondary truncate flex-1">{q.query}</span>
+                                            <span className="text-[10px] text-foreground-subtle font-mono shrink-0">{q.n_results} hit{q.n_results !== 1 ? 's' : ''}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -125,12 +125,12 @@ export function AnalyticsTab({ collections }: AnalyticsTabProps) {
                         </Card>
 
                         <Card className="p-5">
-                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-4 flex items-center gap-2">
+                            <h3 className="text-xs font-bold text-foreground-muted uppercase tracking-wide mb-4 flex items-center gap-2">
                                 <TrendingUp className="w-3.5 h-3.5" />
                                 Most Retrieved Chunks
                             </h3>
                             {analytics.top_chunks.length === 0 ? (
-                                <p className="text-xs text-gray-600">No usage data yet. Query results are tracked automatically.</p>
+                                <p className="text-xs text-foreground-subtle">No usage data yet. Query results are tracked automatically.</p>
                             ) : (
                                 <div className="space-y-2">
                                     {analytics.top_chunks.map((chunk) => {
@@ -139,10 +139,10 @@ export function AnalyticsTab({ collections }: AnalyticsTabProps) {
                                         return (
                                             <div key={chunk.index} className="space-y-1">
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-xs text-gray-400 font-mono">Chunk #{chunk.index}</span>
+                                                    <span className="text-xs text-foreground-muted font-mono">Chunk #{chunk.index}</span>
                                                     <div className="flex items-center gap-3">
-                                                        <span className="text-[10px] text-gray-600">{formatTimestamp(chunk.last_used)}</span>
-                                                        <span className="text-xs font-bold text-gray-300 font-mono tabular-nums w-8 text-right">{chunk.hits}</span>
+                                                        <span className="text-[10px] text-foreground-subtle">{formatTimestamp(chunk.last_used)}</span>
+                                                        <span className="text-xs font-bold text-foreground-secondary font-mono tabular-nums w-8 text-right">{chunk.hits}</span>
                                                     </div>
                                                 </div>
                                                 <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">

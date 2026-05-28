@@ -27,18 +27,18 @@ const FILE_ICON_MAP: Record<string, string> = {
   '.js': 'text-yellow-300',
   '.jsx': 'text-yellow-300',
   '.json': 'text-green-400',
-  '.md': 'text-gray-400',
+  '.md': 'text-foreground-muted',
   '.css': 'text-pink-400',
   '.html': 'text-orange-400',
   '.yaml': 'text-purple-400',
   '.yml': 'text-purple-400',
-  '.toml': 'text-gray-400',
+  '.toml': 'text-foreground-muted',
   '.sh': 'text-green-300',
 }
 
 function getFileColor(name: string): string {
   const ext = name.substring(name.lastIndexOf('.'))
-  return FILE_ICON_MAP[ext] || 'text-gray-500'
+  return FILE_ICON_MAP[ext] || 'text-foreground-muted'
 }
 
 function isCodeFile(name: string): boolean {
@@ -98,24 +98,24 @@ function ContextMenu({ x, y, onRename, onDelete, onCopyPath, onClose }: {
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[140px] py-1 bg-elevated border border-white/10 rounded-md shadow-xl"
+      className="fixed z-50 min-w-[140px] py-1 bg-elevated border border-outline rounded-md shadow-xl"
       style={{ left: x, top: y }}
     >
       <button
         type="button"
         onClick={() => { onRename(); onClose() }}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-300 hover:bg-white/10 transition-colors text-left"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-foreground-secondary hover:bg-active transition-colors text-left"
       >
         <Pencil size={12} /> Rename
       </button>
       <button
         type="button"
         onClick={() => { onCopyPath(); onClose() }}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-300 hover:bg-white/10 transition-colors text-left"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-foreground-secondary hover:bg-active transition-colors text-left"
       >
         <Copy size={12} /> Copy Path
       </button>
-      <div className="my-1 border-t border-white/5" />
+      <div className="my-1 border-t border-outline-subtle" />
       <button
         type="button"
         onClick={() => { onDelete(); onClose() }}
@@ -246,13 +246,13 @@ const TreeItem = memo(function TreeItem({
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick() }}
-        className={`group flex items-center gap-1.5 py-[3px] pr-1 cursor-pointer text-xs transition-colors hover:bg-white/5 ${isActive ? 'bg-blue-500/15 text-blue-300' : 'text-gray-400'
+        className={`group flex items-center gap-1.5 py-[3px] pr-1 cursor-pointer text-xs transition-colors hover:bg-hover ${isActive ? 'bg-blue-500/15 text-blue-300' : 'text-foreground-muted'
           } ${hasScoutIssue ? 'animate-pulse bg-orange-500/10' : ''}`}
         style={{ paddingLeft }}
       >
         {node.type === 'dir' ? (
           <>
-            <span className="text-gray-600 w-3.5 flex justify-center shrink-0">
+            <span className="text-foreground-subtle w-3.5 flex justify-center shrink-0">
               {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             </span>
             {expanded ? (
@@ -285,7 +285,7 @@ const TreeItem = memo(function TreeItem({
             onBlur={commitRename}
             title="Rename"
             placeholder="New name"
-            className="flex-1 min-w-0 px-1 py-0 bg-black/40 border border-blue-500/40 rounded text-[11px] text-gray-200 outline-none"
+            className="flex-1 min-w-0 px-1 py-0 bg-black/40 border border-blue-500/40 rounded text-[11px] text-foreground-secondary outline-none"
           />
         ) : (
           <>
@@ -299,7 +299,7 @@ const TreeItem = memo(function TreeItem({
                   type="button"
                   title={isPinned ? 'Remove from context' : 'Add to context'}
                   onClick={handleTogglePin}
-                  className={`p-0.5 rounded hover:bg-white/10 transition-colors ${isPinned ? 'text-blue-400' : 'text-gray-600 hover:text-gray-300'
+                  className={`p-0.5 rounded hover:bg-active transition-colors ${isPinned ? 'text-blue-400' : 'text-foreground-subtle hover:text-foreground-secondary'
                     }`}
                 >
                   <Pin size={12} className={isPinned ? 'fill-blue-400' : ''} />
@@ -309,7 +309,7 @@ const TreeItem = memo(function TreeItem({
                 type="button"
                 title="Actions"
                 onClick={handleDotsClick}
-                className="p-0.5 rounded hover:bg-white/10 text-gray-600 hover:text-gray-300 transition-all shrink-0"
+                className="p-0.5 rounded hover:bg-active text-foreground-subtle hover:text-foreground-secondary transition-all shrink-0"
               >
                 <MoreHorizontal size={12} />
               </button>
@@ -350,7 +350,7 @@ const TreeItem = memo(function TreeItem({
 export function FileTree({ tree, onFileSelect, onRename, onDelete, activeFile, pinnedItems, onTogglePin, scoutIssues }: FileTreeProps) {
   if (!tree) {
     return (
-      <div className="flex items-center justify-center h-full text-xs text-gray-600">
+      <div className="flex items-center justify-center h-full text-xs text-foreground-subtle">
         No workspace loaded
       </div>
     )

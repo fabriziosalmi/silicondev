@@ -78,9 +78,9 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
     }`}>
       {/* Header — collapsible button when decided, static div when pending */}
       {isPending ? (
-        <div className={`flex items-center justify-between px-3 py-2 bg-white/[0.02] ${expanded ? 'border-b border-white/[0.04]' : ''}`}>
+        <div className={`flex items-center justify-between px-3 py-2 bg-hover ${expanded ? 'border-b border-outline-subtle' : ''}`}>
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[11px] text-gray-300 font-mono truncate">{meta.filePath}</span>
+            <span className="text-[11px] text-foreground-secondary font-mono truncate">{meta.filePath}</span>
             <span className="text-[9px] shrink-0 flex items-center gap-1">
               {additions > 0 && <span className="text-green-500">+{additions}</span>}
               {deletions > 0 && <span className="text-red-500">-{deletions}</span>}
@@ -114,14 +114,14 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
           type="button"
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded ? true : false}
-          className={`w-full flex items-center justify-between px-3 py-2 bg-white/[0.02] cursor-pointer hover:bg-white/[0.04] text-left ${expanded ? 'border-b border-white/[0.04]' : ''}`}
+          className={`w-full flex items-center justify-between px-3 py-2 bg-hover cursor-pointer hover:bg-hover text-left ${expanded ? 'border-b border-outline-subtle' : ''}`}
         >
           <div className="flex items-center gap-2 min-w-0">
             <ChevronRight
               size={11}
-              className={`text-gray-600 transition-transform shrink-0 ${expanded ? 'rotate-90' : ''}`}
+              className={`text-foreground-subtle transition-transform shrink-0 ${expanded ? 'rotate-90' : ''}`}
             />
-            <span className="text-[11px] text-gray-300 font-mono truncate">{meta.filePath}</span>
+            <span className="text-[11px] text-foreground-secondary font-mono truncate">{meta.filePath}</span>
             <span className="text-[9px] shrink-0 flex items-center gap-1">
               {additions > 0 && <span className="text-green-500">+{additions}</span>}
               {deletions > 0 && <span className="text-red-500">-{deletions}</span>}
@@ -145,7 +145,7 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
             onKeyDown={handleRejectKeyDown}
             placeholder="Why? (optional, Enter to send)"
             autoFocus
-            className="flex-1 bg-black/30 border border-white/10 rounded-md px-2 py-1 text-[11px] font-mono text-white placeholder-gray-600 focus:outline-none focus:border-red-500/40"
+            className="flex-1 bg-black/30 border border-outline rounded-md px-2 py-1 text-[11px] font-mono text-white placeholder:text-foreground-subtle focus:outline-none focus:border-red-500/40"
           />
           <button
             type="button"
@@ -158,7 +158,7 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
           <button
             type="button"
             onClick={() => { setShowRejectInput(false); setRejectReason('') }}
-            className="px-1.5 py-1 text-[10px] text-gray-500 hover:text-white transition-colors"
+            className="px-1.5 py-1 text-[10px] text-foreground-muted hover:text-foreground transition-colors"
           >
             Cancel
           </button>
@@ -179,11 +179,11 @@ export function HolographicDiff({ meta, sessionId, onDecided }: HolographicDiffP
             <tbody>
               {diffLines.map((line, i) => {
                 let bg = ''
-                let textColor = 'text-gray-500'
-                let gutterColor = 'text-gray-700'
+                let textColor = 'text-foreground-muted'
+                let gutterColor = 'text-foreground-disabled'
                 let prefix = ' '
                 if (line.startsWith('+++') || line.startsWith('---')) {
-                  textColor = 'text-gray-600'
+                  textColor = 'text-foreground-subtle'
                   return null // skip file headers, we show the path in the card header
                 } else if (line.startsWith('+')) {
                   bg = 'bg-green-500/[0.07]'

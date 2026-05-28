@@ -17,7 +17,7 @@ const INTENT_CONFIG = {
 
 const COMPLEXITY_CONFIG = {
   simple: { label: 'Simple', color: 'text-green-400', dot: 'bg-green-400' },
-  normal: { label: 'Normal', color: 'text-gray-400', dot: 'bg-gray-400' },
+  normal: { label: 'Normal', color: 'text-foreground-muted', dot: 'bg-gray-400' },
   complex: { label: 'Complex', color: 'text-orange-400', dot: 'bg-orange-400' },
 } as const
 
@@ -30,21 +30,21 @@ export function PreLayerBar({ profile }: PreLayerBarProps) {
   const pathCount = profile.extracted_paths.length
 
   return (
-    <div className="shrink-0 border-t border-white/[0.04] bg-black/20">
+    <div className="shrink-0 border-t border-outline-subtle bg-black/20">
       {/* Collapsed bar */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-white/[0.02] transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-hover transition-colors"
       >
         {expanded ? (
-          <ChevronDown size={10} className="text-gray-600 shrink-0" />
+          <ChevronDown size={10} className="text-foreground-subtle shrink-0" />
         ) : (
-          <ChevronRight size={10} className="text-gray-600 shrink-0" />
+          <ChevronRight size={10} className="text-foreground-subtle shrink-0" />
         )}
 
-        <Gauge size={10} className="text-gray-500 shrink-0" />
-        <span className="text-[10px] text-gray-500 font-mono">pre-layer</span>
+        <Gauge size={10} className="text-foreground-muted shrink-0" />
+        <span className="text-[10px] text-foreground-muted font-mono">pre-layer</span>
 
         <div className="flex items-center gap-1.5 ml-auto">
           {/* Intent badge */}
@@ -61,7 +61,7 @@ export function PreLayerBar({ profile }: PreLayerBarProps) {
 
           {/* File count */}
           {pathCount > 0 && (
-            <span className="flex items-center gap-0.5 text-[9px] font-mono text-gray-500">
+            <span className="flex items-center gap-0.5 text-[9px] font-mono text-foreground-muted">
               <File size={8} />
               {pathCount}
             </span>
@@ -72,11 +72,11 @@ export function PreLayerBar({ profile }: PreLayerBarProps) {
       {/* Expanded details */}
       {expanded && pathCount > 0 && (
         <div className="px-3 pb-2 pt-0.5 border-t border-white/[0.03]">
-          <div className="text-[9px] text-gray-600 font-mono mb-1">Pre-read files:</div>
+          <div className="text-[9px] text-foreground-subtle font-mono mb-1">Pre-read files:</div>
           {profile.extracted_paths.map((p) => (
             <div key={p} className="flex items-center gap-1.5 py-0.5">
-              <File size={8} className="text-gray-600 shrink-0" />
-              <span className="text-[9px] text-gray-400 font-mono truncate" title={p}>
+              <File size={8} className="text-foreground-subtle shrink-0" />
+              <span className="text-[9px] text-foreground-muted font-mono truncate" title={p}>
                 {p.split('/').slice(-2).join('/')}
               </span>
             </div>

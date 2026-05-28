@@ -46,7 +46,7 @@ export function NoteListPanel({
                         className={`group/note flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer ${
                             activeId === note.id
                                 ? 'bg-blue-500/10 border-blue-500/30'
-                                : 'bg-transparent border-transparent hover:bg-white/[0.03] hover:border-white/5'
+                                : 'bg-transparent border-transparent hover:bg-hover hover:border-outline-subtle'
                         }`}
                     >
                         <div className="min-w-0 flex-1">
@@ -55,7 +55,7 @@ export function NoteListPanel({
                                     <input
                                         value={renameValue}
                                         onChange={(e) => onRenameValueChange(e.target.value)}
-                                        className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-blue-500/50"
+                                        className="flex-1 min-w-0 bg-hover border border-outline rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-blue-500/50"
                                         autoFocus
                                         maxLength={120}
                                         onKeyDown={(e) => {
@@ -73,7 +73,7 @@ export function NoteListPanel({
                                     <button
                                         type="button"
                                         onClick={(e) => { e.stopPropagation(); onCancelRename(); }}
-                                        className="p-0.5 text-gray-500 hover:text-gray-400"
+                                        className="p-0.5 text-foreground-muted hover:text-foreground-muted"
                                     >
                                         <X className="w-3 h-3" />
                                     </button>
@@ -82,9 +82,9 @@ export function NoteListPanel({
                                 <>
                                     <div className="flex items-center gap-1.5">
                                         {note.pinned && <Pin className="w-3 h-3 text-blue-400 shrink-0" />}
-                                        <span className="text-xs font-medium text-gray-200 truncate">{note.title}</span>
+                                        <span className="text-xs font-medium text-foreground-secondary truncate">{note.title}</span>
                                     </div>
-                                    <div className="text-[10px] text-gray-600 mt-0.5 flex items-center gap-2">
+                                    <div className="text-[10px] text-foreground-subtle mt-0.5 flex items-center gap-2">
                                         <span>{note.char_count} chars</span>
                                         <span>{formatTimeAgo(note.updated_at)}</span>
                                     </div>
@@ -96,7 +96,7 @@ export function NoteListPanel({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onTogglePin(note.id, note.pinned); }}
-                                    className="p-1 text-gray-600 hover:text-blue-400 rounded transition-colors"
+                                    className="p-1 text-foreground-subtle hover:text-blue-400 rounded transition-colors"
                                     title={note.pinned ? 'Unpin' : 'Pin'}
                                 >
                                     {note.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
@@ -104,7 +104,7 @@ export function NoteListPanel({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onStartRename(note.id, note.title); }}
-                                    className="p-1 text-gray-600 hover:text-white rounded transition-colors"
+                                    className="p-1 text-foreground-subtle hover:text-foreground rounded transition-colors"
                                     title="Rename"
                                 >
                                     <Edit3 className="w-3 h-3" />
@@ -112,7 +112,7 @@ export function NoteListPanel({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
-                                    className="p-1 text-gray-600 hover:text-red-400 rounded transition-colors"
+                                    className="p-1 text-foreground-subtle hover:text-red-400 rounded transition-colors"
                                     title="Delete"
                                 >
                                     <Trash2 className="w-3 h-3" />
@@ -123,8 +123,8 @@ export function NoteListPanel({
                 ))}
                 {notes.length === 0 && !loading && (
                     <div className="p-6 text-center">
-                        <FileText className="w-6 h-6 text-gray-700 mx-auto mb-2" />
-                        <p className="text-xs text-gray-600">No notes yet.</p>
+                        <FileText className="w-6 h-6 text-foreground-disabled mx-auto mb-2" />
+                        <p className="text-xs text-foreground-subtle">No notes yet.</p>
                     </div>
                 )}
             </div>

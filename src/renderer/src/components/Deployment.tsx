@@ -195,45 +195,45 @@ print(response.choices[0].message.content)`
 
                         <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${serverRunning ? 'bg-green-500' : 'bg-gray-600'}`} />
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-foreground-muted">
                                 {serverRunning ? t('deployment.running') : t('deployment.notRunning')}
                             </span>
                         </div>
 
                         {serverRunning && uptime != null && (
-                            <span className="text-xs text-gray-500 font-mono tabular-nums">
+                            <span className="text-xs text-foreground-muted font-mono tabular-nums">
                                 {formatUptime(uptime)}
                             </span>
                         )}
 
                         {serverRunning && pid && (
-                            <span className="text-xs text-gray-600 font-mono">
+                            <span className="text-xs text-foreground-subtle font-mono">
                                 PID {pid}
                             </span>
                         )}
 
                         <div className="ml-auto flex items-center gap-3">
                             <div className="flex items-center gap-2">
-                                <Globe className="w-3.5 h-3.5 text-gray-600" />
+                                <Globe className="w-3.5 h-3.5 text-foreground-subtle" />
                                 <select
                                     title="Bind address"
                                     value={host}
                                     onChange={(e) => setHost(e.target.value)}
                                     disabled={serverRunning}
-                                    className="bg-transparent text-xs text-gray-400 outline-none cursor-pointer hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="bg-transparent text-xs text-foreground-muted outline-none cursor-pointer hover:text-foreground-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <option value="127.0.0.1" className="bg-elevated">localhost</option>
                                     <option value="0.0.0.0" className="bg-elevated">0.0.0.0</option>
                                 </select>
                             </div>
-                            <span className="text-gray-700">:</span>
+                            <span className="text-foreground-disabled">:</span>
                             <input
                                 type="number"
                                 title="Port"
                                 disabled={serverRunning}
                                 value={port}
                                 onChange={(e) => setPort(e.target.value)}
-                                className="w-16 bg-transparent border-b border-white/10 text-xs text-gray-400 outline-none focus:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed font-mono text-center"
+                                className="w-16 bg-transparent border-b border-outline text-xs text-foreground-muted outline-none focus:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed font-mono text-center"
                             />
                         </div>
                     </div>
@@ -253,20 +253,20 @@ print(response.choices[0].message.content)`
 
                     {/* Endpoint URL when running */}
                     {serverRunning && (
-                        <div className="flex items-center gap-2 bg-white/[0.03] border border-white/5 rounded-lg px-3 py-2">
-                            <span className="text-xs text-gray-500">{t('deployment.status')}</span>
-                            <code className="text-xs font-mono text-gray-300 flex-1">{endpoint}/v1</code>
+                        <div className="flex items-center gap-2 bg-hover border border-outline-subtle rounded-lg px-3 py-2">
+                            <span className="text-xs text-foreground-muted">{t('deployment.status')}</span>
+                            <code className="text-xs font-mono text-foreground-secondary flex-1">{endpoint}/v1</code>
                             <button
                                 type="button"
                                 onClick={() => handleCopy(`${endpoint}/v1`, 'endpoint')}
-                                className="text-gray-600 hover:text-gray-400 transition-colors"
+                                className="text-foreground-subtle hover:text-foreground-muted transition-colors"
                                 title="Copy endpoint URL"
                             >
                                 {copiedId === 'endpoint' ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
                             </button>
-                            <div className="w-px h-4 bg-white/5 mx-1" />
-                            <span className="text-xs text-gray-500">Model</span>
-                            <span className="text-xs text-gray-400 font-mono truncate max-w-48">
+                            <div className="w-px h-4 bg-hover mx-1" />
+                            <span className="text-xs text-foreground-muted">Model</span>
+                            <span className="text-xs text-foreground-muted font-mono truncate max-w-48">
                                 {activeModel ? cleanModelName(activeModel.name) : 'none'}
                             </span>
                         </div>
@@ -277,7 +277,7 @@ print(response.choices[0].message.content)`
                         open={showSnippets}
                         onToggle={(e) => setShowSnippets((e.target as HTMLDetailsElement).open)}
                     >
-                        <summary className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500 hover:text-gray-400 transition-colors select-none py-1">
+                        <summary className="flex items-center gap-1.5 cursor-pointer text-xs text-foreground-muted hover:text-foreground-muted transition-colors select-none py-1">
                             <ChevronRight className={`w-3 h-3 transition-transform ${showSnippets ? 'rotate-90' : ''}`} />
                             <span>Integration snippets</span>
                         </summary>
@@ -299,15 +299,15 @@ print(response.choices[0].message.content)`
                 </div>
 
                 {/* Log panel — takes remaining space */}
-                <div className="flex-1 flex flex-col bg-black/30 border border-white/5 rounded-xl overflow-hidden min-h-0">
-                    <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-white/[0.02] shrink-0">
+                <div className="flex-1 flex flex-col bg-black/30 border border-outline-subtle rounded-xl overflow-hidden min-h-0">
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-outline-subtle bg-hover shrink-0">
                         <div className="flex items-center gap-2">
-                            <Terminal className="w-3.5 h-3.5 text-gray-500" />
-                            <span className="text-xs font-medium text-gray-400">{t('deployment.logs')}</span>
-                            <span className="text-[10px] text-gray-600 font-mono">{logs.length} entries</span>
+                            <Terminal className="w-3.5 h-3.5 text-foreground-muted" />
+                            <span className="text-xs font-medium text-foreground-muted">{t('deployment.logs')}</span>
+                            <span className="text-[10px] text-foreground-subtle font-mono">{logs.length} entries</span>
                         </div>
                         <div className="flex items-center gap-3">
-                            <label className="flex items-center gap-1.5 text-[10px] text-gray-600 cursor-pointer">
+                            <label className="flex items-center gap-1.5 text-[10px] text-foreground-subtle cursor-pointer">
                                 <ToggleSwitch enabled={autoScroll} onChange={setAutoScroll} size="sm" />
                                 Auto-scroll
                             </label>
@@ -320,7 +320,7 @@ print(response.choices[0].message.content)`
                                             handleCopy(text, 'logs')
                                         }}
                                         title="Copy all log entries"
-                                        className="flex items-center gap-1 text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
+                                        className="flex items-center gap-1 text-[10px] text-foreground-subtle hover:text-foreground-muted transition-colors"
                                     >
                                         {copiedId === 'logs' ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
                                         <span>{copiedId === 'logs' ? 'Copied' : 'Copy all'}</span>
@@ -328,7 +328,7 @@ print(response.choices[0].message.content)`
                                     <button
                                         type="button"
                                         onClick={() => { setLogs([]); setLogSince(0); }}
-                                        className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
+                                        className="text-[10px] text-foreground-subtle hover:text-foreground-muted transition-colors"
                                     >
                                         Clear
                                     </button>
@@ -339,18 +339,18 @@ print(response.choices[0].message.content)`
                     <div className="flex-1 overflow-y-auto font-mono text-xs p-3 space-y-0">
                         {logs.length === 0 ? (
                             <div className="h-full flex items-center justify-center">
-                                <p className="text-gray-600 text-xs">
+                                <p className="text-foreground-subtle text-xs">
                                     {serverRunning ? 'Waiting for log output...' : 'Start the server to see logs here.'}
                                 </p>
                             </div>
                         ) : (
                             logs.map((entry, i) => (
-                                <div key={i} className="flex gap-3 py-0.5 hover:bg-white/[0.02] px-1 rounded">
-                                    <span className="text-gray-600 tabular-nums shrink-0">{formatLogTime(entry.timestamp)}</span>
-                                    <span className={`shrink-0 w-12 text-right ${entry.source === 'stderr' ? 'text-yellow-600' : 'text-gray-600'}`}>
+                                <div key={i} className="flex gap-3 py-0.5 hover:bg-hover px-1 rounded">
+                                    <span className="text-foreground-subtle tabular-nums shrink-0">{formatLogTime(entry.timestamp)}</span>
+                                    <span className={`shrink-0 w-12 text-right ${entry.source === 'stderr' ? 'text-yellow-600' : 'text-foreground-subtle'}`}>
                                         {entry.source === 'stderr' ? 'err' : 'out'}
                                     </span>
-                                    <span className="text-gray-400 break-all">{entry.message}</span>
+                                    <span className="text-foreground-muted break-all">{entry.message}</span>
                                 </div>
                             ))
                         )}
@@ -369,7 +369,7 @@ function highlightLine(line: string): React.ReactNode[] {
     const out: React.ReactNode[] = []
     // Patterns (order matters — most-specific first)
     const patterns: [RegExp, string][] = [
-        [/#.*$/,                       'text-gray-500 italic'],   // comments
+        [/#.*$/,                       'text-foreground-muted italic'],   // comments
         [/"(?:[^"\\]|\\.)*"/,          'text-amber-300/80'],      // double-quoted strings
         [/'(?:[^'\\]|\\.)*'/,          'text-amber-300/80'],      // single-quoted strings
         [/\b(curl|python|from|import|client|OpenAI|if|else|for|return|def|class|print|True|False|None)\b/, 'text-purple-300/90'], // keywords
@@ -403,14 +403,14 @@ function SnippetBlock({ label, code, copied, onCopy }: {
     onCopy: () => void
 }) {
     return (
-        <div className="rounded-lg border border-white/5 bg-black/30 overflow-hidden">
-            <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.03] border-b border-white/5">
-                <span className="text-[10px] font-mono text-gray-500">{label}</span>
+        <div className="rounded-lg border border-outline-subtle bg-black/30 overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-hover border-b border-outline-subtle">
+                <span className="text-[10px] font-mono text-foreground-muted">{label}</span>
                 <button
                     type="button"
                     onClick={onCopy}
                     title={`Copy ${label} snippet`}
-                    className="flex items-center gap-1 text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
+                    className="flex items-center gap-1 text-[10px] text-foreground-subtle hover:text-foreground-muted transition-colors"
                 >
                     {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
                     <span>{copied ? 'Copied' : 'Copy'}</span>

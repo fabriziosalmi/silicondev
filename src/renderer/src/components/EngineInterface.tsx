@@ -33,13 +33,13 @@ export function EngineInterface() {
             <div className="flex gap-1 shrink-0">
                 <button
                     onClick={() => setActiveTab('lora')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'lora' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'lora' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-foreground-muted hover:text-foreground-secondary hover:bg-hover'}`}
                 >
                     <Settings2 size={14} /> LoRA / QLoRA
                 </button>
                 <button
                     onClick={() => { setActiveTab('dpo'); apiClient.terminal.dpoStatus().then(s => { setDpoCount(s.count); setDpoPath(s.path) }).catch(() => {}) }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'dpo' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'dpo' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'text-foreground-muted hover:text-foreground-secondary hover:bg-hover'}`}
                 >
                     <GitCompare size={14} /> Preference Training (DPO)
                     {dpoCount > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-bold">{dpoCount}</span>}

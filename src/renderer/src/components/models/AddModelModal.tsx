@@ -97,7 +97,7 @@ export function AddModelModal({ onClose, onModelsAdded, initialPath }: AddModelM
                 aria-modal="true"
                 aria-labelledby="add-model-modal-title"
                 ref={trapRef}
-                className="bg-elevated border border-white/10 rounded-xl max-w-md w-full p-6 max-h-[85vh] overflow-y-auto"
+                className="bg-elevated border border-outline rounded-xl max-w-md w-full p-6 max-h-[85vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
             >
                 <h3 id="add-model-modal-title" className="text-xl font-bold text-white mb-6 flex items-center gap-2">
@@ -114,18 +114,18 @@ export function AddModelModal({ onClose, onModelsAdded, initialPath }: AddModelM
 
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-xs uppercase text-gray-500 font-semibold mb-1.5">Model Alias</label>
+                        <label className="block text-xs uppercase text-foreground-muted font-semibold mb-1.5">Model Alias</label>
                         <input
                             type="text"
                             value={customName}
                             onChange={(e) => setCustomName(e.target.value)}
                             placeholder="e.g. My Meta Llama Finetune"
-                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500 text-sm"
+                            className="w-full bg-black/40 border border-outline rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500 text-sm"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-xs uppercase text-gray-500 font-semibold mb-1.5">Local Directory Path</label>
+                        <label className="block text-xs uppercase text-foreground-muted font-semibold mb-1.5">Local Directory Path</label>
                         <div className="flex gap-2">
                             <input
                                 type="text"
@@ -133,7 +133,7 @@ export function AddModelModal({ onClose, onModelsAdded, initialPath }: AddModelM
                                 onChange={(e) => setCustomPath(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter' && customPath) handleScan(customPath) }}
                                 placeholder="/Users/name/models/llama-3 or ~/.lmstudio/models"
-                                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500 text-sm"
+                                className="flex-1 bg-black/40 border border-outline rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500 text-sm"
                             />
                             <button
                                 type="button"
@@ -148,7 +148,7 @@ export function AddModelModal({ onClose, onModelsAdded, initialPath }: AddModelM
                                         if (customPath) handleScan(customPath)
                                     }
                                 }}
-                                className="bg-white/10 hover:bg-blue-500 hover:text-white text-gray-300 px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                                className="bg-active hover:bg-blue-500 hover:text-foreground text-foreground-secondary px-4 py-2 rounded-lg transition-colors text-sm font-medium"
                             >
                                 Browse
                             </button>
@@ -185,23 +185,23 @@ export function AddModelModal({ onClose, onModelsAdded, initialPath }: AddModelM
                         </div>
 
                         {scanning && (
-                            <div className="mt-4 flex items-center gap-2 text-xs text-gray-400">
+                            <div className="mt-4 flex items-center gap-2 text-xs text-foreground-muted">
                                 <Loader2 size={12} className="animate-spin" />
                                 Scanning directory for MLX models...
                             </div>
                         )}
 
                         {foundModels.length > 0 && (
-                            <div className="mt-6 border border-white/10 rounded-lg overflow-hidden bg-black/40 max-h-48 overflow-y-auto">
-                                <div className="bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-gray-400 border-b border-white/5 flex justify-between">
+                            <div className="mt-6 border border-outline rounded-lg overflow-hidden bg-black/40 max-h-48 overflow-y-auto">
+                                <div className="bg-hover px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-foreground-muted border-b border-outline-subtle flex justify-between">
                                     <span>Found Models ({foundModels.length})</span>
                                     <span>Select</span>
                                 </div>
                                 {foundModels.map(m => (
-                                    <div key={m.path} className="flex items-center justify-between px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
+                                    <div key={m.path} className="flex items-center justify-between px-3 py-2 border-b border-outline-subtle last:border-0 hover:bg-hover">
                                         <div className="min-w-0 flex-1 mr-3">
                                             <div className="text-xs font-medium text-white truncate">{m.name}</div>
-                                            <div className="text-[10px] text-gray-500 flex gap-2">
+                                            <div className="text-[10px] text-foreground-muted flex gap-2">
                                                 <span>{m.architecture}</span>
                                                 <span>{m.size}</span>
                                             </div>
@@ -211,7 +211,7 @@ export function AddModelModal({ onClose, onModelsAdded, initialPath }: AddModelM
                                             title={`Select ${m.name}`}
                                             checked={selectedPaths.has(m.path || '')}
                                             onChange={() => togglePathSelection(m.path || '')}
-                                            className="w-4 h-4 rounded border-white/10 bg-black/40 text-blue-500"
+                                            className="w-4 h-4 rounded border-outline bg-black/40 text-blue-500"
                                         />
                                     </div>
                                 ))}
@@ -219,18 +219,18 @@ export function AddModelModal({ onClose, onModelsAdded, initialPath }: AddModelM
                         )}
 
                         {foundModels.length === 0 && !scanning && customPath && (
-                            <p className="text-[11px] text-gray-500 mt-2">
+                            <p className="text-[11px] text-foreground-muted mt-2">
                                 Supported formats: MLX safetensors. The directory must contain `config.json`.
                             </p>
                         )}
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-white/5">
+                <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-outline-subtle">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 transition-colors"
+                        className="px-4 py-2 rounded-lg text-sm font-medium text-foreground-muted hover:bg-hover transition-colors"
                     >
                         {t('common.cancel')}
                     </button>

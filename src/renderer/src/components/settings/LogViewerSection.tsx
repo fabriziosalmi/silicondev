@@ -30,7 +30,7 @@ export function LogViewerSection() {
                 </div>
                 <div className="flex items-center gap-2">
                     {expanded && logs.length > 0 && (
-                        <button onClick={handleCopy} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                        <button onClick={handleCopy} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors">
                             <Copy size={14} /> Copy
                         </button>
                     )}
@@ -42,21 +42,21 @@ export function LogViewerSection() {
                     )}
                     <button
                         onClick={() => { if (!expanded) fetchLogs(); setExpanded(!expanded) }}
-                        className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                        className="flex items-center gap-1 px-2 py-1 rounded text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors"
                     >
                         {expanded ? 'Hide' : 'Show Logs'}
                     </button>
                 </div>
             </div>
             {!expanded && (
-                <p className="text-sm text-gray-500">View backend logs for debugging. Useful when reporting bugs.</p>
+                <p className="text-sm text-foreground-muted">View backend logs for debugging. Useful when reporting bugs.</p>
             )}
             {expanded && (
-                <div className="mt-2 max-h-80 overflow-y-auto bg-black/40 border border-white/5 rounded-lg p-3 font-mono text-[11px] text-gray-400 leading-relaxed">
+                <div className="mt-2 max-h-80 overflow-y-auto bg-black/40 border border-outline-subtle rounded-lg p-3 font-mono text-[11px] text-foreground-muted leading-relaxed">
                     {loading && logs.length === 0 ? (
-                        <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-gray-500" /></div>
+                        <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-foreground-muted" /></div>
                     ) : logs.length === 0 ? (
-                        <span className="text-gray-600">No log entries found.</span>
+                        <span className="text-foreground-subtle">No log entries found.</span>
                     ) : (
                         logs.map((line, i) => (
                             <div key={i} className={`whitespace-pre-wrap break-all ${line.includes('ERROR') ? 'text-red-400' : line.includes('WARNING') ? 'text-yellow-400' : ''}`}>

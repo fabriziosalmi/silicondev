@@ -187,9 +187,9 @@ export function InputOverlay({ input, cursorPosition, visible, onSelect, onClose
             className="absolute bottom-full left-0 right-0 mb-1 z-50"
             style={{ maxHeight: '240px' }}
         >
-            <div className="bg-elevated border border-white/10 rounded-lg shadow-xl overflow-hidden">
+            <div className="bg-elevated border border-outline rounded-lg shadow-xl overflow-hidden">
                 {/* Header */}
-                <div className="px-3 py-1.5 text-[10px] text-gray-500 uppercase tracking-wider border-b border-white/5">
+                <div className="px-3 py-1.5 text-[10px] text-foreground-muted uppercase tracking-wider border-b border-outline-subtle">
                     {trigger.type === 'command' ? t('chatInput.commands') : t('chatInput.files')}
                 </div>
                 {/* Items */}
@@ -200,8 +200,8 @@ export function InputOverlay({ input, cursorPosition, visible, onSelect, onClose
                             type="button"
                             className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left transition-colors ${
                                 i === selectedIndex
-                                    ? 'bg-white/10 text-white'
-                                    : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                                    ? 'bg-active text-white'
+                                    : 'text-foreground-muted hover:bg-hover hover:text-foreground-secondary'
                             }`}
                             onMouseEnter={() => setSelectedIndex(i)}
                             onMouseDown={(e) => {
@@ -209,17 +209,17 @@ export function InputOverlay({ input, cursorPosition, visible, onSelect, onClose
                                 onSelect(item.value, item.type)
                             }}
                         >
-                            <span className="shrink-0 text-gray-500">{item.icon}</span>
+                            <span className="shrink-0 text-foreground-muted">{item.icon}</span>
                             <span className="text-sm font-medium truncate">{item.label}</span>
-                            <span className="text-[11px] text-gray-600 truncate ml-auto">{item.desc}</span>
+                            <span className="text-[11px] text-foreground-subtle truncate ml-auto">{item.desc}</span>
                         </button>
                     ))}
                 </div>
                 {/* Footer hint */}
-                <div className="px-3 py-1 text-[10px] text-gray-600 border-t border-white/5 flex gap-3">
-                    <span><kbd className="text-gray-500">↑↓</kbd> {t('chatInput.navigate')}</span>
-                    <span><kbd className="text-gray-500">Tab</kbd> {t('chatInput.select')}</span>
-                    <span><kbd className="text-gray-500">Esc</kbd> {t('chatInput.dismiss')}</span>
+                <div className="px-3 py-1 text-[10px] text-foreground-subtle border-t border-outline-subtle flex gap-3">
+                    <span><kbd className="text-foreground-muted">↑↓</kbd> {t('chatInput.navigate')}</span>
+                    <span><kbd className="text-foreground-muted">Tab</kbd> {t('chatInput.select')}</span>
+                    <span><kbd className="text-foreground-muted">Esc</kbd> {t('chatInput.dismiss')}</span>
                 </div>
             </div>
         </div>

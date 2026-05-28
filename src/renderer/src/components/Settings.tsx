@@ -221,7 +221,7 @@ export function Settings() {
                     const items = NAV_ITEMS.filter(i => i.group === group)
                     return (
                         <div key={group}>
-                            <div className="text-[10px] font-bold tracking-wide text-gray-500 uppercase mb-1 px-2">{t(`settings.group.${group.toLowerCase()}` as string, group)}</div>
+                            <div className="text-[10px] font-bold tracking-wide text-foreground-muted uppercase mb-1 px-2">{t(`settings.group.${group.toLowerCase()}` as string, group)}</div>
                             <div className="space-y-0.5">
                                 {items.map(item => (
                                     <button
@@ -231,7 +231,7 @@ export function Settings() {
                                         className={`w-full text-left flex items-center gap-1.5 px-2 py-1.5 rounded text-[13px] transition-colors ${
                                             activeSection === item.id
                                                 ? 'bg-blue-500/10 text-blue-400 font-medium'
-                                                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                                : 'text-foreground-muted hover:text-foreground hover:bg-hover'
                                         }`}
                                     >
                                         {activeSection === item.id && <ChevronRight size={12} />}
@@ -254,7 +254,7 @@ export function Settings() {
                             })
                             window.open(`https://github.com/fabriziosalmi/silicondev/issues/new?${params.toString()}`, '_blank')
                         }}
-                        className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded text-[11px] text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
+                        className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded text-[11px] text-foreground-muted hover:text-foreground hover:bg-hover transition-colors"
                     >
                         <Bug size={12} />
                         {t('settings.nav.reportBug', 'Report a Bug')}
@@ -271,11 +271,11 @@ export function Settings() {
                 <SectionHeader icon={<Info size={16} />} title={t('settings.general.title')} />
                 <div className="grid grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-gray-500 uppercase">{t('settings.general.language')}</label>
+                        <label className="text-xs font-bold text-foreground-muted uppercase">{t('settings.general.language')}</label>
                         <select
                             value={i18n.language}
                             onChange={(e) => i18n.changeLanguage(e.target.value)}
-                            className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-blue-500"
+                            className="bg-black/40 border border-outline rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-blue-500"
                         >
                             <option value="en">English</option>
                             <option value="fr">Français</option>
@@ -301,18 +301,18 @@ export function Settings() {
                             <option value="fa">فارسی</option>
                             <option value="sw">Kiswahili</option>
                         </select>
-                        <span className="text-[10px] text-gray-600">{t('settings.general.languageHint')}</span>
+                        <span className="text-[10px] text-foreground-subtle">{t('settings.general.languageHint')}</span>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-gray-500 uppercase">{t('settings.general.backendUrl')}</label>
-                        <div className="flex items-center px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-gray-400">
+                        <label className="text-xs font-bold text-foreground-muted uppercase">{t('settings.general.backendUrl')}</label>
+                        <div className="flex items-center px-3 py-2 rounded-lg bg-black/40 border border-outline text-sm text-foreground-muted">
                             {apiClient.API_BASE}
                         </div>
-                        <span className="text-[10px] text-gray-600">{t('settings.general.backendUrlHint')}</span>
+                        <span className="text-[10px] text-foreground-subtle">{t('settings.general.backendUrlHint')}</span>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-gray-500 uppercase">{t('settings.general.theme', { defaultValue: 'Theme' })}</label>
-                        <div className="flex items-center gap-1 p-1 rounded-lg bg-black/40 border border-white/10 w-fit">
+                        <label className="text-xs font-bold text-foreground-muted uppercase">{t('settings.general.theme', { defaultValue: 'Theme' })}</label>
+                        <div className="flex items-center gap-1 p-1 rounded-lg bg-black/40 border border-outline w-fit">
                             {(['light', 'dark', 'system'] as const).map((opt: ThemeChoice) => (
                                 <button
                                     key={opt}
@@ -328,14 +328,14 @@ export function Settings() {
                                 </button>
                             ))}
                         </div>
-                        <span className="text-[10px] text-gray-600">{t('settings.general.themeHint', { defaultValue: 'Appearance — system follows your OS preference.' })}</span>
+                        <span className="text-[10px] text-foreground-subtle">{t('settings.general.themeHint', { defaultValue: 'Appearance — system follows your OS preference.' })}</span>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-gray-500 uppercase">{t('settings.general.reasoningMode')}</label>
+                        <label className="text-xs font-bold text-foreground-muted uppercase">{t('settings.general.reasoningMode')}</label>
                         <select
                             value={chat.reasoningMode}
                             onChange={(e) => updateChat('reasoningMode', e.target.value as ChatDefaults['reasoningMode'])}
-                            className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-blue-500"
+                            className="bg-black/40 border border-outline rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-blue-500"
                         >
                             <option value="off">Off</option>
                             <option value="auto">Auto</option>
@@ -345,11 +345,11 @@ export function Settings() {
                     </div>
                     {logPath && (
                         <div className="flex flex-col gap-1 col-span-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase">{t('settings.general.logFile', 'Log File')}</label>
-                            <div className="flex items-center px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-gray-400 truncate">
+                            <label className="text-xs font-bold text-foreground-muted uppercase">{t('settings.general.logFile', 'Log File')}</label>
+                            <div className="flex items-center px-3 py-2 rounded-lg bg-black/40 border border-outline text-sm text-foreground-muted truncate">
                                 {logPath}
                             </div>
-                            <span className="text-[10px] text-gray-600">{t('settings.general.logFileHint', 'Share this file when reporting bugs.')}</span>
+                            <span className="text-[10px] text-foreground-subtle">{t('settings.general.logFileHint', 'Share this file when reporting bugs.')}</span>
                         </div>
                     )}
                 </div>
@@ -373,12 +373,12 @@ export function Settings() {
                 <SectionHeader icon={<MessageSquare size={16} />} title={t('settings.nav.chat', 'Chat Defaults')} />
                 <div className="space-y-4">
                     <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-gray-500 uppercase">{t('params.systemPrompt')}</label>
+                        <label className="text-xs font-bold text-foreground-muted uppercase">{t('params.systemPrompt')}</label>
                         <textarea
                             value={chat.systemPrompt}
                             onChange={(e) => updateChat('systemPrompt', e.target.value)}
                             rows={3}
-                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-blue-500 resize-none"
+                            className="w-full bg-black/40 border border-outline rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-blue-500 resize-none"
                         />
                     </div>
                     <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -391,7 +391,7 @@ export function Settings() {
                         <SliderField label="Repetition Penalty" value={chat.repetitionPenalty} onChange={(v) => updateChat('repetitionPenalty', v)} min={1} max={2} step={0.05} hint="Penalize repeated tokens" />
                     </div>
                     <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-300">{t('params.webSearch', 'Enable web search by default')}</span>
+                        <span className="text-sm text-foreground-secondary">{t('params.webSearch', 'Enable web search by default')}</span>
                         <ToggleSwitch
                             enabled={chat.webSearchEnabled}
                             onChange={(v) => updateChat('webSearchEnabled', v)}
@@ -420,8 +420,8 @@ export function Settings() {
                 <SectionHeader icon={<Shield size={16} />} title={t('settings.nav.privacy', 'Privacy')} />
                 <div className="flex items-center justify-between">
                     <div>
-                        <span className="text-sm text-gray-300">{t('params.piiRedaction')}</span>
-                        <p className="text-[10px] text-gray-600 mt-0.5">{t('settings.nav.privacyHint', 'Redact emails, phone numbers, IPs, credit cards, SSNs, and API keys from chat messages')}</p>
+                        <span className="text-sm text-foreground-secondary">{t('params.piiRedaction')}</span>
+                        <p className="text-[10px] text-foreground-subtle mt-0.5">{t('settings.nav.privacyHint', 'Redact emails, phone numbers, IPs, credit cards, SSNs, and API keys from chat messages')}</p>
                     </div>
                     <ToggleSwitch
                         enabled={piiRedaction}
@@ -441,10 +441,10 @@ export function Settings() {
                     <div className="flex items-start justify-between">
                         <div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-300 font-bold">{t('settings.agents.moaSwarm', 'Mixture of Agents (MoA) Swarm')}</span>
+                                <span className="text-sm text-foreground-secondary font-bold">{t('settings.agents.moaSwarm', 'Mixture of Agents (MoA) Swarm')}</span>
                                 <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold">NEW</span>
                             </div>
-                            <p className="text-[10px] text-gray-600 mt-1 max-w-sm">
+                            <p className="text-[10px] text-foreground-subtle mt-1 max-w-sm">
                                 Allows the Agent to spawn 3 specialized parallel personas (Security, Performance, Syntax) to tackle complex tasks with extremely high reasoning capabilities.
                             </p>
                         </div>
@@ -456,13 +456,13 @@ export function Settings() {
                         />
                     </div>
 
-                    <div className="flex items-start justify-between border-t border-white/5 pt-4">
+                    <div className="flex items-start justify-between border-t border-outline-subtle pt-4">
                         <div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-300 font-bold">{t('settings.agents.airGapped', 'Air-Gapped Mode')}</span>
+                                <span className="text-sm text-foreground-secondary font-bold">{t('settings.agents.airGapped', 'Air-Gapped Mode')}</span>
                                 <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-bold">SECURITY</span>
                             </div>
-                            <p className="text-[10px] text-gray-600 mt-1 max-w-sm">
+                            <p className="text-[10px] text-foreground-subtle mt-1 max-w-sm">
                                 Strictly blocks the Agent from accessing the internet using curl, wget, or python requests. Forces 100% offline local operation.
                             </p>
                         </div>
@@ -474,13 +474,13 @@ export function Settings() {
                         />
                     </div>
 
-                    <div className="flex items-start justify-between border-t border-white/5 pt-4">
+                    <div className="flex items-start justify-between border-t border-outline-subtle pt-4">
                         <div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-300 font-bold">{t('settings.agents.sandbox')}</span>
+                                <span className="text-sm text-foreground-secondary font-bold">{t('settings.agents.sandbox')}</span>
                                 <span className="px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 text-[10px] font-bold">EXPERIMENTAL</span>
                             </div>
-                            <p className="text-[10px] text-gray-600 mt-1 max-w-sm">
+                            <p className="text-[10px] text-foreground-subtle mt-1 max-w-sm">
                                 Allows the Agent to write and execute isolated Python scripts to process data, parse strings, and compute logic before returning answers.
                             </p>
                         </div>
@@ -512,31 +512,31 @@ export function Settings() {
                 {storageInfo ? (
                     <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500 font-mono">{storageInfo.path}</span>
+                            <span className="text-xs text-foreground-muted font-mono">{storageInfo.path}</span>
                             <button
                                 type="button"
                                 onClick={() => window.electronAPI?.openPath?.(storageInfo.path)}
-                                className="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 transition-colors"
+                                className="text-[10px] px-2 py-0.5 rounded bg-hover border border-outline text-foreground-muted hover:bg-active transition-colors"
                             >
                                 {t('settings.nav.openInFinder', 'Open in Finder')}
                             </button>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                             {Object.entries(storageInfo.breakdown).map(([key, bytes]) => (
-                                <div key={key} className="flex items-center justify-between px-3 py-2 rounded-lg bg-black/30 border border-white/5">
-                                    <span className="text-xs text-gray-400 capitalize">{key}</span>
+                                <div key={key} className="flex items-center justify-between px-3 py-2 rounded-lg bg-black/30 border border-outline-subtle">
+                                    <span className="text-xs text-foreground-muted capitalize">{key}</span>
                                     <span className="text-xs font-mono text-white">{formatBytes(bytes)}</span>
                                 </div>
                             ))}
                         </div>
-                        <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                            <span className="text-xs text-gray-400">Total: <span className="text-white font-mono">{formatBytes(storageInfo.total_bytes)}</span></span>
+                        <div className="flex items-center justify-between pt-2 border-t border-outline-subtle">
+                            <span className="text-xs text-foreground-muted">Total: <span className="text-white font-mono">{formatBytes(storageInfo.total_bytes)}</span></span>
                             <div className="flex gap-2">
                                 <button
                                     type="button"
                                     onClick={() => handleCleanup(['logs'])}
                                     disabled={storageCleaning}
-                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-[11px] hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-hover border border-outline text-foreground-muted text-[11px] hover:bg-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <Trash2 size={12} />
                                     {t('settings.general.clearLogs', 'Clear Logs')}
@@ -557,7 +557,7 @@ export function Settings() {
                     <button
                         type="button"
                         onClick={fetchStorage}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-sm hover:bg-white/10 transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-hover border border-outline text-foreground-muted text-sm hover:bg-active transition-colors"
                     >
                         <HardDrive size={14} />
                         {t('settings.nav.checkStorage', 'Check Storage Usage')}
@@ -578,8 +578,8 @@ export function Settings() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h3 className="text-sm font-bold text-white">SiliconDev</h3>
-                        <p className="text-xs text-gray-500 mt-1">{t('settings.about.version')}: v{__APP_VERSION__}</p>
-                        <p className="text-[10px] text-gray-600 mt-1">Made with love by Fabrizio Salmi — MIT License</p>
+                        <p className="text-xs text-foreground-muted mt-1">{t('settings.about.version')}: v{__APP_VERSION__}</p>
+                        <p className="text-[10px] text-foreground-subtle mt-1">Made with love by Fabrizio Salmi — MIT License</p>
                     </div>
                     <button
                         type="button"

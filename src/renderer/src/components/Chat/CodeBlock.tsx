@@ -214,12 +214,12 @@ export const CodeBlock = memo(function CodeBlock({
     const hasOutput = result && (result.stdout || result.stderr);
 
     return (
-        <div className="rounded-lg border border-white/5 bg-black/30 my-3 group/code relative">
+        <div className="rounded-lg border border-outline-subtle bg-black/30 my-3 group/code relative">
             {/* Header bar */}
-            <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.03] border-b border-white/5 rounded-t-lg">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-hover border-b border-outline-subtle rounded-t-lg">
                 <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono text-gray-500">{language || 'code'}</span>
-                    {checking && <Loader2 className="w-3 h-3 animate-spin text-gray-500" />}
+                    <span className="text-[10px] font-mono text-foreground-muted">{language || 'code'}</span>
+                    {checking && <Loader2 className="w-3 h-3 animate-spin text-foreground-muted" />}
                     {!checking && checkResult && !checkResult.skipped && (
                         checkResult.valid
                             ? <span title={t('codeblock.syntaxOk')}><CircleCheck className="w-3 h-3 text-green-500" /></span>
@@ -238,19 +238,19 @@ export const CodeBlock = memo(function CodeBlock({
                                 type="button"
                                 onClick={() => setVersionIndex(Math.max(versionIndex - 1, -1))}
                                 disabled={versionIndex <= -1}
-                                className={`p-0.5 rounded transition-colors ${versionIndex > -1 ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-700 cursor-default'}`}
+                                className={`p-0.5 rounded transition-colors ${versionIndex > -1 ? 'text-foreground-muted hover:text-foreground hover:bg-hover' : 'text-foreground-disabled cursor-default'}`}
                                 title="Previous version"
                             >
                                 <ChevronLeft className="w-3 h-3" />
                             </button>
-                            <span className="text-[10px] font-mono text-gray-500 min-w-[32px] text-center">
+                            <span className="text-[10px] font-mono text-foreground-muted min-w-[32px] text-center">
                                 {versionIndex < 0 ? 'orig' : `v${displayVersionNum}`}/{totalVersions}
                             </span>
                             <button
                                 type="button"
                                 onClick={() => setVersionIndex(Math.min(versionIndex + 1, totalVersions - 1))}
                                 disabled={versionIndex >= totalVersions - 1}
-                                className={`p-0.5 rounded transition-colors ${versionIndex < totalVersions - 1 ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-700 cursor-default'}`}
+                                className={`p-0.5 rounded transition-colors ${versionIndex < totalVersions - 1 ? 'text-foreground-muted hover:text-foreground hover:bg-hover' : 'text-foreground-disabled cursor-default'}`}
                                 title="Next version"
                             >
                                 <ChevronRight className="w-3 h-3" />
@@ -281,7 +281,7 @@ export const CodeBlock = memo(function CodeBlock({
                             <span>{t('codeblock.run')}</span>
                         </button>
                     )}
-                    <div className="w-px h-3 bg-white/10 mx-1" />
+                    <div className="w-px h-3 bg-active mx-1" />
                     {/* Rewrite dropdown */}
                     <div className="relative" ref={rewriteMenuRef}>
                         <button
@@ -289,12 +289,12 @@ export const CodeBlock = memo(function CodeBlock({
                             onClick={() => !rewriting && setShowRewriteMenu(!showRewriteMenu)}
                             disabled={rewriting}
                             title="Rewrite"
-                            className={`p-1 rounded transition-colors ${rewriting ? 'text-blue-400 cursor-wait' : showRewriteMenu ? 'text-blue-400 bg-blue-500/10' : 'text-gray-600 hover:text-gray-300 hover:bg-white/5'}`}
+                            className={`p-1 rounded transition-colors ${rewriting ? 'text-blue-400 cursor-wait' : showRewriteMenu ? 'text-blue-400 bg-blue-500/10' : 'text-foreground-subtle hover:text-foreground-secondary hover:bg-hover'}`}
                         >
                             <Wand2 className="w-3 h-3" />
                         </button>
                         {showRewriteMenu && (
-                            <div className="absolute right-0 top-full mt-1 bg-elevated border border-white/10 rounded-lg shadow-xl py-1 z-50 min-w-[140px]">
+                            <div className="absolute right-0 top-full mt-1 bg-elevated border border-outline rounded-lg shadow-xl py-1 z-50 min-w-[140px]">
                                 {rewriteActions.map(a => (
                                     <button
                                         type="button"
@@ -304,7 +304,7 @@ export const CodeBlock = memo(function CodeBlock({
                                             else if (a.key === 'redact') { handleRedactCode(); setShowRewriteMenu(false); }
                                             else handleInlineRewrite(a.key);
                                         }}
-                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground-muted hover:text-foreground hover:bg-hover transition-colors"
                                     >
                                         {a.icon}
                                         {a.label}
@@ -313,12 +313,12 @@ export const CodeBlock = memo(function CodeBlock({
                             </div>
                         )}
                     </div>
-                    <div className="w-px h-3 bg-white/10 mx-1" />
+                    <div className="w-px h-3 bg-active mx-1" />
                     <button
                         type="button"
                         onClick={handleCopy}
                         title={t('codeblock.copy')}
-                        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-foreground-subtle hover:text-foreground-secondary hover:bg-hover transition-colors"
                     >
                         {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
                         <span>{copied ? t('codeblock.copied') : t('codeblock.copy')}</span>
@@ -355,8 +355,8 @@ export const CodeBlock = memo(function CodeBlock({
             </pre>
             {/* Version action label */}
             {!rewriting && versionIndex >= 0 && versions[versionIndex] && versions[versionIndex].action !== 'original' && (
-                <div className="px-3 py-1 border-t border-white/5 bg-white/[0.02]">
-                    <span className="text-[10px] text-gray-500">
+                <div className="px-3 py-1 border-t border-outline-subtle bg-hover">
+                    <span className="text-[10px] text-foreground-muted">
                         {versions[versionIndex].action} rewrite
                     </span>
                 </div>
@@ -387,17 +387,17 @@ export const CodeBlock = memo(function CodeBlock({
             )}
             {/* Sandbox output */}
             {showOutput && (
-                <div className="border-t border-white/5">
-                    <div className="flex items-center justify-between px-3 py-1 bg-white/[0.02]">
+                <div className="border-t border-outline-subtle">
+                    <div className="flex items-center justify-between px-3 py-1 bg-hover">
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-mono text-gray-500">{t('codeblock.output')}</span>
+                            <span className="text-[10px] font-mono text-foreground-muted">{t('codeblock.output')}</span>
                             {running && <Loader2 className="w-3 h-3 animate-spin text-blue-400" />}
                             {result && (
                                 <>
                                     <span className={`text-[10px] font-mono ${result.exit_code === 0 ? 'text-green-500' : 'text-red-400'}`}>
                                         exit {result.exit_code}
                                     </span>
-                                    <span className="text-[10px] font-mono text-gray-600">
+                                    <span className="text-[10px] font-mono text-foreground-subtle">
                                         {result.execution_time}s
                                     </span>
                                     {result.timed_out && (
@@ -410,19 +410,19 @@ export const CodeBlock = memo(function CodeBlock({
                             type="button"
                             onClick={() => { setShowOutput(false); setResult(null); }}
                             aria-label="Close output"
-                            className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
+                            className="text-[10px] text-foreground-subtle hover:text-foreground-muted transition-colors"
                         >
                             Close
                         </button>
                     </div>
                     {hasOutput && (
                         <pre className="px-4 py-3 overflow-x-auto max-h-48 overflow-y-auto text-xs font-mono leading-relaxed">
-                            {result.stdout && <span className="text-gray-300">{result.stdout}</span>}
+                            {result.stdout && <span className="text-foreground-secondary">{result.stdout}</span>}
                             {result.stderr && <span className="text-red-400/80">{result.stderr}</span>}
                         </pre>
                     )}
                     {running && !hasOutput && (
-                        <div className="px-4 py-3 text-xs text-gray-600">{t('codeblock.running')}</div>
+                        <div className="px-4 py-3 text-xs text-foreground-subtle">{t('codeblock.running')}</div>
                     )}
                 </div>
             )}

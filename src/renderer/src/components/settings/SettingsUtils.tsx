@@ -75,7 +75,7 @@ export function SliderField({ label, value, onChange, min, max, step = 1, hint }
     return (
         <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-gray-500 uppercase">{label}</label>
+                <label className="text-xs font-bold text-foreground-muted uppercase">{label}</label>
                 <input
                     type="number"
                     value={value}
@@ -83,7 +83,7 @@ export function SliderField({ label, value, onChange, min, max, step = 1, hint }
                     min={min}
                     max={max}
                     step={step}
-                    className="w-20 bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white text-right outline-none focus:border-blue-500"
+                    className="w-20 bg-black/40 border border-outline rounded px-2 py-1 text-xs text-white text-right outline-none focus:border-blue-500"
                 />
             </div>
             <input
@@ -95,7 +95,7 @@ export function SliderField({ label, value, onChange, min, max, step = 1, hint }
                 step={step}
                 className="w-full accent-blue-500 h-1"
             />
-            {hint && <span className="text-[10px] text-gray-600">{hint}</span>}
+            {hint && <span className="text-[10px] text-foreground-subtle">{hint}</span>}
         </div>
     )
 }

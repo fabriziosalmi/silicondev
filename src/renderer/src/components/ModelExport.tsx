@@ -80,19 +80,19 @@ export function ModelExport() {
 
             {loading ? (
                 <Card className="p-8 flex items-center justify-center">
-                    <Loader2 size={20} className="animate-spin text-gray-500" />
+                    <Loader2 size={20} className="animate-spin text-foreground-muted" />
                 </Card>
             ) : adapters.length === 0 ? (
                 <Card className="p-8 text-center">
-                    <Package size={32} className="mx-auto text-gray-600 mb-3" />
-                    <p className="text-sm text-gray-400">{t('export.noModels')}</p>
-                    <p className="text-xs text-gray-600 mt-1">{t('export.noModelsHint')}</p>
+                    <Package size={32} className="mx-auto text-foreground-subtle mb-3" />
+                    <p className="text-sm text-foreground-muted">{t('export.noModels')}</p>
+                    <p className="text-xs text-foreground-subtle mt-1">{t('export.noModelsHint')}</p>
                 </Card>
             ) : (
                 <>
                     {/* Model Selection */}
                     <Card className="p-5">
-                        <label className="text-xs font-bold text-gray-500 uppercase mb-3 block">{t('export.selectModel')}</label>
+                        <label className="text-xs font-bold text-foreground-muted uppercase mb-3 block">{t('export.selectModel')}</label>
                         <div className="space-y-2">
                             {adapters.map(adapter => (
                                 <button
@@ -101,17 +101,17 @@ export function ModelExport() {
                                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-left transition-all ${
                                         selectedId === adapter.id
                                             ? 'bg-blue-500/10 border-blue-500/30 text-white'
-                                            : 'bg-black/20 border-white/5 text-gray-400 hover:bg-white/5 hover:border-white/10'
+                                            : 'bg-black/20 border-outline-subtle text-foreground-muted hover:bg-hover hover:border-outline'
                                     }`}
                                 >
-                                    <Package size={16} className={selectedId === adapter.id ? 'text-blue-400' : 'text-gray-600'} />
+                                    <Package size={16} className={selectedId === adapter.id ? 'text-blue-400' : 'text-foreground-subtle'} />
                                     <div className="flex-1 min-w-0">
                                         <div className="text-sm font-medium truncate">{cleanModelName(adapter.name)}</div>
                                         {adapter.base_model && (
-                                            <div className="text-[10px] text-gray-600 truncate">Base: {adapter.base_model}</div>
+                                            <div className="text-[10px] text-foreground-subtle truncate">Base: {adapter.base_model}</div>
                                         )}
                                     </div>
-                                    <span className="text-xs text-gray-600">{adapter.size}</span>
+                                    <span className="text-xs text-foreground-subtle">{adapter.size}</span>
                                 </button>
                             ))}
                         </div>
@@ -119,7 +119,7 @@ export function ModelExport() {
 
                     {/* Precision Selection */}
                     <Card className="p-5">
-                        <label className="text-xs font-bold text-gray-500 uppercase mb-3 block">{t('export.quantization')}</label>
+                        <label className="text-xs font-bold text-foreground-muted uppercase mb-3 block">{t('export.quantization')}</label>
                         <div className="grid grid-cols-3 gap-3">
                             {PRECISION_OPTIONS.map(opt => (
                                 <button
@@ -128,11 +128,11 @@ export function ModelExport() {
                                     className={`flex flex-col items-center gap-1 px-4 py-3 rounded-lg border transition-all ${
                                         qBits === opt.value
                                             ? `${opt.activeBg} ${opt.activeBorder} text-white`
-                                            : 'bg-black/20 border-white/5 text-gray-400 hover:bg-white/5'
+                                            : 'bg-black/20 border-outline-subtle text-foreground-muted hover:bg-hover'
                                     }`}
                                 >
                                     <span className="text-sm font-bold">{opt.label}</span>
-                                    <span className="text-[10px] text-gray-500">{opt.desc}</span>
+                                    <span className="text-[10px] text-foreground-muted">{opt.desc}</span>
                                 </button>
                             ))}
                         </div>
@@ -140,14 +140,14 @@ export function ModelExport() {
 
                     {/* Output Path + Export */}
                     <Card className="p-5">
-                        <label className="text-xs font-bold text-gray-500 uppercase mb-3 block">Output</label>
+                        <label className="text-xs font-bold text-foreground-muted uppercase mb-3 block">Output</label>
                         <div className="flex gap-3">
                             <button
                                 onClick={handleSelectOutput}
                                 className={`flex-1 flex items-center justify-between px-4 py-3 rounded-lg border text-sm transition-all text-left ${
                                     outputPath
                                         ? 'bg-green-500/10 border-green-500/30 text-green-200'
-                                        : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/5'
+                                        : 'bg-black/40 border-outline text-foreground-muted hover:bg-hover'
                                 }`}
                             >
                                 <span className="truncate">{outputPath || 'Select output folder...'}</span>
@@ -167,9 +167,9 @@ export function ModelExport() {
                         </div>
 
                         {selected && (
-                            <div className="mt-3 text-xs text-gray-600">
-                                Exporting <span className="text-gray-400">{cleanModelName(selected.name)}</span> at{' '}
-                                <span className="text-gray-400">{qBits > 0 ? `${qBits}-bit` : 'full'} precision</span>
+                            <div className="mt-3 text-xs text-foreground-subtle">
+                                Exporting <span className="text-foreground-muted">{cleanModelName(selected.name)}</span> at{' '}
+                                <span className="text-foreground-muted">{qBits > 0 ? `${qBits}-bit` : 'full'} precision</span>
                             </div>
                         )}
                     </Card>

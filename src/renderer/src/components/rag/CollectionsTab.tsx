@@ -37,29 +37,29 @@ export function CollectionsTab({ collections, embeddingModel, onDelete }: Collec
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center gap-6 px-4 py-2.5 bg-black/20 rounded-lg border border-white/5 mb-6">
+            <div className="flex items-center gap-6 px-4 py-2.5 bg-black/20 rounded-lg border border-outline-subtle mb-6">
                 <div className="flex items-center gap-2">
                     <Database className="w-3.5 h-3.5 text-blue-400" />
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Collections</span>
-                    <span className="text-sm font-bold font-mono text-gray-200">{collections.length}</span>
+                    <span className="text-[10px] font-bold text-foreground-muted uppercase tracking-wide">Collections</span>
+                    <span className="text-sm font-bold font-mono text-foreground-secondary">{collections.length}</span>
                 </div>
-                <div className="w-px h-4 bg-white/10" />
+                <div className="w-px h-4 bg-active" />
                 <div className="flex items-center gap-2">
                     <Brain className="w-3.5 h-3.5 text-blue-400" />
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Chunks</span>
-                    <span className="text-sm font-bold font-mono text-gray-200">{collections.reduce((sum, c) => sum + (c.chunks || 0), 0).toLocaleString()}</span>
+                    <span className="text-[10px] font-bold text-foreground-muted uppercase tracking-wide">Chunks</span>
+                    <span className="text-sm font-bold font-mono text-foreground-secondary">{collections.reduce((sum, c) => sum + (c.chunks || 0), 0).toLocaleString()}</span>
                 </div>
-                <div className="w-px h-4 bg-white/10" />
+                <div className="w-px h-4 bg-active" />
                 <div className="flex items-center gap-2">
                     <Database className="w-3.5 h-3.5 text-green-400" />
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Embedder</span>
-                    <span className="text-sm font-mono text-gray-300">{embeddingModel}</span>
+                    <span className="text-[10px] font-bold text-foreground-muted uppercase tracking-wide">Embedder</span>
+                    <span className="text-sm font-mono text-foreground-secondary">{embeddingModel}</span>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-black/20">
+            <div className="flex-1 overflow-auto rounded-xl border border-outline bg-black/20">
                 <table className="w-full text-left text-sm">
-                    <thead className="bg-elevated text-gray-500 border-b border-white/10">
+                    <thead className="bg-elevated text-foreground-muted border-b border-outline">
                         <tr>
                             <th className="px-5 py-3 text-[10px] font-bold tracking-wide uppercase">Collection Name</th>
                             <th className="px-5 py-3 text-[10px] font-bold tracking-wide uppercase">Chunks</th>
@@ -72,16 +72,16 @@ export function CollectionsTab({ collections, embeddingModel, onDelete }: Collec
                         {collections.map(c => {
                             const isTesting = testingCollectionId === c.id
                             return (<Fragment key={c.id}>
-                            <tr className="hover:bg-white/[0.03] transition-colors group">
+                            <tr className="hover:bg-hover transition-colors group">
                                 <td className="px-5 py-3.5">
-                                    <div className="text-[13px] font-semibold text-gray-200 flex items-center gap-3">
+                                    <div className="text-[13px] font-semibold text-foreground-secondary flex items-center gap-3">
                                         <FileText className="w-4 h-4 text-blue-400" />
                                         {c.name}
                                     </div>
                                 </td>
-                                <td className="px-5 py-3.5 text-gray-400 text-[13px] font-mono">{c.chunks}</td>
-                                <td className="px-5 py-3.5 text-gray-400 text-[13px] font-mono">{c.size}</td>
-                                <td className="px-5 py-3.5 text-gray-500 text-[13px]">{c.lastUpdated}</td>
+                                <td className="px-5 py-3.5 text-foreground-muted text-[13px] font-mono">{c.chunks}</td>
+                                <td className="px-5 py-3.5 text-foreground-muted text-[13px] font-mono">{c.size}</td>
+                                <td className="px-5 py-3.5 text-foreground-muted text-[13px]">{c.lastUpdated}</td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button
@@ -97,7 +97,7 @@ export function CollectionsTab({ collections, embeddingModel, onDelete }: Collec
                                                     setTestResults(null)
                                                 }
                                             }}
-                                            className={`p-1.5 rounded-lg transition-colors ${isTesting ? 'bg-blue-500/20 text-blue-400' : 'bg-white/5 hover:bg-white/10 text-gray-300'}`}
+                                            className={`p-1.5 rounded-lg transition-colors ${isTesting ? 'bg-blue-500/20 text-blue-400' : 'bg-hover hover:bg-active text-foreground-secondary'}`}
                                             title="Test Retrieval"
                                         >
                                             <Search className="w-4 h-4" />
@@ -114,7 +114,7 @@ export function CollectionsTab({ collections, embeddingModel, onDelete }: Collec
                             </tr>
                             {isTesting && (
                                 <tr key={`${c.id}-test`}>
-                                    <td colSpan={5} className="px-5 py-3 bg-white/[0.02] border-t border-white/5">
+                                    <td colSpan={5} className="px-5 py-3 bg-hover border-t border-outline-subtle">
                                         <div className="flex items-center gap-2 mb-2">
                                             <input
                                                 type="text"
@@ -122,7 +122,7 @@ export function CollectionsTab({ collections, embeddingModel, onDelete }: Collec
                                                 onChange={e => setTestQuery(e.target.value)}
                                                 onKeyDown={e => { if (e.key === 'Enter') handleRunQuery(c.id); if (e.key === 'Escape') { setTestingCollectionId(null); setTestQuery(""); setTestResults(null) } }}
                                                 placeholder={t('rag.queryPlaceholder')}
-                                                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500/50"
+                                                className="flex-1 bg-black/40 border border-outline rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-foreground-subtle outline-none focus:border-blue-500/50"
                                                 autoFocus
                                             />
                                             <button
@@ -137,13 +137,13 @@ export function CollectionsTab({ collections, embeddingModel, onDelete }: Collec
                                         {testResults !== null && (
                                             <div className="space-y-1.5">
                                                 {testResults.length === 0 ? (
-                                                    <p className="text-xs text-gray-500 py-1">{t('rag.noResults')}</p>
+                                                    <p className="text-xs text-foreground-muted py-1">{t('rag.noResults')}</p>
                                                 ) : testResults.map((r, i) => (
-                                                    <div key={i} className="flex gap-2 p-2 rounded-lg bg-black/20 border border-white/5">
-                                                        <span className="text-[10px] text-gray-600 font-mono shrink-0 mt-0.5">
+                                                    <div key={i} className="flex gap-2 p-2 rounded-lg bg-black/20 border border-outline-subtle">
+                                                        <span className="text-[10px] text-foreground-subtle font-mono shrink-0 mt-0.5">
                                                             {r.score.toFixed(3)}{r.boosted ? ' +boost' : ''}
                                                         </span>
-                                                        <p className="text-xs text-gray-300 leading-relaxed">{r.text.slice(0, 200)}{r.text.length > 200 ? '...' : ''}</p>
+                                                        <p className="text-xs text-foreground-secondary leading-relaxed">{r.text.slice(0, 200)}{r.text.length > 200 ? '...' : ''}</p>
                                                     </div>
                                                 ))}
                                             </div>

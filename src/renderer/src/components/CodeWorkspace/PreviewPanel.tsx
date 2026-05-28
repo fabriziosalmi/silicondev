@@ -35,11 +35,11 @@ export function PreviewPanel({
     const previewUrl = port ? `http://localhost:${port}` : null
 
     return (
-        <div className="flex flex-col bg-overlay border-t border-white/5 overflow-hidden" style={{ height: '100%' }}>
+        <div className="flex flex-col bg-overlay border-t border-outline-subtle overflow-hidden" style={{ height: '100%' }}>
             {/* Toolbar */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-elevated border-b border-white/5 shrink-0">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-elevated border-b border-outline-subtle shrink-0">
                 <Globe className="w-3.5 h-3.5 text-blue-400" />
-                <span className="text-[11px] font-medium text-gray-400 select-none">Preview</span>
+                <span className="text-[11px] font-medium text-foreground-muted select-none">Preview</span>
 
                 {type && (
                     <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-blue-500/15 text-blue-400 border border-blue-500/20">
@@ -48,7 +48,7 @@ export function PreviewPanel({
                 )}
 
                 {port && (
-                    <span className="text-[10px] text-gray-600 font-mono ml-1">:{port}</span>
+                    <span className="text-[10px] text-foreground-subtle font-mono ml-1">:{port}</span>
                 )}
 
                 <div className="flex-1" />
@@ -65,7 +65,7 @@ export function PreviewPanel({
                 )}
 
                 {loading && (
-                    <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                    <span className="flex items-center gap-1 text-[10px] text-foreground-muted">
                         <Loader2 className="w-3 h-3 animate-spin" />
                         Starting...
                     </span>
@@ -78,7 +78,7 @@ export function PreviewPanel({
                                 onRefresh()
                                 setIframeKey(k => k + 1)
                             }}
-                            className="p-1 rounded hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
+                            className="p-1 rounded hover:bg-hover text-foreground-muted hover:text-foreground-secondary transition-colors"
                             title="Refresh"
                         >
                             <RefreshCw className="w-3 h-3" />
@@ -86,7 +86,7 @@ export function PreviewPanel({
                         {previewUrl && (
                             <button
                                 onClick={() => window.open(previewUrl, '_blank')}
-                                className="p-1 rounded hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
+                                className="p-1 rounded hover:bg-hover text-foreground-muted hover:text-foreground-secondary transition-colors"
                                 title="Open in browser"
                             >
                                 <ExternalLink className="w-3 h-3" />
@@ -94,7 +94,7 @@ export function PreviewPanel({
                         )}
                         <button
                             onClick={() => setShowLogs(!showLogs)}
-                            className={`p-1 rounded hover:bg-white/5 transition-colors ${showLogs ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}
+                            className={`p-1 rounded hover:bg-hover transition-colors ${showLogs ? 'text-blue-400' : 'text-foreground-muted hover:text-foreground-secondary'}`}
                             title="Toggle logs"
                         >
                             <Terminal className="w-3 h-3" />
@@ -112,7 +112,7 @@ export function PreviewPanel({
 
                 <button
                     onClick={onCollapse}
-                    className="p-1 rounded hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors ml-1"
+                    className="p-1 rounded hover:bg-hover text-foreground-muted hover:text-foreground-secondary transition-colors ml-1"
                     title="Close preview"
                 >
                     <ChevronDown className="w-3.5 h-3.5" />
@@ -132,8 +132,8 @@ export function PreviewPanel({
 
                 {!running && !loading && !error && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                        <Globe className="w-8 h-8 text-gray-700" />
-                        <p className="text-xs text-gray-600">Click Start to launch a dev server</p>
+                        <Globe className="w-8 h-8 text-foreground-disabled" />
+                        <p className="text-xs text-foreground-subtle">Click Start to launch a dev server</p>
                         <button
                             onClick={onStart}
                             className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors"
@@ -145,7 +145,7 @@ export function PreviewPanel({
 
                 {running && !ready && !error && (
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="flex items-center gap-2 text-gray-500 text-sm">
+                        <div className="flex items-center gap-2 text-foreground-muted text-sm">
                             <Loader2 className="w-4 h-4 animate-spin" />
                             Waiting for server...
                         </div>
@@ -197,12 +197,12 @@ function PreviewLogs() {
     return (
         <div ref={scrollRef} className="absolute inset-0 overflow-auto p-2 font-mono text-[10px] leading-4 bg-black/50">
             {logs.map((l, i) => (
-                <div key={i} className={l.source === 'stderr' ? 'text-red-400/80' : 'text-gray-500'}>
+                <div key={i} className={l.source === 'stderr' ? 'text-red-400/80' : 'text-foreground-muted'}>
                     {l.message}
                 </div>
             ))}
             {logs.length === 0 && (
-                <div className="text-gray-700 text-center mt-8">No output yet...</div>
+                <div className="text-foreground-disabled text-center mt-8">No output yet...</div>
             )}
         </div>
     )

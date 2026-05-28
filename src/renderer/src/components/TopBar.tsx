@@ -30,7 +30,7 @@ function MiniBar({ percent }: { percent: number; thresholds: { warn: number; cri
                 <div
                     key={i}
                     className={`w-[3.5px] rounded-[1px] transition-all duration-500 ${
-                        i < level ? barColors[i] : 'bg-white/10'
+                        i < level ? barColors[i] : 'bg-active'
                     }`}
                     style={{ height: `${h}px` }}
                 />
@@ -128,7 +128,7 @@ export function TopBar() {
 
             {/* Left: App identity + activity state */}
             <div className="flex items-center gap-3 pl-[72px]">
-                <span className="text-[10px] font-bold text-gray-500/80 tracking-widest uppercase select-none">{t('app.title')}</span>
+                <span className="text-[10px] font-bold text-foreground-muted/80 tracking-widest uppercase select-none">{t('app.title')}</span>
 
                 {/* Activity pulse — shows what the system is actively doing */}
                 {isGenerating && (
@@ -163,23 +163,23 @@ export function TopBar() {
                 {/* Model selector */}
                 <div className="relative" ref={menuRef}>
                     {activeModel ? (
-                        <div className="flex items-center h-7 rounded-md bg-white/[0.04] border border-white/[0.06] overflow-hidden">
+                        <div className="flex items-center h-7 rounded-md bg-hover border border-outline-subtle overflow-hidden">
                             <button
                                 onClick={toggleMenu}
-                                className="flex items-center gap-1.5 px-2.5 h-full hover:bg-white/[0.04] transition-colors"
+                                className="flex items-center gap-1.5 px-2.5 h-full hover:bg-hover transition-colors"
                                 title={t('topbar.switchModel')}
                             >
                                 <Zap size={11} className="text-blue-400 shrink-0" />
-                                <span className="text-[10px] font-semibold text-gray-200 max-w-[140px] truncate">{cleanModelName(activeModel.name)}</span>
+                                <span className="text-[10px] font-semibold text-foreground-secondary max-w-[140px] truncate">{cleanModelName(activeModel.name)}</span>
                                 {activeModel.size && (
-                                    <span className="text-[9px] text-gray-600 font-mono">{activeModel.size}</span>
+                                    <span className="text-[9px] text-foreground-subtle font-mono">{activeModel.size}</span>
                                 )}
-                                <ChevronDown size={10} className="text-gray-600 shrink-0" />
+                                <ChevronDown size={10} className="text-foreground-subtle shrink-0" />
                             </button>
-                            <div className="w-px h-3.5 bg-white/[0.06]" />
+                            <div className="w-px h-3.5 bg-hover" />
                             <button
                                 onClick={handleEject}
-                                className="flex items-center px-2 h-full text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                className="flex items-center px-2 h-full text-foreground-subtle hover:text-red-400 hover:bg-red-500/10 transition-colors"
                                 title={t('topbar.unloadModel')}
                             >
                                 <LogOut size={11} />
@@ -189,12 +189,12 @@ export function TopBar() {
                         <button
                             onClick={toggleMenu}
                             disabled={!backendReady}
-                            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-dashed border-white/10 hover:border-white/20 hover:bg-white/[0.03] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-dashed border-outline hover:border-outline-strong hover:bg-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             title={t('topbar.loadAModel')}
                         >
-                            <DatabaseZap size={11} className="text-gray-600" />
-                            <span className="text-[10px] text-gray-500 font-medium">{t('topbar.loadModel')}</span>
-                            <ChevronDown size={10} className="text-gray-700" />
+                            <DatabaseZap size={11} className="text-foreground-subtle" />
+                            <span className="text-[10px] text-foreground-muted font-medium">{t('topbar.loadModel')}</span>
+                            <ChevronDown size={10} className="text-foreground-disabled" />
                         </button>
                     )}
 
@@ -202,25 +202,25 @@ export function TopBar() {
                     {showModelMenu && (
                         <div className="absolute top-full right-0 mt-1.5 w-80 bg-elevated border border-outline rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-dropdown">
                             {/* Search */}
-                            <div className="px-3 py-2 border-b border-white/5">
-                                <div className="flex items-center gap-2 px-2 py-1.5 bg-white/[0.04] rounded-lg border border-white/[0.06]">
-                                    <Search size={12} className="text-gray-600 shrink-0" />
+                            <div className="px-3 py-2 border-b border-outline-subtle">
+                                <div className="flex items-center gap-2 px-2 py-1.5 bg-hover rounded-lg border border-outline-subtle">
+                                    <Search size={12} className="text-foreground-subtle shrink-0" />
                                     <input
                                         ref={searchRef}
                                         type="text"
                                         value={modelFilter}
                                         onChange={(e) => setModelFilter(e.target.value)}
                                         placeholder={t('topbar.filterModels')}
-                                        className="flex-1 bg-transparent text-[11px] text-white placeholder-gray-600 outline-none"
+                                        className="flex-1 bg-transparent text-[11px] text-white placeholder:text-foreground-subtle outline-none"
                                     />
                                     {modelFilter && (
-                                        <span className="text-[9px] text-gray-600">{filteredModels.length}</span>
+                                        <span className="text-[9px] text-foreground-subtle">{filteredModels.length}</span>
                                     )}
                                 </div>
                             </div>
                             <div className="max-h-72 overflow-y-auto">
                                 {filteredModels.length === 0 ? (
-                                    <div className="px-3 py-6 text-center text-[11px] text-gray-600">
+                                    <div className="px-3 py-6 text-center text-[11px] text-foreground-subtle">
                                         {models.length === 0 ? t('topbar.noModels') : t('topbar.noMatches')}
                                     </div>
                                 ) : filteredModels.map(m => {
@@ -233,17 +233,17 @@ export function TopBar() {
                                             disabled={isLoading || isActive}
                                             className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${isActive
                                                 ? 'bg-blue-500/8 border-l-2 border-blue-500'
-                                                : 'border-l-2 border-transparent hover:bg-white/[0.04]'
+                                                : 'border-l-2 border-transparent hover:bg-hover'
                                                 } disabled:opacity-50 disabled:cursor-not-allowed`}
                                         >
                                             {isLoading ? (
                                                 <Loader2 size={13} className="animate-spin text-blue-400 shrink-0" />
                                             ) : (
-                                                <Zap size={13} className={isActive ? 'text-blue-400' : 'text-gray-700'} />
+                                                <Zap size={13} className={isActive ? 'text-blue-400' : 'text-foreground-disabled'} />
                                             )}
                                             <div className="flex-1 min-w-0">
-                                                <div className="text-[11px] font-medium text-gray-200 truncate">{cleanModelName(m.name)}</div>
-                                                <div className="text-[9px] text-gray-600 font-mono mt-0.5">
+                                                <div className="text-[11px] font-medium text-foreground-secondary truncate">{cleanModelName(m.name)}</div>
+                                                <div className="text-[9px] text-foreground-subtle font-mono mt-0.5">
                                                     {m.size}
                                                     {m.architecture ? ` · ${m.architecture}` : ''}
                                                 </div>
@@ -260,13 +260,13 @@ export function TopBar() {
                 </div>
 
                 {/* Separator */}
-                <div className="h-3.5 w-px bg-white/[0.06]" />
+                <div className="h-3.5 w-px bg-hover" />
 
                 {/* System stats */}
                 {systemStats ? (
                     <div className="flex items-center gap-3.5 bg-black/40 rounded-md h-7 px-2.5">
                         <StatGroup
-                            icon={<Cpu size={10} className="text-gray-600" />}
+                            icon={<Cpu size={10} className="text-foreground-subtle" />}
                             percent={systemStats.cpu.percent}
                             thresholds={thresholds}
                             detail={`CPU: ${systemStats.cpu.percent.toFixed(0)}% (${systemStats.cpu.cores} cores)`}
@@ -280,13 +280,13 @@ export function TopBar() {
                             />
                         )}
                         <StatGroup
-                            icon={<MemoryStick size={10} className="text-gray-600" />}
+                            icon={<MemoryStick size={10} className="text-foreground-subtle" />}
                             percent={systemStats.memory.percent}
                             thresholds={thresholds}
                             detail={`RAM: ${ramUsedGB} / ${ramTotalGB} GB`}
                         />
                         <StatGroup
-                            icon={<HardDrive size={10} className="text-gray-600" />}
+                            icon={<HardDrive size={10} className="text-foreground-subtle" />}
                             percent={systemStats.disk.percent}
                             thresholds={thresholds}
                             detail={`Disk: ${diskUsedGB} / ${diskTotalGB} GB`}
@@ -294,8 +294,8 @@ export function TopBar() {
                     </div>
                 ) : (
                     <div className="flex items-center gap-1.5">
-                        <Loader2 size={10} className="animate-spin text-gray-700" />
-                        <span className="text-[9px] text-gray-700 font-mono">{t('topbar.loading')}</span>
+                        <Loader2 size={10} className="animate-spin text-foreground-disabled" />
+                        <span className="text-[9px] text-foreground-disabled font-mono">{t('topbar.loading')}</span>
                     </div>
                 )}
             </div>

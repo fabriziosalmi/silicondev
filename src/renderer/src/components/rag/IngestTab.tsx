@@ -48,12 +48,12 @@ export function IngestTab({ collections, selectedCollectionId, setSelectedCollec
 
     return (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <Card className="xl:col-span-2 flex flex-col items-center justify-center p-12 border-2 border-dashed border-white/10 hover:border-white/20 transition-all bg-black/20 text-center min-h-[400px] group rounded-2xl">
-                <div className="w-20 h-20 bg-elevated border border-white/5 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
+            <Card className="xl:col-span-2 flex flex-col items-center justify-center p-12 border-2 border-dashed border-outline hover:border-outline-strong transition-all bg-black/20 text-center min-h-[400px] group rounded-2xl">
+                <div className="w-20 h-20 bg-elevated border border-outline-subtle rounded-2xl flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
                     <Upload className="w-10 h-10 text-blue-400" />
                 </div>
-                <h2 className="text-xl font-bold mb-3 text-gray-200 tracking-wide">Upload Files for Embedding</h2>
-                <p className="text-[13px] text-gray-500 max-w-md mx-auto mb-6 leading-relaxed font-medium">
+                <h2 className="text-xl font-bold mb-3 text-foreground-secondary tracking-wide">Upload Files for Embedding</h2>
+                <p className="text-[13px] text-foreground-muted max-w-md mx-auto mb-6 leading-relaxed font-medium">
                     Enter file paths (comma-separated) for PDF, TXT, MD, or DOCX files. SiliconDev uses MLX-accelerated embeddings for maximum local speed.
                 </p>
 
@@ -61,7 +61,7 @@ export function IngestTab({ collections, selectedCollectionId, setSelectedCollec
                     title="Target Collection"
                     value={selectedCollectionId}
                     onChange={(e) => setSelectedCollectionId(e.target.value)}
-                    className="w-full max-w-md bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 appearance-none mb-4"
+                    className="w-full max-w-md bg-black/40 border border-outline rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 appearance-none mb-4"
                 >
                     {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     {collections.length === 0 && <option value="">No collections</option>}
@@ -72,7 +72,7 @@ export function IngestTab({ collections, selectedCollectionId, setSelectedCollec
                     value={ingestPath}
                     onChange={(e) => setIngestPath(e.target.value)}
                     placeholder="/path/to/doc1.pdf, /path/to/doc2.txt"
-                    className="w-full max-w-md bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 placeholder-gray-500 font-medium mb-6"
+                    className="w-full max-w-md bg-black/40 border border-outline rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 placeholder:text-foreground-subtle font-medium mb-6"
                 />
 
                 <div className="flex items-center gap-4">
@@ -95,26 +95,26 @@ export function IngestTab({ collections, selectedCollectionId, setSelectedCollec
             </Card>
 
             <div className="space-y-6">
-                <Card className="p-6 bg-elevated border border-white/10">
-                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-6">Pipeline Settings</h3>
+                <Card className="p-6 bg-elevated border border-outline">
+                    <h3 className="text-sm font-bold text-foreground-muted uppercase tracking-wide mb-6">Pipeline Settings</h3>
                     <div className="space-y-6">
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
-                                <label className="text-[11px] font-bold text-gray-500 uppercase">{t('rag.chunkSize')}</label>
-                                <span className="text-xs font-mono text-gray-400">{chunkSize} chars</span>
+                                <label className="text-[11px] font-bold text-foreground-muted uppercase">{t('rag.chunkSize')}</label>
+                                <span className="text-xs font-mono text-foreground-muted">{chunkSize} chars</span>
                             </div>
-                            <input type="range" title="Chunk size" min="128" max="2048" step="128" value={chunkSize} onChange={(e) => setChunkSize(parseInt(e.target.value))} className="w-full h-1.5 bg-black/60 rounded-lg appearance-none cursor-pointer accent-white/50 border border-white/5" />
+                            <input type="range" title="Chunk size" min="128" max="2048" step="128" value={chunkSize} onChange={(e) => setChunkSize(parseInt(e.target.value))} className="w-full h-1.5 bg-black/60 rounded-lg appearance-none cursor-pointer accent-white/50 border border-outline-subtle" />
                         </div>
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
-                                <label className="text-[11px] font-bold text-gray-500 uppercase">{t('rag.overlap')}</label>
-                                <span className="text-xs font-mono text-gray-400">{chunkOverlap} chars</span>
+                                <label className="text-[11px] font-bold text-foreground-muted uppercase">{t('rag.overlap')}</label>
+                                <span className="text-xs font-mono text-foreground-muted">{chunkOverlap} chars</span>
                             </div>
-                            <input type="range" title="Chunk overlap" min="0" max="200" step="10" value={chunkOverlap} onChange={(e) => setChunkOverlap(parseInt(e.target.value))} className="w-full h-1.5 bg-black/60 rounded-lg appearance-none cursor-pointer accent-white/50 border border-white/5" />
+                            <input type="range" title="Chunk overlap" min="0" max="200" step="10" value={chunkOverlap} onChange={(e) => setChunkOverlap(parseInt(e.target.value))} className="w-full h-1.5 bg-black/60 rounded-lg appearance-none cursor-pointer accent-white/50 border border-outline-subtle" />
                         </div>
-                        <div className="space-y-3 pt-4 border-t border-white/5">
-                            <label className="text-[11px] font-bold text-gray-500 uppercase">Embedding Model</label>
-                            <select title="Embedding model" value={embeddingModel} onChange={(e) => setEmbeddingModel(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[13px] text-gray-300 outline-none focus:border-blue-500 appearance-none">
+                        <div className="space-y-3 pt-4 border-t border-outline-subtle">
+                            <label className="text-[11px] font-bold text-foreground-muted uppercase">Embedding Model</label>
+                            <select title="Embedding model" value={embeddingModel} onChange={(e) => setEmbeddingModel(e.target.value)} className="w-full bg-black/40 border border-outline rounded-xl px-4 py-3 text-[13px] text-foreground-secondary outline-none focus:border-blue-500 appearance-none">
                                 <option value="nomic-embed-text-v1.5">Nomic Embed Text v1.5 (Recommended)</option>
                                 <option value="bge-m3">BGE-M3 (Multilingual)</option>
                                 <option value="all-MiniLM-L6-v2">MiniLM-L6 (Fast)</option>

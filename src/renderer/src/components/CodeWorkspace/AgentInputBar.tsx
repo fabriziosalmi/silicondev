@@ -52,7 +52,7 @@ export function AgentInputBar({ onSubmit, onPlanSubmit, onStop, isRunning, disab
 
   return (
     <div
-      className="shrink-0 px-3 py-2.5 bg-black/20 border-t border-white/5"
+      className="shrink-0 px-3 py-2.5 bg-black/20 border-t border-outline-subtle"
       onPointerDownCapture={blockPropagation}
       onMouseDownCapture={blockPropagation}
       onClick={() => {
@@ -61,7 +61,7 @@ export function AgentInputBar({ onSubmit, onPlanSubmit, onStop, isRunning, disab
         }
       }}
     >
-      <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.06] rounded-xl px-3 py-2 focus-within:border-blue-500/30 transition-colors">
+      <div className="flex items-center gap-2 bg-hover border border-outline-subtle rounded-xl px-3 py-2 focus-within:border-blue-500/30 transition-colors">
         <span className={`text-[11px] font-mono shrink-0 select-none ${isPlanMode ? 'text-amber-400/80' : 'text-blue-400/60'}`}>
           {isPlanMode ? '⚡' : '>'}
         </span>
@@ -77,7 +77,7 @@ export function AgentInputBar({ onSubmit, onPlanSubmit, onStop, isRunning, disab
           disabled={disabled || isRunning}
           rows={1}
           style={{ WebkitAppRegion: 'no-drag', WebkitUserSelect: 'text' } as React.CSSProperties}
-          className="flex-1 resize-none bg-transparent text-[11px] text-white placeholder-gray-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed select-text font-mono leading-relaxed"
+          className="flex-1 resize-none bg-transparent text-[11px] text-white placeholder:text-foreground-subtle focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed select-text font-mono leading-relaxed"
         />
 
         {isRunning ? (
@@ -96,7 +96,7 @@ export function AgentInputBar({ onSubmit, onPlanSubmit, onStop, isRunning, disab
             disabled={!canSend}
             className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-150 ${canSend
               ? 'bg-blue-500 text-white hover:bg-blue-400'
-              : 'bg-white/5 text-gray-600'
+              : 'bg-hover text-foreground-subtle'
               }`}
             title="Send (Enter)"
           >

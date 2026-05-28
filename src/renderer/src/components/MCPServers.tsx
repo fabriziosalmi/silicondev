@@ -143,13 +143,13 @@ export function MCPServers() {
             <PageHeader>
                 <div className="flex items-center gap-3">
                     <div className="relative group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted group-focus-within:text-blue-400 transition-colors" />
                         <input
                             type="text"
                             placeholder="Search servers..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-black/40 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white outline-none focus:border-blue-500/50 w-64 transition-all"
+                            className="bg-black/40 border border-outline rounded-lg pl-9 pr-4 py-2 text-sm text-white outline-none focus:border-blue-500/50 w-64 transition-all"
                         />
                     </div>
                     <button
@@ -165,27 +165,27 @@ export function MCPServers() {
             <div className="flex-1 overflow-y-auto space-y-6">
                 {/* Add Server Form */}
                 {showAdd && (
-                    <Card className="p-5 bg-black/20 border-white/5">
-                        <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-4">Custom Server</h3>
+                    <Card className="p-5 bg-black/20 border-outline-subtle">
+                        <h3 className="text-[11px] font-bold text-foreground-muted uppercase tracking-wide mb-4">Custom Server</h3>
                         <div className="grid grid-cols-3 gap-3 mb-3">
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">{t('mcp.serverName')}</label>
+                                <label className="text-[10px] font-bold text-foreground-muted uppercase">{t('mcp.serverName')}</label>
                                 <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="my-server"
-                                    className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500" />
+                                    className="bg-black/40 border border-outline rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500" />
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Command</label>
+                                <label className="text-[10px] font-bold text-foreground-muted uppercase">Command</label>
                                 <input value={newCommand} onChange={(e) => setNewCommand(e.target.value)} placeholder="npx or python"
-                                    className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500" />
+                                    className="bg-black/40 border border-outline rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500" />
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Args (space-separated)</label>
+                                <label className="text-[10px] font-bold text-foreground-muted uppercase">Args (space-separated)</label>
                                 <input value={newArgs} onChange={(e) => setNewArgs(e.target.value)} placeholder="-y @org/server /path"
-                                    className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500" />
+                                    className="bg-black/40 border border-outline rounded px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500" />
                             </div>
                         </div>
                         <div className="flex justify-end gap-2">
-                            <button type="button" onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors">{t('common.cancel')}</button>
+                            <button type="button" onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-xs text-foreground-muted hover:text-foreground transition-colors">{t('common.cancel')}</button>
                             <button type="button" onClick={handleAdd} disabled={adding || !newName.trim() || !newCommand.trim()}
                                 className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                                 {adding ? 'Adding...' : 'Add'}
@@ -196,34 +196,34 @@ export function MCPServers() {
 
                 {/* Connected Servers */}
                 <div>
-                    <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-3 px-1">
+                    <h3 className="text-[11px] font-bold text-foreground-muted uppercase tracking-wide mb-3 px-1">
                         {t('mcp.connected')}
                         <span className="ml-2 text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-bold">{servers.length}</span>
                     </h3>
                     {loading ? (
                         <div className="space-y-2">
                             {[1, 2, 3].map(i => (
-                                <div key={i} className="rounded-xl border border-white/5 bg-black/20 p-4 flex items-center gap-3 animate-pulse">
-                                    <div className="w-8 h-8 rounded-lg bg-white/5 shrink-0" />
+                                <div key={i} className="rounded-xl border border-outline-subtle bg-black/20 p-4 flex items-center gap-3 animate-pulse">
+                                    <div className="w-8 h-8 rounded-lg bg-hover shrink-0" />
                                     <div className="flex-1 space-y-1.5">
-                                        <div className="h-3 bg-white/5 rounded w-1/3" />
-                                        <div className="h-2.5 bg-white/5 rounded w-1/2" />
+                                        <div className="h-3 bg-hover rounded w-1/3" />
+                                        <div className="h-2.5 bg-hover rounded w-1/2" />
                                     </div>
-                                    <div className="w-10 h-5 bg-white/5 rounded-full shrink-0" />
+                                    <div className="w-10 h-5 bg-hover rounded-full shrink-0" />
                                 </div>
                             ))}
                         </div>
                     ) : servers.length === 0 ? (
-                        <Card className="p-8 text-center bg-black/20 border-white/5">
-                            <Server className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                            <p className="text-sm text-gray-500">{t('mcp.noServers')}</p>
+                        <Card className="p-8 text-center bg-black/20 border-outline-subtle">
+                            <Server className="w-8 h-8 text-foreground-subtle mx-auto mb-2" />
+                            <p className="text-sm text-foreground-muted">{t('mcp.noServers')}</p>
                         </Card>
                     ) : (
                         <div className="space-y-2">
                             {servers.filter(s => searchTerm === '' || s.name.toLowerCase().includes(searchTerm.toLowerCase())).map(s => (
-                                <Card key={s.id} className="bg-black/20 border-white/5 overflow-hidden">
+                                <Card key={s.id} className="bg-black/20 border-outline-subtle overflow-hidden">
                                     <div className="flex items-center gap-3 px-4 py-3">
-                                        <button onClick={() => handleToggleTools(s.id)} className="text-gray-500 hover:text-white transition-colors">
+                                        <button onClick={() => handleToggleTools(s.id)} className="text-foreground-muted hover:text-foreground transition-colors">
                                             {expandedServer === s.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                         </button>
                                         <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
@@ -231,7 +231,7 @@ export function MCPServers() {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="text-sm text-white font-semibold">{s.name}</div>
-                                            <div className="text-[10px] text-gray-600 truncate font-mono">{s.command} {s.args.join(' ')}</div>
+                                            <div className="text-[10px] text-foreground-subtle truncate font-mono">{s.command} {s.args.join(' ')}</div>
                                         </div>
                                         <div className="flex items-center gap-1">
                                             {serverTools[s.id] && (
@@ -244,22 +244,22 @@ export function MCPServers() {
                                                 {testing === s.id ? 'Connecting...' : 'Discover'}
                                             </button>
                                             <button onClick={() => handleRemove(s.id)} title="Remove server"
-                                                className="p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all">
+                                                className="p-1.5 text-foreground-subtle hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all">
                                                 <Trash2 size={14} />
                                             </button>
                                         </div>
                                     </div>
                                     {expandedServer === s.id && serverTools[s.id] && (
-                                        <div className="border-t border-white/5 px-4 py-3 bg-black/20">
+                                        <div className="border-t border-outline-subtle px-4 py-3 bg-black/20">
                                             {serverTools[s.id].length === 0 ? (
-                                                <p className="text-xs text-gray-500">No tools exposed by this server.</p>
+                                                <p className="text-xs text-foreground-muted">No tools exposed by this server.</p>
                                             ) : (
                                                 <div className="space-y-2">
                                                     {serverTools[s.id].map(tool => (
-                                                        <div key={tool.name} className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/[0.02]">
+                                                        <div key={tool.name} className="flex items-start gap-3 p-2 rounded-lg hover:bg-hover">
                                                             <div className="flex-1 min-w-0">
                                                                 <div className="text-xs text-white font-semibold font-mono">{tool.name}</div>
-                                                                <div className="text-[10px] text-gray-500 mt-0.5">{tool.description || 'No description'}</div>
+                                                                <div className="text-[10px] text-foreground-muted mt-0.5">{tool.description || 'No description'}</div>
                                                             </div>
                                                             <button onClick={() => handleTestTool(s.id, tool.name)}
                                                                 className="flex items-center gap-1 px-2 py-1 text-[10px] text-green-400 hover:bg-green-500/10 rounded transition-colors shrink-0">
@@ -280,18 +280,18 @@ export function MCPServers() {
                 {/* Server Catalog */}
                 {filteredPresets.length > 0 && (
                     <div>
-                        <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-3 px-1">Server Catalog</h3>
+                        <h3 className="text-[11px] font-bold text-foreground-muted uppercase tracking-wide mb-3 px-1">Server Catalog</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                             {filteredPresets.map(preset => (
-                                <Card key={preset.name} className="p-4 bg-black/20 border-white/5 hover:border-white/10 transition-colors group">
+                                <Card key={preset.name} className="p-4 bg-black/20 border-outline-subtle hover:border-outline transition-colors group">
                                     <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center border border-white/5 shrink-0">
-                                            <Server size={14} className="text-gray-400" />
+                                        <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center border border-outline-subtle shrink-0">
+                                            <Server size={14} className="text-foreground-muted" />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="text-sm text-white font-semibold">{preset.name}</div>
-                                            <div className="text-[10px] text-gray-500 mt-0.5">{preset.description}</div>
-                                            <div className="text-[10px] text-gray-700 font-mono mt-1 truncate">{preset.command} {preset.args}</div>
+                                            <div className="text-[10px] text-foreground-muted mt-0.5">{preset.description}</div>
+                                            <div className="text-[10px] text-foreground-disabled font-mono mt-1 truncate">{preset.command} {preset.args}</div>
                                         </div>
                                     </div>
                                     <div className="flex justify-end mt-3">
@@ -303,7 +303,7 @@ export function MCPServers() {
                                 </Card>
                             ))}
                         </div>
-                        <p className="text-[10px] text-gray-600 mt-3 px-1 flex items-center gap-1">
+                        <p className="text-[10px] text-foreground-subtle mt-3 px-1 flex items-center gap-1">
                             <ExternalLink size={10} />
                             Browse more servers at modelcontextprotocol.io
                         </p>

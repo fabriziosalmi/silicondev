@@ -127,7 +127,7 @@ export function CommandPalette({ isOpen, onClose, onOpenKnowledgeMap, onNavigate
         {/* Categories & Results */}
         <div ref={scrollRef} className="max-h-[400px] overflow-y-auto p-2">
           {filteredCommands.length === 0 ? (
-            <div className="py-12 text-center text-gray-500 text-sm">
+            <div className="py-12 text-center text-foreground-muted text-sm">
               No tools found for "{search}"
             </div>
           ) : (
@@ -141,19 +141,19 @@ export function CommandPalette({ isOpen, onClose, onOpenKnowledgeMap, onNavigate
                     i === selectedIndex ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-transparent border border-transparent'
                   }`}
                 >
-                  <div className={`p-2 rounded-lg ${i === selectedIndex ? 'bg-blue-500/20' : 'bg-white/5'}`}>
+                  <div className={`p-2 rounded-lg ${i === selectedIndex ? 'bg-blue-500/20' : 'bg-hover'}`}>
                     {cmd.icon}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <span className={`text-[13px] font-semibold ${i === selectedIndex ? 'text-white' : 'text-gray-300'}`}>
+                      <span className={`text-[13px] font-semibold ${i === selectedIndex ? 'text-white' : 'text-foreground-secondary'}`}>
                         {cmd.label}
                       </span>
-                      <span className="text-[10px] text-gray-600 uppercase font-bold tracking-wider">
+                      <span className="text-[10px] text-foreground-subtle uppercase font-bold tracking-wider">
                         {cmd.category}
                       </span>
                     </div>
-                    <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                    <p className="text-[11px] text-foreground-muted mt-0.5 truncate">
                       {cmd.description}
                     </p>
                   </div>
@@ -164,7 +164,7 @@ export function CommandPalette({ isOpen, onClose, onOpenKnowledgeMap, onNavigate
         </div>
 
         {/* Footer Stats */}
-        <div className="p-3 bg-black/20 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-600 font-mono">
+        <div className="p-3 bg-black/20 border-t border-outline-subtle flex items-center justify-between text-[10px] text-foreground-subtle font-mono">
           <div className="flex items-center gap-4">
             <span>RAM: {systemStats ? `${(systemStats.memory.percent).toFixed(1)}%` : '--'}</span>
             <span>VRAM: {activeModel ? 'In Use' : 'Ready'}</span>
