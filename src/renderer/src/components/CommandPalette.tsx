@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Zap, ShieldCheck, Brain, Database, X, Command } from 'lucide-react';
+import { Search, Zap, Brain, Database, X, Command } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { apiClient } from '../api/client';
 
@@ -26,19 +26,11 @@ export function CommandPalette({ isOpen, onClose, onOpenKnowledgeMap, onNavigate
 
   const commands: CommandItem[] = [
     {
-      id: 'swarm',
-      label: 'Code Workspace (Swarm)',
-      description: 'Open Code Workspace — enable MoA in the agent panel for swarm mode',
+      id: 'code',
+      label: 'Open Code Workspace',
+      description: 'Edit files with agent assistance. Toggle MoA / sandbox / air-gapped in the agent panel.',
       icon: <Brain size={16} className="text-purple-400" />,
       category: 'Agentic Tools',
-      action: () => { onNavigateTo?.('code'); onClose(); }
-    },
-    {
-      id: 'sanitizer',
-      label: 'Code Workspace (Security)',
-      description: 'Open Code Workspace — ask the agent to run a security review',
-      icon: <ShieldCheck size={16} className="text-emerald-400" />,
-      category: 'Security',
       action: () => { onNavigateTo?.('code'); onClose(); }
     },
     {

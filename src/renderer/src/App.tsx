@@ -376,6 +376,7 @@ function App() {
                   onClick={() => setActiveTab('terminal')}
                   icon={<TerminalSquare size={18} />}
                   collapsed={sidebarCollapsed}
+                  experimental
                 />
                 <SidebarItem
                   label={t('sidebar.code')}
@@ -383,6 +384,7 @@ function App() {
                   onClick={() => setActiveTab('code')}
                   icon={<Code size={18} />}
                   collapsed={sidebarCollapsed}
+                  experimental
                 />
                 <div>
                   <SidebarItem
@@ -391,6 +393,7 @@ function App() {
                     onClick={() => { setActiveTab('workspace'); if (!notesExpanded) { setNotesExpanded(true); notes.fetchNotes(); } }}
                     icon={<FileText size={18} />}
                     collapsed={sidebarCollapsed}
+                    experimental
                     suffix={activeTab === 'workspace' ? (
                       <div className="flex items-center gap-0.5 shrink-0">
                         <button
@@ -580,14 +583,14 @@ function App() {
   )
 }
 
-function SidebarItem({ label, active, onClick, icon, collapsed, suffix }: { label: string, active: boolean, onClick: () => void, icon: React.ReactNode, collapsed?: boolean, suffix?: React.ReactNode }) {
+function SidebarItem({ label, active, onClick, icon, collapsed, suffix, experimental }: { label: string, active: boolean, onClick: () => void, icon: React.ReactNode, collapsed?: boolean, suffix?: React.ReactNode, experimental?: boolean }) {
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
-      title={collapsed ? label : undefined}
+      title={collapsed ? `${label}${experimental ? ' (experimental)' : ''}` : undefined}
       className={`w-full flex items-center ${collapsed ? 'justify-center px-0 py-2 rounded-lg' : 'px-3 py-2 rounded-r-md'} text-[13px] font-medium transition-all duration-150 cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent/50 ${active
         ? `bg-elevated text-foreground ${collapsed ? '' : 'border-l-[3px] border-accent'}`
         : `text-foreground-muted hover:bg-hover hover:text-foreground ${collapsed ? '' : 'border-l-[3px] border-transparent'}`
@@ -595,6 +598,14 @@ function SidebarItem({ label, active, onClick, icon, collapsed, suffix }: { labe
     >
       <span className={`flex items-center justify-center w-5 h-5 shrink-0 ${active ? 'text-blue-400' : 'opacity-70'}`}>{icon}</span>
       {!collapsed && <span className="flex-1 tracking-wide whitespace-nowrap ml-3">{label}</span>}
+      {!collapsed && experimental && (
+        <span
+          className="ml-1 px-1 py-px text-[8px] font-bold tracking-wider rounded bg-warn-muted text-warn shrink-0"
+          title="Active development — expect rough edges"
+        >
+          EXP
+        </span>
+      )}
       {!collapsed && suffix}
     </div>
   )
