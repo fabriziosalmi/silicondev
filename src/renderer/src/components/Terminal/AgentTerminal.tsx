@@ -214,6 +214,7 @@ export function AgentTerminal() {
               type: 'tool_output',
               content: text,
               timestamp: Date.now(),
+              viewMode: 'inline',
               toolMeta: { callId, tool: 'bash', command: lastCommandRef.current },
             })
           } else {
@@ -241,15 +242,9 @@ export function AgentTerminal() {
           break
 
         case 'done': {
-          const ms = d.total_time_ms as number
-          if (ms > 0) {
-            addFeedItem({
-              id: crypto.randomUUID(),
-              type: 'info',
-              content: `Done — ${Math.round(ms / 1000)}s`,
-              timestamp: Date.now(),
-            })
-          }
+          // Inline terminal mode: skip the "Done — Ns" info badge. It used to
+          // also gate the TaskRecapStrip ("N commands") in MessageFeed, so
+          // dropping it here is what makes the feed look like a real shell.
           break
         }
       }
@@ -259,7 +254,9 @@ export function AgentTerminal() {
   const handleSubmit = useCallback(async (input: string) => {
     if (isRunning) return
 
-    addFeedItem({ id: crypto.randomUUID(), type: 'user', content: input, timestamp: Date.now() })
+    // In terminal (inline) mode the command is rendered as the "~ $ <cmd>"
+    // prompt line of the tool_output item, so we deliberately do NOT add a
+    // separate `user` bubble — that would duplicate the command on screen.
     setIsRunning(true)
     toolOutputIdRef.current = null
     lastCommandRef.current = input
@@ -269,7 +266,7 @@ export function AgentTerminal() {
 
     if (mountedRef.current) setIsRunning(false)
     toolOutputIdRef.current = null
-  }, [isRunning, addFeedItem, consumeSSE])
+  }, [isRunning, consumeSSE])
 
   const handleStop = useCallback(async () => {
     abortRef.current?.abort()

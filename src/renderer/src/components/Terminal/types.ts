@@ -93,6 +93,12 @@ export interface FeedItem {
   type: FeedItemType
   content: string
   timestamp: number
+  /**
+   * Rendering hint. `inline` = flush scrollback line (used by the bash
+   * Terminal so the feed looks like iTerm). `card` (default) = discrete
+   * collapsible block used in the agent session feed.
+   */
+  viewMode?: 'inline' | 'card'
   toolMeta?: ToolMetadata
   diffMeta?: DiffMetadata
   escalationMeta?: EscalationMetadata

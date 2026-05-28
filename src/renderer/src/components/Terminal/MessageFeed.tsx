@@ -111,6 +111,30 @@ const EscalationCard = memo(function EscalationCard({
 })
 
 /**
+ * Flush inline renderer used by the bash Terminal (viewMode='inline').
+ * Mimics a real shell: green "~ $" prompt + command on one line, ANSI-rendered
+ * output flush underneath, no chrome, no collapse, no "Done" badge.
+ */
+function InlineToolOutput({ item }: { item: FeedItem }) {
+  const command = item.toolMeta?.command || ''
+  const isError = item.toolMeta?.exitCode !== undefined && item.toolMeta.exitCode !== 0
+  return (
+    <div className="font-mono text-xs select-text leading-relaxed">
+      <div className="flex gap-1.5">
+        <span className="text-green-500/70 select-none">~</span>
+        <span className="text-green-400/60 select-none">$</span>
+        <span className="text-foreground break-all">{command}</span>
+      </div>
+      {item.content && (
+        <pre className={`whitespace-pre-wrap break-words ${isError ? 'text-red-300/90' : 'text-foreground-secondary'}`}>
+          <AnsiText text={item.content} />
+        </pre>
+      )}
+    </div>
+  )
+}
+
+/**
  * Collapsible tool output block — collapsed by default, shows command preview.
  * Inspired by Companion's ToolBlock pattern.
  */
@@ -411,9 +435,10 @@ const FeedItemView = memo(function FeedItemView({
       )
 
     case 'tool_output':
-      return (
-        <CollapsibleToolOutput item={item} onFixError={onFixError} />
-      )
+      return item.viewMode === 'inline'
+        ? <InlineToolOutput item={item} />
+        : <CollapsibleToolOutput item={item} onFixError={onFixError} />
+
 
     case 'diff_proposal':
       return item.diffMeta ? (
