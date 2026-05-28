@@ -238,6 +238,49 @@ export function MonacoEditor({ filePath, content, language, onSave, onChange, or
     return () => window.removeEventListener('nanocore-apply-snippet', handler)
   }, [])
 
+  // CodeActionsToolbar dispatches nanocore-action with { prompt }. We pick
+  // selection if present else the whole file, wrap in a fenced block, and
+  // forward as nanocore-prompt to the agent panel.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { prompt?: string } | undefined
+      const actionPrompt = detail?.prompt
+      if (!actionPrompt) return
+      const editor = editorRef.current
+      if (!editor) return
+      const model = editor.getModel?.()
+      if (!model) return
+      const sel = editor.getSelection?.()
+      const hasSel = sel && !sel.isEmpty()
+      const text: string = hasSel ? model.getValueInRange(sel) : model.getValue()
+      if (!text.trim()) return
+      const langId: string = (model.getLanguageId?.() as string) || language || ''
+      const fullPrompt = `${actionPrompt}\n\n\`\`\`${langId}\n${text}\n\`\`\``
+      window.dispatchEvent(new CustomEvent('nanocore-prompt', { detail: fullPrompt }))
+    }
+    window.addEventListener('nanocore-action', handler)
+    return () => window.removeEventListener('nanocore-action', handler)
+  }, [language])
+
+  // Track Monaco selection state so the toolbar badge can show "selection · NL"
+  // vs the file language. Fires on every cursor/selection change.
+  useEffect(() => {
+    if (!editorInstance) return
+    const emit = () => {
+      const sel = editorInstance.getSelection?.()
+      const hasSelection = !!(sel && !sel.isEmpty())
+      const lines = hasSelection ? Math.abs(sel.endLineNumber - sel.startLineNumber) + 1 : 0
+      window.dispatchEvent(new CustomEvent('nanocore-selection-change', {
+        detail: { hasSelection, lines },
+      }))
+    }
+    const disposable = editorInstance.onDidChangeCursorSelection?.(emit)
+    emit()
+    return () => {
+      try { disposable?.dispose?.() } catch { /* ignore */ }
+    }
+  }, [editorInstance])
+
   const handleChange = useCallback((value: string | undefined) => {
     if (value !== undefined) {
       onChange(value)

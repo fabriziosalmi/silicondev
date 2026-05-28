@@ -47,6 +47,34 @@ function isCodeFile(name: string): boolean {
   return codeExts.includes(ext)
 }
 
+// Binary files + heavy auto-generated text we don't want to edit. Hidden from
+// the tree to keep it focused on code the user actually works on.
+const BINARY_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.bmp', '.tiff', '.tif', '.heic', '.avif',
+  '.zip', '.tar', '.gz', '.bz2', '.7z', '.rar', '.xz', '.tgz',
+  '.exe', '.dll', '.so', '.dylib', '.a', '.o', '.class', '.pyc', '.pyo', '.wasm',
+  '.ttf', '.otf', '.woff', '.woff2', '.eot',
+  '.mp3', '.mp4', '.wav', '.avi', '.mov', '.mkv', '.flv', '.webm', '.ogg', '.m4a', '.aac', '.flac',
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  '.db', '.sqlite', '.sqlite3', '.mdb',
+  '.gguf', '.safetensors', '.bin', '.pt', '.pth', '.h5', '.onnx', '.tflite', '.npy', '.npz',
+  '.dmg', '.iso', '.img',
+])
+
+const BINARY_FILENAMES = new Set([
+  'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
+  'Cargo.lock', 'composer.lock', 'Pipfile.lock', 'poetry.lock', 'uv.lock', 'Gemfile.lock',
+  '.DS_Store', 'Thumbs.db', '.localized',
+])
+
+function isHiddenFile(node: TreeNode): boolean {
+  if (node.type !== 'file') return false
+  if (BINARY_FILENAMES.has(node.name)) return true
+  const dotIdx = node.name.lastIndexOf('.')
+  if (dotIdx < 0) return false
+  return BINARY_EXTENSIONS.has(node.name.slice(dotIdx).toLowerCase())
+}
+
 function ContextMenu({ x, y, onRename, onDelete, onCopyPath, onClose }: {
   x: number; y: number
   onRename: () => void; onDelete: () => void; onCopyPath: () => void; onClose: () => void
@@ -301,7 +329,7 @@ const TreeItem = memo(function TreeItem({
         />
       )}
 
-      {node.type === 'dir' && expanded && node.children?.map(child => (
+      {node.type === 'dir' && expanded && node.children?.filter(child => !isHiddenFile(child)).map(child => (
         <TreeItem
           key={child.path}
           node={child}
@@ -330,7 +358,7 @@ export function FileTree({ tree, onFileSelect, onRename, onDelete, activeFile, p
 
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden py-1 select-none">
-      {tree.children?.map(child => (
+      {tree.children?.filter(child => !isHiddenFile(child)).map(child => (
         <TreeItem
           key={child.path}
           node={child}

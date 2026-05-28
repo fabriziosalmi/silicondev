@@ -4,6 +4,7 @@ import { X, Circle, Save, FolderSearch, Settings as SettingsIcon, FilePlus, Pane
 import { FileTree } from './FileTree'
 import { MonacoEditor } from './MonacoEditor'
 import { AgentPanel } from './AgentPanel'
+import { CodeActionsToolbar } from './CodeActionsToolbar'
 import { InlineRewriteUI } from './InlineRewriteUI'
 import { DebuggerPanel } from './DebuggerPanel'
 import { PreviewPanel } from './PreviewPanel'
@@ -21,6 +22,39 @@ interface OpenFile {
   language: string
   dirty: boolean
   savedContent: string
+}
+
+interface PersistedTab {
+  path: string
+  name: string
+  language: string
+}
+
+const TABS_STORAGE_PREFIX = 'silicon-studio-code-tabs:'
+const ACTIVE_STORAGE_PREFIX = 'silicon-studio-code-active:'
+
+function loadPersistedTabs(dir: string | null): { tabs: PersistedTab[]; active: string | null } {
+  if (!dir) return { tabs: [], active: null }
+  try {
+    const tabsRaw = localStorage.getItem(TABS_STORAGE_PREFIX + dir)
+    const activeRaw = localStorage.getItem(ACTIVE_STORAGE_PREFIX + dir)
+    return {
+      tabs: tabsRaw ? (JSON.parse(tabsRaw) as PersistedTab[]) : [],
+      active: activeRaw || null,
+    }
+  } catch {
+    return { tabs: [], active: null }
+  }
+}
+
+function persistTabs(dir: string | null, files: OpenFile[], active: string | null) {
+  if (!dir) return
+  try {
+    const tabs: PersistedTab[] = files.map(f => ({ path: f.path, name: f.name, language: f.language }))
+    localStorage.setItem(TABS_STORAGE_PREFIX + dir, JSON.stringify(tabs))
+    if (active) localStorage.setItem(ACTIVE_STORAGE_PREFIX + dir, active)
+    else localStorage.removeItem(ACTIVE_STORAGE_PREFIX + dir)
+  } catch { /* quota or storage unavailable — skip */ }
 }
 
 export function CodeWorkspace() {
@@ -92,6 +126,60 @@ export function CodeWorkspace() {
     workspaceDirRef.current = workspaceDir
   }, [workspaceDir])
   const getWorkspaceDir = useCallback(() => workspaceDirRef.current, [])
+
+  // --- Tab persistence ---
+  // Restore openFiles + activeFile from localStorage on workspace change. Files
+  // that no longer exist on disk are dropped silently. Persist is gated by
+  // restoreCompletedRef so the initial empty state never overwrites saved tabs
+  // before restore lands.
+  const restoreCompletedRef = useRef(false)
+  useEffect(() => {
+    if (!workspaceDir) {
+      restoreCompletedRef.current = true
+      return
+    }
+    restoreCompletedRef.current = false
+    let cancelled = false
+    const restore = async () => {
+      const { tabs, active } = loadPersistedTabs(workspaceDir)
+      if (cancelled) return
+      if (tabs.length === 0) {
+        restoreCompletedRef.current = true
+        return
+      }
+      const restored: OpenFile[] = []
+      for (const tab of tabs) {
+        try {
+          const { content } = await apiClient.workspace.readFile(tab.path)
+          if (cancelled) return
+          restored.push({
+            path: tab.path,
+            name: tab.name,
+            content,
+            language: tab.language,
+            dirty: false,
+            savedContent: content,
+          })
+        } catch {
+          // File gone or unreadable — drop from tabs.
+        }
+      }
+      if (cancelled) return
+      if (restored.length > 0) {
+        setOpenFiles(restored)
+        const wantedActive = active && restored.some(f => f.path === active) ? active : restored[0].path
+        setActiveFile(wantedActive)
+      }
+      restoreCompletedRef.current = true
+    }
+    restore()
+    return () => { cancelled = true }
+  }, [workspaceDir])
+
+  useEffect(() => {
+    if (!restoreCompletedRef.current) return
+    persistTabs(workspaceDir, openFiles, activeFile)
+  }, [workspaceDir, openFiles, activeFile])
 
   // --- Agent Session ---
   const { lowPowerMode } = useEnergyManager()
@@ -614,6 +702,7 @@ export function CodeWorkspace() {
 
         {/* Monaco editor area with relative positioning for inline UI */}
         <div className="flex-1 min-w-0 flex flex-col">
+          {active && <CodeActionsToolbar fileName={active.path} language={active.language} />}
           <div className="flex-1 relative">
             {active ? (
               <>
