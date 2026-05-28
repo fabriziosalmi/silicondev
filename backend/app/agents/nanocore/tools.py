@@ -7,6 +7,7 @@ import logging
 import os
 import pty
 import re
+import signal
 import sys
 import tempfile
 from pathlib import Path
@@ -19,12 +20,36 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
-# --- ANSI escape code stripper ---
+# --- ANSI escape codes ---
+# Kept for callers that need plain text (logs, agent prompts), but NOT applied
+# to PTY output streamed to the terminal UI — the frontend renders colors.
 _ANSI_RE = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
 
 
 def strip_ansi(text: str) -> str:
     return _ANSI_RE.sub('', text)
+
+
+# --- Per-call process registry for SIGINT support ---
+# Keyed by call_id (8-char uuid prefix); value is the live subprocess.
+_active_processes: dict[str, asyncio.subprocess.Process] = {}
+_processes_lock = asyncio.Lock()
+
+
+async def interrupt_call(call_id: str) -> bool:
+    """Send SIGINT to the running process for the given call_id.
+
+    Returns True if the signal was delivered, False if no live process exists.
+    """
+    async with _processes_lock:
+        proc = _active_processes.get(call_id)
+    if not proc or proc.returncode is not None:
+        return False
+    try:
+        proc.send_signal(signal.SIGINT)
+        return True
+    except (ProcessLookupError, OSError):
+        return False
 
 
 # --- Safety: blocked commands and protected paths ---
@@ -74,7 +99,7 @@ DESTRUCTIVE_PREFIXES = [
 ]
 
 # Max output bytes per tool call before truncation
-MAX_OUTPUT_BYTES = 10 * 1024  # 10 KB
+MAX_OUTPUT_BYTES = 256 * 1024  # 256 KB
 # Max file size for edit_file reads (500 KB) — prevents blowing up LLM context
 MAX_EDIT_FILE_BYTES = 500 * 1024
 
@@ -241,13 +266,22 @@ def _is_destructive(command: str) -> bool:
     return any(normalized.startswith(p) for p in DESTRUCTIVE_PREFIXES)
 
 
-async def run_bash(command: str, timeout: int = 60, sandbox_level: int = 0) -> AsyncGenerator[tuple[str, str], None]:
+async def run_bash(
+    command: str,
+    timeout: int = 60,
+    sandbox_level: int = 0,
+    call_id: str | None = None,
+) -> AsyncGenerator[tuple[str, str], None]:
     """Execute a shell command via a PTY or Docker Sandbox.
-    
+
     sandbox_level:
     0: Host PTY (Strict Sanitization only)
     1: Optional - Dry run simulation (TBD)
     2: Docker Micro-Sandbox (Isolated Container)
+
+    When call_id is provided, the live process is registered in the global
+    interrupt registry so the user (or supervisor) can send SIGINT via
+    interrupt_call(call_id).
     """
     block_reason = _is_blocked(command)
     if block_reason:
@@ -298,6 +332,11 @@ async def run_bash(command: str, timeout: int = 60, sandbox_level: int = 0) -> A
     # Close slave in parent — the child process owns it now
     os.close(slave_fd)
 
+    # Register for SIGINT interrupt before entering the read loop.
+    if call_id:
+        async with _processes_lock:
+            _active_processes[call_id] = proc
+
     loop = asyncio.get_event_loop()
     total_bytes = 0
     truncated = False
@@ -332,15 +371,27 @@ async def run_bash(command: str, timeout: int = 60, sandbox_level: int = 0) -> A
             if not data:
                 break
 
-            text = strip_ansi(data.decode(errors="replace"))
+            # Pass ANSI through — frontend renders colors. strip_ansi() is
+            # only for callers that need plain text (e.g., agent prompts).
+            text = data.decode(errors="replace")
             total_bytes += len(text)
 
             if total_bytes > MAX_OUTPUT_BYTES and not truncated:
-                yield ("stderr", f"\n[Output truncated at {MAX_OUTPUT_BYTES // 1024}KB]\n")
+                yield (
+                    "stderr",
+                    f"\n[Output truncated at {MAX_OUTPUT_BYTES // 1024}KB — "
+                    f"further output suppressed. Re-run with a narrower command "
+                    f"(grep/head/tail) to see the rest.]\n",
+                )
                 truncated = True
             if not truncated:
                 yield ("stdout", text)
     finally:
+        # Unregister so a later /interrupt for this call_id returns 404 instead
+        # of trying to signal a dead pid.
+        if call_id:
+            async with _processes_lock:
+                _active_processes.pop(call_id, None)
         try:
             os.close(master_fd)
         except OSError:

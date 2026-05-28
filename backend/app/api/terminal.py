@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from app.agents.nanocore.types import TerminalRequest, DiffDecision, EscalationResponse, UndoRequest, PlanRequest, PlanDecision
 from app.agents.nanocore.supervisor import SupervisorAgent
 from app.agents.nanocore.planner import PlannerEditor
-from app.agents.nanocore.tools import run_bash
+from app.agents.nanocore.tools import run_bash, interrupt_call
 from app.agents.nanocore.prompts import FILE_CONTEXT_INSTRUCTION
 from app.agents.nanocore.scout import ScoutAgent
 
@@ -60,7 +60,7 @@ async def exec_command(request: ExecRequest):
 
         exit_code = 0
         try:
-            async for stream, text in run_bash(request.command, timeout=request.timeout):
+            async for stream, text in run_bash(request.command, timeout=request.timeout, call_id=call_id):
                 yield f"data: {json.dumps({'event': 'tool_log', 'data': {'call_id': call_id, 'stream': stream, 'text': text}})}\n\n"
                 if stream == "stderr" and "Blocked:" in text:
                     exit_code = 1
@@ -264,6 +264,19 @@ async def stop_terminal(body: dict = {}):
 
     agent.stop()
     return {"status": "stopping"}
+
+
+class InterruptRequest(BaseModel):
+    call_id: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/interrupt")
+async def interrupt_exec(request: InterruptRequest):
+    """Send SIGINT to a running /exec call (Ctrl+C equivalent)."""
+    ok = await interrupt_call(request.call_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Call not running or already finished")
+    return {"status": "interrupted", "call_id": request.call_id}
 
 
 # ── Planner/Editor endpoints ───────────────────────────────────

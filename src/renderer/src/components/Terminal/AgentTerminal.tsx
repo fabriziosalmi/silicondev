@@ -7,7 +7,8 @@ import { InputBar } from './InputBar'
 import type { FeedItem, SSEEvent } from './types'
 
 const STORAGE_KEY_FEED = 'nanocore-terminal-feed'
-const MAX_PERSISTED_ITEMS = 200
+const MAX_PERSISTED_ITEMS = 500
+const MAX_PERSISTED_ITEM_BYTES = 12_000
 
 function loadPersistedFeed(): FeedItem[] {
   try {
@@ -24,8 +25,8 @@ function persistFeed(items: FeedItem[]) {
   try {
     // Trim old items + truncate large tool outputs before saving
     const toSave = items.slice(-MAX_PERSISTED_ITEMS).map((item) => {
-      if (item.type === 'tool_output' && item.content.length > 4000) {
-        return { ...item, content: item.content.slice(-4000) }
+      if (item.type === 'tool_output' && item.content.length > MAX_PERSISTED_ITEM_BYTES) {
+        return { ...item, content: item.content.slice(-MAX_PERSISTED_ITEM_BYTES) }
       }
       return item
     })
@@ -44,6 +45,8 @@ export function AgentTerminal() {
   const lastCommandRef = useRef<string>('')
   const abortRef = useRef<AbortController | null>(null)
   const mountedRef = useRef(true)
+  // Tracks the active /exec call_id so Ctrl+C can target the right process server-side.
+  const activeCallIdRef = useRef<string | null>(null)
 
   // Check backend connectivity on mount + periodic health check every 30s
   useEffect(() => {
@@ -90,6 +93,24 @@ export function AgentTerminal() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [clearHistory, isRunning])
+
+  // Ctrl+C — send SIGINT to the running PTY process (Unix convention).
+  // Skipped if there's a non-empty selection so copy still works.
+  // On macOS we keep this Ctrl-only — Cmd+C is reserved for copy.
+  useEffect(() => {
+    if (!isRunning) return
+    const handler = (e: KeyboardEvent) => {
+      if (!e.ctrlKey || e.key !== 'c') return
+      const callId = activeCallIdRef.current
+      if (!callId) return
+      const sel = window.getSelection()
+      if (sel && sel.toString().length > 0) return
+      e.preventDefault()
+      apiClient.terminal.interrupt(callId).catch(() => { /* best-effort */ })
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isRunning])
 
   const addFeedItem = useCallback((item: FeedItem) => {
     setFeedItems((prev) => [...prev, item])
@@ -176,6 +197,12 @@ export function AgentTerminal() {
           setSessionId(d.session_id as string)
           break
 
+        case 'tool_start': {
+          // Capture call_id so Ctrl+C can target this PTY process.
+          activeCallIdRef.current = (d.call_id as string) ?? null
+          break
+        }
+
         case 'tool_log': {
           const text = d.text as string
           const callId = d.call_id as string
@@ -205,6 +232,7 @@ export function AgentTerminal() {
             }))
           }
           toolOutputIdRef.current = null
+          activeCallIdRef.current = null
           break
         }
 
@@ -261,10 +289,11 @@ export function AgentTerminal() {
   return (
     <div className="h-full flex flex-col">
       {/* Terminal header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.04] bg-black/30 shrink-0">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-outline-subtle bg-input-bg shrink-0">
         <div className="flex items-center gap-2 font-mono text-xs">
           <span className="text-green-500">bash</span>
-          <span className="text-gray-600">~</span>
+          <span className="text-foreground-subtle">~</span>
+          <span className="text-foreground-subtle text-[10px] tracking-wide">limited shell · no $() · Ctrl+C to interrupt</span>
           {isRunning && <span className="inline-block w-1.5 h-3 bg-green-400 animate-pulse rounded-sm" />}
         </div>
         <div className="flex items-center gap-2">
@@ -272,7 +301,7 @@ export function AgentTerminal() {
             <button
               type="button"
               onClick={() => { setBackendStatus('checking'); apiClient.apiFetch(`${apiClient.API_BASE}/api/monitor/stats`, { signal: AbortSignal.timeout(5000) }).then(r => setBackendStatus(r.ok ? 'ok' : 'error')).catch(() => setBackendStatus('error')) }}
-              className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-md hover:bg-red-500/20 transition-colors"
+              className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-danger bg-danger-muted border border-danger/20 rounded-md hover:bg-danger/20 transition-colors"
               title="Backend unreachable — click to retry"
             >
               <WifiOff size={10} />
@@ -288,7 +317,7 @@ export function AgentTerminal() {
             <button
               type="button"
               onClick={clearHistory}
-              className="p-1.5 text-gray-600 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
+              className="p-1.5 text-foreground-subtle hover:text-danger hover:bg-hover rounded-lg transition-colors"
               title={t('terminal.clear')}
             >
               <Trash2 size={13} />
@@ -299,9 +328,9 @@ export function AgentTerminal() {
 
       {/* Backend offline banner */}
       {backendStatus === 'error' && (
-        <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/20 text-xs text-red-300 flex items-center gap-2">
+        <div className="px-4 py-2 bg-danger-muted border-b border-danger/20 text-xs text-danger flex items-center gap-2">
           <WifiOff size={12} />
-          <span>Backend not reachable at <code className="text-red-400">{apiClient.API_BASE}</code>. Make sure the server is running.</span>
+          <span>Backend not reachable at <code className="text-danger">{apiClient.API_BASE}</code>. Make sure the server is running.</span>
         </div>
       )}
 

@@ -91,8 +91,8 @@ export function InputBar({ onSubmit, onStop, isRunning }: InputBarProps) {
   const canSend = value.trim().length > 0 && !isRunning
 
   return (
-    <div className="px-4 py-3 bg-black/20">
-      <div className="flex items-end gap-2 bg-white/[0.04] border border-white/[0.06] rounded-xl px-3 py-2 focus-within:border-green-500/30 transition-colors">
+    <div className="px-4 py-3 bg-input-bg">
+      <div className="flex items-end gap-2 bg-hover border border-outline-subtle rounded-xl px-3 py-2 focus-within:border-green-500/30 transition-colors">
         <span className="text-sm font-mono shrink-0 pb-0.5 select-none text-green-400/60">
           $
         </span>
@@ -104,14 +104,14 @@ export function InputBar({ onSubmit, onStop, isRunning }: InputBarProps) {
           onKeyDown={handleKeyDown}
           placeholder={isRunning ? t('code.running') : t('terminal.placeholder')}
           rows={1}
-          className="flex-1 resize-none bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none select-text font-mono leading-relaxed"
+          className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-foreground-subtle focus:outline-none select-text font-mono leading-relaxed"
         />
 
         {isRunning ? (
           <button
             type="button"
             onClick={onStop}
-            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-danger-muted text-danger hover:bg-danger/30 transition-colors"
             title={t('terminal.stop')}
           >
             <Square size={12} />
@@ -124,7 +124,7 @@ export function InputBar({ onSubmit, onStop, isRunning }: InputBarProps) {
             className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-150 ${
               canSend
                 ? 'bg-green-500 text-white hover:bg-green-400'
-                : 'bg-white/5 text-gray-600'
+                : 'bg-hover text-foreground-subtle'
             }`}
             title={t('terminal.send')}
           >

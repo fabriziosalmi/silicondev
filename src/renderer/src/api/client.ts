@@ -1088,6 +1088,16 @@ export const apiClient = {
             });
             await throwIfNotOk(res, 'Failed to stop terminal session');
         },
+        interrupt: async (callId: string): Promise<void> => {
+            const res = await apiFetch(`${API_BASE}/api/terminal/interrupt`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ call_id: callId })
+            });
+            // 404 is expected if the call already finished — don't throw, treat as no-op
+            if (res.status === 404) return;
+            await throwIfNotOk(res, 'Failed to interrupt');
+        },
         undo: async (sessionId: string): Promise<{ file_path: string }> => {
             const res = await apiFetch(`${API_BASE}/api/terminal/undo`, {
                 method: 'POST',

@@ -4,6 +4,7 @@ import { User, TerminalSquare, AlertCircle, Info, AlertTriangle, Send, Cpu, Refr
 import { StreamingMarkdown } from './StreamingMarkdown'
 import { HolographicDiff } from './HolographicDiff'
 import { PlanCard } from './PlanCard'
+import { AnsiText } from './AnsiText'
 import { apiClient } from '../../api/client'
 import type { FeedItem } from './types'
 
@@ -177,7 +178,7 @@ function CollapsibleToolOutput({ item, onFixError }: { item: FeedItem; onFixErro
           <div className="bg-black/60 px-3 py-2 overflow-x-auto max-h-60 overflow-y-auto">
             <pre className={`text-xs font-mono select-text whitespace-pre-wrap break-words leading-relaxed ${isError ? 'text-red-300/90' : 'text-green-300/90'
               }`}>
-              {rendered}
+              <AnsiText text={rendered} />
             </pre>
           </div>
           {isError && onFixError && (
