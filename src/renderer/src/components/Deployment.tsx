@@ -34,9 +34,11 @@ export function Deployment() {
     // Collapsible snippets
     const [showSnippets, setShowSnippets] = useState(false)
 
-    // Poll server status
+    // Poll server status. Skipped when the document tab is hidden so we
+    // don't burn cycles fetching state nobody is looking at.
     useEffect(() => {
         const checkStatus = async () => {
+            if (document.visibilityState !== 'visible') return
             try {
                 const status = await apiClient.deployment.getStatus()
                 setServerRunning(status.running)
@@ -47,16 +49,24 @@ export function Deployment() {
             }
         }
         checkStatus()
-        const interval = setInterval(checkStatus, 3000)
-        return () => clearInterval(interval)
+        // 3s ± 500ms jitter so multiple Silicon Studio windows don't all
+        // fire on the same wall-clock tick.
+        const interval = setInterval(checkStatus, 3000 + Math.floor(Math.random() * 500))
+        const onVisibility = () => { if (document.visibilityState === 'visible') checkStatus() }
+        document.addEventListener('visibilitychange', onVisibility)
+        return () => {
+            clearInterval(interval)
+            document.removeEventListener('visibilitychange', onVisibility)
+        }
     }, [])
 
-    // Poll logs when server is running
+    // Poll logs when server is running. Same visibility guard.
     const logSinceRef = useRef(logSince)
     logSinceRef.current = logSince
     useEffect(() => {
         if (!serverRunning) return
         const fetchLogs = async () => {
+            if (document.visibilityState !== 'visible') return
             try {
                 const data = await apiClient.deployment.getLogs(logSinceRef.current)
                 if (data.logs.length > 0) {
@@ -71,8 +81,13 @@ export function Deployment() {
             }
         }
         fetchLogs()
-        const interval = setInterval(fetchLogs, 1500)
-        return () => clearInterval(interval)
+        const interval = setInterval(fetchLogs, 1500 + Math.floor(Math.random() * 250))
+        const onVisibility = () => { if (document.visibilityState === 'visible') fetchLogs() }
+        document.addEventListener('visibilitychange', onVisibility)
+        return () => {
+            clearInterval(interval)
+            document.removeEventListener('visibilitychange', onVisibility)
+        }
     }, [serverRunning])
 
     // Auto-scroll logs

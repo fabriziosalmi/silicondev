@@ -762,9 +762,12 @@ export function ChatInterface() {
     }, [])
 
     // ── Git branch info ──
+    // Polls git status every 30s. Skipped while the tab is hidden so we
+    // don't keep fetching when the user is on Code/Models/Terminal/etc.
     useEffect(() => {
         let cancelled = false
         const fetchGit = async () => {
+            if (document.visibilityState !== 'visible') return
             try {
                 const info = await apiClient.workspace.gitInfo('.')
                 if (!cancelled && info.git && info.branch) {
@@ -773,9 +776,14 @@ export function ChatInterface() {
             } catch { /* no git */ }
         }
         fetchGit()
-        // Refresh every 30s
         const timer = setInterval(fetchGit, 30_000)
-        return () => { cancelled = true; clearInterval(timer) }
+        const onVisibility = () => { if (document.visibilityState === 'visible') fetchGit() }
+        document.addEventListener('visibilitychange', onVisibility)
+        return () => {
+            cancelled = true
+            clearInterval(timer)
+            document.removeEventListener('visibilitychange', onVisibility)
+        }
     }, [])
 
     // ── Detect overlay triggers on input change ──

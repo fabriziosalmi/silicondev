@@ -622,11 +622,18 @@ const TaskRecapStrip = memo(function TaskRecapStrip({ items }: { items: FeedItem
   )
 })
 
+// Past this many items we collapse the leading slice behind a "Show all"
+// banner so the DOM doesn't accumulate thousands of nodes. The user can
+// still expand back to the full list with one click.
+const SOFT_WINDOW = 200
+const SOFT_WINDOW_THRESHOLD = 250
+
 export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationResponded, onPlanDecision, onFixError }: MessageFeedProps) {
   const { t } = useTranslation()
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const userScrolledUpRef = useRef(false)
+  const [showAll, setShowAll] = useState(false)
 
   // Stable callback refs — update in effects to avoid writing refs during render
   const onDiffDecidedRef = useRef(onDiffDecided)
@@ -707,10 +714,30 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
     return -1
   })()
 
+  // Long feeds cost real frame time — render only the tail by default and
+  // let the user opt into the full DOM if they actually want to scroll back.
+  const useSoftWindow = !showAll && items.length > SOFT_WINDOW_THRESHOLD
+  const visibleItems = useSoftWindow ? items.slice(-SOFT_WINDOW) : items
+  const hiddenCount = items.length - visibleItems.length
+  // Recompute lastThinkingIdx in terms of the windowed slice so the
+  // auto-expand prop still points at the right item.
+  const lastThinkingIdxInVisible = lastThinkingIdx === -1
+    ? -1
+    : lastThinkingIdx - (items.length - visibleItems.length)
+
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-3">
       <div className="min-h-full flex flex-col justify-end space-y-2">
-        {items.map((item, idx) => (
+        {useSoftWindow && hiddenCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="self-start text-[10px] text-foreground-muted hover:text-foreground bg-hover border border-outline-subtle rounded px-2 py-1"
+          >
+            ↑ Show {hiddenCount} earlier items
+          </button>
+        )}
+        {visibleItems.map((item, idx) => (
           <FeedItemView
             key={item.id}
             item={item}
@@ -718,7 +745,7 @@ export function MessageFeed({ items, sessionId, onDiffDecided, onEscalationRespo
             onDiffDecided={stableDiffDecided}
             onEscalationResponded={stableEscalationResponded}
             onPlanDecision={stablePlanDecision}
-            isLastThinking={item.type === 'thinking' && idx === lastThinkingIdx}
+            isLastThinking={item.type === 'thinking' && idx === lastThinkingIdxInVisible}
             onFixError={stableFixError}
           />
         ))}

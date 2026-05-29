@@ -238,6 +238,14 @@ const TreeItem = memo(function TreeItem({
     return scoutIssues.some(issue => node.path.endsWith(issue.file))
   }, [scoutIssues, node.path])
 
+  // Memo filtered children so a render of TreeItem isn't quadratic when the
+  // user scrolls a large repo (we'd otherwise rescan every node's children
+  // on every keystroke / hover anywhere in the tree).
+  const visibleChildren = useMemo(
+    () => node.children?.filter(child => !isHiddenFile(child)) ?? [],
+    [node.children],
+  )
+
   return (
     <>
       <div
@@ -329,7 +337,7 @@ const TreeItem = memo(function TreeItem({
         />
       )}
 
-      {node.type === 'dir' && expanded && node.children?.filter(child => !isHiddenFile(child)).map(child => (
+      {node.type === 'dir' && expanded && visibleChildren.map(child => (
         <TreeItem
           key={child.path}
           node={child}
@@ -348,6 +356,11 @@ const TreeItem = memo(function TreeItem({
 })
 
 export function FileTree({ tree, onFileSelect, onRename, onDelete, activeFile, pinnedItems, onTogglePin, scoutIssues }: FileTreeProps) {
+  const visibleRoot = useMemo(
+    () => tree?.children?.filter(child => !isHiddenFile(child)) ?? [],
+    [tree?.children],
+  )
+
   if (!tree) {
     return (
       <div className="flex items-center justify-center h-full text-xs text-foreground-subtle">
@@ -358,7 +371,7 @@ export function FileTree({ tree, onFileSelect, onRename, onDelete, activeFile, p
 
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden py-1 select-none">
-      {tree.children?.filter(child => !isHiddenFile(child)).map(child => (
+      {visibleRoot.map(child => (
         <TreeItem
           key={child.path}
           node={child}
