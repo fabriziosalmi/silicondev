@@ -1,0 +1,144 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS
+   Single source of truth for color, depth, and stacking. Imported once from
+   index.css so the rest of the app can be styled without touching this file.
+   :root defines defaults (dark) so any legacy code without data-theme still
+   renders correctly. [data-theme="light"] overrides for light mode.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="dark"] {
+  /* Surfaces — depth hierarchy from app shell to popovers */
+  --bg-base: rgb(0, 0, 0);                      /* App shell, deepest */
+  --bg-window: rgba(20, 20, 20, 0.7);           /* Main content area (translucent) */
+  --bg-surface: rgba(20, 20, 20, 0.5);          /* Inline panels */
+  --bg-sidebar: rgba(40, 40, 40, 0.9);          /* Sidebar */
+  --bg-titlebar: rgba(19, 19, 22, 0.8);         /* TopBar */
+  --bg-elevated: rgb(24, 24, 27);               /* Cards, dropdowns */
+  --bg-overlay: rgb(28, 28, 31);                /* Modals, command palette */
+  --bg-input: rgba(0, 0, 0, 0.4);               /* Form inputs */
+  --bg-hover: rgba(255, 255, 255, 0.05);        /* Hover states */
+  --bg-active: rgba(255, 255, 255, 0.08);       /* Pressed states */
+  --bg-selection: rgba(59, 130, 246, 0.5);      /* Text selection */
+
+  /* Foreground — text and icons */
+  --text-primary: rgb(255, 255, 255);
+  --text-secondary: rgb(229, 231, 235);
+  --text-muted: rgb(156, 163, 175);
+  --text-subtle: rgb(107, 114, 128);
+  --text-disabled: rgb(75, 85, 99);
+
+  /* Borders / outlines */
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.20);
+
+  /* Brand / accent (Apple system blue, tuned per theme) */
+  --accent: #007AFF;
+  --accent-hover: #2997ff;
+  --accent-muted: rgba(59, 130, 246, 0.18);
+  --accent-foreground: rgb(255, 255, 255);
+
+  /* Status */
+  --success: rgb(52, 211, 153);
+  --success-muted: rgba(52, 211, 153, 0.12);
+  --danger: rgb(239, 68, 68);
+  --danger-muted: rgba(239, 68, 68, 0.12);
+  --warn: rgb(251, 191, 36);
+  --warn-muted: rgba(251, 191, 36, 0.12);
+  --info: rgb(96, 165, 250);
+  --info-muted: rgba(96, 165, 250, 0.12);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.04);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.12);
+
+  /* Editor (Monaco / EasyMDE) */
+  --editor-bg: transparent;
+  --editor-fg: rgb(229, 231, 235);
+  --editor-caret: #3b82f6;
+  --editor-heading-1: rgb(255, 255, 255);
+  --editor-heading-2: rgb(243, 244, 246);
+  --editor-comment: rgb(107, 114, 128);
+  --editor-keyword: rgb(129, 140, 248);
+  --editor-string: rgb(52, 211, 153);
+  --editor-variable: rgb(96, 165, 250);
+  --editor-preview-bg: rgb(14, 14, 16);
+  --editor-preview-border: rgba(255, 255, 255, 0.10);
+
+  /* Z-index stacking scale — 5 layers, no more z-[9999] */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-dropdown: 100;
+  --z-overlay: 200;
+  --z-modal: 300;
+  --z-toast: 400;
+}
+
+[data-theme="light"] {
+  /* Surfaces */
+  --bg-base: rgb(245, 245, 247);
+  --bg-window: rgba(245, 245, 247, 0.92);
+  --bg-surface: rgba(255, 255, 255, 0.7);
+  --bg-sidebar: rgba(232, 232, 235, 0.92);
+  --bg-titlebar: rgba(232, 232, 235, 0.85);
+  --bg-elevated: rgb(255, 255, 255);
+  --bg-overlay: rgba(255, 255, 255, 0.96);
+  --bg-input: rgba(0, 0, 0, 0.04);
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --bg-active: rgba(0, 0, 0, 0.08);
+  --bg-selection: rgba(0, 122, 255, 0.25);
+
+  /* Foreground */
+  --text-primary: rgb(28, 28, 30);
+  --text-secondary: rgb(60, 60, 67);
+  --text-muted: rgb(99, 99, 102);
+  --text-subtle: rgb(142, 142, 147);
+  --text-disabled: rgb(199, 199, 204);
+
+  /* Borders */
+  --border-subtle: rgba(0, 0, 0, 0.05);
+  --border-default: rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.18);
+
+  /* Brand */
+  --accent: #007AFF;
+  --accent-hover: #0a84ff;
+  --accent-muted: rgba(0, 122, 255, 0.12);
+  --accent-foreground: rgb(255, 255, 255);
+
+  /* Status */
+  --success: rgb(48, 176, 90);
+  --success-muted: rgba(48, 176, 90, 0.10);
+  --danger: rgb(220, 53, 69);
+  --danger-muted: rgba(220, 53, 69, 0.10);
+  --warn: rgb(217, 142, 0);
+  --warn-muted: rgba(217, 142, 0, 0.10);
+  --info: rgb(10, 132, 255);
+  --info-muted: rgba(10, 132, 255, 0.10);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(0, 0, 0, 0.08);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.20);
+
+  /* Editor */
+  --editor-bg: transparent;
+  --editor-fg: rgb(28, 28, 30);
+  --editor-caret: #007AFF;
+  --editor-heading-1: rgb(28, 28, 30);
+  --editor-heading-2: rgb(60, 60, 67);
+  --editor-comment: rgb(142, 142, 147);
+  --editor-keyword: rgb(126, 50, 195);
+  --editor-string: rgb(48, 134, 65);
+  --editor-variable: rgb(0, 122, 255);
+  --editor-preview-bg: rgb(255, 255, 255);
+  --editor-preview-border: rgba(0, 0, 0, 0.10);
+}
+
+/* Legacy aliases — kept temporarily so any un-migrated component still renders.
+   Will be removed at the end of the codemod sweep. */
+:root {
+  --sidebar-bg: var(--bg-sidebar);
+  --window-bg: var(--bg-window);
+}

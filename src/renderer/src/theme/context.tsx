@@ -1,14 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- intentional: useTheme hook co-located with ThemeProvider (standard context pattern) */
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-
-export type ThemeChoice = 'light' | 'dark' | 'system'
-export type ResolvedTheme = 'light' | 'dark'
-
-interface ThemeContextValue {
-    theme: ThemeChoice
-    resolvedTheme: ResolvedTheme
-    setTheme: (theme: ThemeChoice) => void
-}
+import type { ThemeChoice, ResolvedTheme, ThemeContextValue } from './types'
 
 const STORAGE_KEY = 'silicon-studio-theme'
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)

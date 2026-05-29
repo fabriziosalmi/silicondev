@@ -1,6 +1,6 @@
 import { Suspense, lazy, useState } from 'react'
 import { Check, X, Loader2 } from 'lucide-react'
-import { useTheme } from '../../context/ThemeContext'
+import { useTheme } from '../../theme'
 
 const MonacoDiffEditor = lazy(() =>
   import('@monaco-editor/react').then(mod => ({ default: mod.DiffEditor }))

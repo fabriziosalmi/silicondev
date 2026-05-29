@@ -7,7 +7,7 @@ import { useConfirm } from './ui/ConfirmDialog'
 import { apiClient } from '../api/client'
 import { Settings2, MessageSquare, Brain, RotateCcw, Info, Trash2, Loader2, Gauge, Globe, HardDrive, FolderSearch, Bug, ScrollText, Shield, Bot, ChevronRight } from 'lucide-react'
 import { useGlobalState } from '../context/GlobalState'
-import { useTheme, type ThemeChoice } from '../context/ThemeContext'
+import { useTheme, type ThemeChoice } from '../theme'
 import {
     type SettingsNavItem, type ChatDefaults, type RagDefaults, type TopBarDefaults,
     defaultChat, defaultRag, defaultTopBar,

@@ -8,7 +8,7 @@ const Editor = lazy(() => import('@monaco-editor/react'))
 
 import { useHolographicDiff } from './useHolographicDiff'
 import { apiClient } from '../../api/client'
-import { useTheme } from '../../context/ThemeContext'
+import { useTheme } from '../../theme'
 
 interface MonacoEditorProps {
   filePath: string
