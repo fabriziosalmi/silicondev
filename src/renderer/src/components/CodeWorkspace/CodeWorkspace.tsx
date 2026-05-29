@@ -166,9 +166,22 @@ export function CodeWorkspace() {
       }
       if (cancelled) return
       if (restored.length > 0) {
-        setOpenFiles(restored)
-        const wantedActive = active && restored.some(f => f.path === active) ? active : restored[0].path
-        setActiveFile(wantedActive)
+        // Merge instead of overwriting: the restore loop above is async and
+        // the user can click new files in the tree while it runs. If we just
+        // setOpenFiles(restored) we'd silently drop those clicks (regression
+        // reported as "clicking a file in the tree doesn't open it"). Keep
+        // any tab the user opened during restore.
+        setOpenFiles(prev => {
+          const restoredPaths = new Set(restored.map(f => f.path))
+          const userOpened = prev.filter(f => !restoredPaths.has(f.path))
+          return [...restored, ...userOpened]
+        })
+        // Same story for activeFile: if the user already clicked something
+        // during the restore, that win — don't yank focus back to a restored tab.
+        setActiveFile(currentActive => {
+          if (currentActive) return currentActive
+          return active && restored.some(f => f.path === active) ? active : restored[0].path
+        })
       }
       restoreCompletedRef.current = true
     }
