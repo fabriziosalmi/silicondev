@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageHeader } from './ui/PageHeader'
 import { Card } from './ui/Card'
-import { Server, Plus, Trash2, Play, ChevronDown, ChevronRight, Search, ExternalLink } from 'lucide-react'
+import { Server, Plus, Trash2, Play, ChevronDown, ChevronRight, Search, ExternalLink, Package, Loader2 } from 'lucide-react'
 import { useConfirm } from './ui/ConfirmDialog'
 import { apiClient } from '../api/client'
 import { useToast } from './ui/Toast'
@@ -20,6 +20,22 @@ interface MCPTool {
     name: string
     description: string
     inputSchema: Record<string, unknown>
+}
+
+interface RegistryEntry {
+    name: string
+    description: string
+    version: string
+    npm_url: string
+    repository: string
+    keywords: string[]
+}
+
+/** Display name derived from "@modelcontextprotocol/server-foo" → "Foo". */
+function prettyName(pkgName: string): string {
+    const base = pkgName.split('/').pop() || pkgName
+    const stripped = base.replace(/^server-/, '').replace(/-/g, ' ')
+    return stripped.replace(/\b\w/g, c => c.toUpperCase())
 }
 
 const POPULAR_SERVERS = [
@@ -45,6 +61,10 @@ export function MCPServers() {
     const [serverTools, setServerTools] = useState<Record<string, MCPTool[]>>({})
     const [testing, setTesting] = useState<string | null>(null)
     const [searchTerm, setSearchTerm] = useState('')
+    const [registry, setRegistry] = useState<RegistryEntry[]>([])
+    const [registryLoading, setRegistryLoading] = useState(false)
+    const [registryError, setRegistryError] = useState<string | null>(null)
+    const [addingPkg, setAddingPkg] = useState<string | null>(null)
     const { toast } = useToast()
 
     const fetchServers = async () => {
@@ -55,7 +75,20 @@ export function MCPServers() {
         finally { setLoading(false) }
     }
 
-    useEffect(() => { fetchServers() }, [])
+    const fetchRegistry = async () => {
+        setRegistryLoading(true)
+        setRegistryError(null)
+        try {
+            const data = await apiClient.mcp.searchRegistry('')
+            setRegistry(data.results)
+        } catch (err) {
+            setRegistryError(err instanceof Error ? err.message : 'Failed to load npm catalog')
+        } finally {
+            setRegistryLoading(false)
+        }
+    }
+
+    useEffect(() => { fetchServers(); fetchRegistry() }, [])
 
     const handleAdd = async () => {
         if (!newName.trim() || !newCommand.trim()) return
@@ -132,11 +165,48 @@ export function MCPServers() {
         }
     }
 
-    const existingNames = new Set(servers.map(s => s.name))
+    const existingNames = useMemo(() => new Set(servers.map(s => s.name)), [servers])
+    // Packages already exposed in the curated "Server Catalog" cards — used
+    // to hide them from the npm catalog so the same row doesn't appear twice.
+    const presetPackageNames = useMemo(() => new Set(POPULAR_SERVERS.map(p => {
+        const m = p.args.match(/@modelcontextprotocol\/[\w-]+/)
+        return m ? m[0] : ''
+    }).filter(Boolean)), [])
+
     const filteredPresets = POPULAR_SERVERS.filter(p =>
         !existingNames.has(p.name) &&
         (searchTerm === '' || p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.description.toLowerCase().includes(searchTerm.toLowerCase()))
     )
+
+    const filteredRegistry = useMemo(() => {
+        const q = searchTerm.trim().toLowerCase()
+        return registry
+            .filter(r => !presetPackageNames.has(r.name))
+            .filter(r => !existingNames.has(prettyName(r.name)))
+            .filter(r => {
+                if (!q) return true
+                return (
+                    r.name.toLowerCase().includes(q)
+                    || (r.description || '').toLowerCase().includes(q)
+                    || r.keywords.some(k => k.toLowerCase().includes(q))
+                )
+            })
+    }, [registry, searchTerm, presetPackageNames, existingNames])
+
+    const handleRegistryAdd = async (entry: RegistryEntry) => {
+        setAddingPkg(entry.name)
+        try {
+            await apiClient.mcp.addServer({
+                name: prettyName(entry.name),
+                command: 'npx',
+                args: ['-y', entry.name],
+            })
+            fetchServers()
+            toast(`Added ${prettyName(entry.name)} server`, 'success')
+        } catch (err) {
+            toast(err instanceof Error ? err.message : 'Failed to add server', 'error')
+        } finally { setAddingPkg(null) }
+    }
 
     return (
         <div className="h-full flex flex-col text-white overflow-hidden pb-4">
@@ -309,6 +379,82 @@ export function MCPServers() {
                         </p>
                     </div>
                 )}
+
+                {/* Live npm catalog */}
+                <div>
+                    <div className="flex items-center gap-2 mb-3 px-1">
+                        <Package size={11} className="text-foreground-muted" />
+                        <h3 className="text-[11px] font-bold text-foreground-muted uppercase tracking-wide">
+                            From npm
+                            {!registryLoading && registry.length > 0 && (
+                                <span className="ml-2 text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full font-bold">{filteredRegistry.length}</span>
+                            )}
+                        </h3>
+                        {registryLoading && <Loader2 size={11} className="animate-spin text-foreground-muted" />}
+                    </div>
+                    {registryError ? (
+                        <Card className="p-4 bg-black/20 border-outline-subtle text-[11px] text-foreground-muted">
+                            {registryError} — <button type="button" onClick={fetchRegistry} className="text-accent hover:underline">retry</button>
+                        </Card>
+                    ) : registryLoading && registry.length === 0 ? (
+                        <Card className="p-6 text-center bg-black/20 border-outline-subtle">
+                            <Loader2 className="w-5 h-5 text-foreground-muted mx-auto animate-spin" />
+                            <p className="text-[11px] text-foreground-muted mt-2">Fetching live MCP catalog from npm…</p>
+                        </Card>
+                    ) : filteredRegistry.length === 0 ? (
+                        <Card className="p-4 bg-black/20 border-outline-subtle">
+                            <p className="text-[11px] text-foreground-muted">
+                                {searchTerm
+                                    ? `No npm packages match "${searchTerm}".`
+                                    : 'No additional packages available right now.'}
+                            </p>
+                        </Card>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {filteredRegistry.map(entry => (
+                                <Card key={entry.name} className="p-3 bg-black/20 border-outline-subtle hover:border-outline transition-colors">
+                                    <div className="flex items-start gap-2.5">
+                                        <div className="w-7 h-7 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+                                            <Package size={12} className="text-purple-400" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-[12px] text-foreground font-semibold truncate">{prettyName(entry.name)}</span>
+                                                {entry.version && (
+                                                    <span className="text-[9px] text-foreground-subtle font-mono shrink-0">v{entry.version}</span>
+                                                )}
+                                            </div>
+                                            <div className="text-[10px] text-foreground-muted mt-0.5 line-clamp-2">{entry.description || 'No description provided.'}</div>
+                                            <div className="text-[9px] text-foreground-disabled font-mono mt-1 truncate" title={entry.name}>{entry.name}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center mt-2.5">
+                                        {entry.repository ? (
+                                            <a
+                                                href={entry.repository}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-[10px] text-foreground-subtle hover:text-foreground-muted inline-flex items-center gap-1"
+                                            >
+                                                <ExternalLink size={9} /> repo
+                                            </a>
+                                        ) : <span />}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRegistryAdd(entry)}
+                                            disabled={addingPkg === entry.name}
+                                            className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-accent hover:bg-accent-muted rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {addingPkg === entry.name
+                                                ? <><Loader2 size={9} className="animate-spin" /> Adding…</>
+                                                : <><Plus size={10} /> Add</>}
+                                        </button>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     )

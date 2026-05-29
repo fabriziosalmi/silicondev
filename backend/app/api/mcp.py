@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import re
+import time
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
@@ -11,6 +13,20 @@ from app.mcp.examples import tool_examples
 logger = logging.getLogger(__name__)
 router = APIRouter()
 service = MCPService()
+
+# In-process cache for the npm registry catalog. Refreshed every 10 min so we
+# don't hammer registry.npmjs.org and so the UI stays snappy after first use.
+_REGISTRY_CACHE: Dict[str, Any] = {"ts": 0.0, "results": []}
+_REGISTRY_TTL_SECS = 600
+_REGISTRY_TIMEOUT_SECS = 8
+
+# Restrict to MCP-related publishers we know about. Anything else is shown
+# only if its package name actually starts with one of these prefixes, to
+# keep the catalog focused.
+_MCP_PACKAGE_PREFIXES = (
+    "@modelcontextprotocol/server-",
+    "@modelcontextprotocol/",
+)
 
 # Allowed MCP server commands (executables, not arbitrary shell commands)
 _MCP_ALLOWED_COMMANDS = {
@@ -60,6 +76,83 @@ class ExecuteToolRequest(BaseModel):
     server_id: str = Field(min_length=1, max_length=255)
     tool_name: str = Field(min_length=1, max_length=255)
     tool_args: Dict[str, Any] = {}
+
+
+async def _fetch_npm_catalog() -> List[Dict[str, Any]]:
+    """Query npm for all @modelcontextprotocol packages and normalize the rows.
+
+    Returns a list of {name, description, version, npm_url, repository, keywords}.
+    On any network/timeout failure returns the last successful cache (possibly
+    empty) so the UI stays usable offline.
+    """
+    try:
+        import aiohttp
+    except ImportError:
+        return _REGISTRY_CACHE.get("results", [])
+
+    url = "https://registry.npmjs.org/-/v1/search?text=%40modelcontextprotocol&size=250"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                timeout=aiohttp.ClientTimeout(total=_REGISTRY_TIMEOUT_SECS),
+                headers={"Accept": "application/json"},
+            ) as resp:
+                if resp.status != 200:
+                    logger.warning(f"npm registry returned {resp.status}; using cache")
+                    return _REGISTRY_CACHE.get("results", [])
+                data = await resp.json()
+    except (asyncio.TimeoutError, Exception) as e:
+        logger.debug(f"npm registry fetch failed ({type(e).__name__}: {e}); using cache")
+        return _REGISTRY_CACHE.get("results", [])
+
+    results: List[Dict[str, Any]] = []
+    for obj in data.get("objects", []):
+        pkg = obj.get("package", {}) or {}
+        name = pkg.get("name", "")
+        if not any(name.startswith(p) for p in _MCP_PACKAGE_PREFIXES):
+            continue
+        repo = pkg.get("links", {}).get("repository") or pkg.get("repository") or ""
+        results.append({
+            "name": name,
+            "description": pkg.get("description", "") or "",
+            "version": pkg.get("version", ""),
+            "npm_url": pkg.get("links", {}).get("npm", f"https://www.npmjs.com/package/{name}"),
+            "repository": repo,
+            "keywords": pkg.get("keywords", []) or [],
+        })
+    results.sort(key=lambda r: r["name"])
+    return results
+
+
+@router.get("/registry/search")
+async def registry_search(q: str = Query(default="", max_length=120)):
+    """Search the public MCP catalog on npm. Cached for 10 minutes.
+
+    The optional `q` filters by name/description/keyword substring (case-
+    insensitive). An empty `q` returns the full catalog.
+    """
+    now = time.time()
+    if now - _REGISTRY_CACHE["ts"] > _REGISTRY_TTL_SECS or not _REGISTRY_CACHE["results"]:
+        fresh = await _fetch_npm_catalog()
+        if fresh:
+            _REGISTRY_CACHE["results"] = fresh
+            _REGISTRY_CACHE["ts"] = now
+
+    rows = _REGISTRY_CACHE["results"]
+    if q.strip():
+        needle = q.strip().lower()
+        rows = [
+            r for r in rows
+            if needle in r["name"].lower()
+            or needle in r["description"].lower()
+            or any(needle in (k or "").lower() for k in r["keywords"])
+        ]
+    return {
+        "count": len(rows),
+        "results": rows,
+        "cached_at": _REGISTRY_CACHE["ts"],
+    }
 
 
 @router.get("/servers")

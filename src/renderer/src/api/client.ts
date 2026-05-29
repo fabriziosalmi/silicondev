@@ -857,6 +857,14 @@ export const apiClient = {
             await throwIfNotOk(res, 'Failed to list MCP tools');
             return res.json();
         },
+        searchRegistry: async (q: string = ''): Promise<{ count: number; results: Array<{ name: string; description: string; version: string; npm_url: string; repository: string; keywords: string[] }>; cached_at: number }> => {
+            const url = q.trim()
+                ? `${API_BASE}/api/mcp/registry/search?q=${encodeURIComponent(q.trim())}`
+                : `${API_BASE}/api/mcp/registry/search`;
+            const res = await apiFetch(url);
+            await throwIfNotOk(res, 'Failed to search MCP registry');
+            return res.json();
+        },
         executeTool: async (serverId: string, toolName: string, toolArgs: Record<string, unknown> = {}): Promise<{ result: string }> => {
             const res = await apiFetch(`${API_BASE}/api/mcp/execute`, {
                 method: 'POST',

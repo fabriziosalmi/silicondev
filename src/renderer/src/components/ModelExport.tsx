@@ -1,17 +1,75 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { apiClient, cleanModelName } from '../api/client'
 import type { ModelEntry } from '../api/client'
 import { Card } from './ui/Card'
-import { Package, Download, FolderOpen, Check, AlertCircle, Loader2 } from 'lucide-react'
+import { Package, Download, FolderOpen, Check, AlertCircle, Loader2, Sparkles, Zap, Shield, MinusCircle } from 'lucide-react'
 
-type Precision = 0 | 4 | 8
+type Precision = 0 | 2 | 4 | 8
 
-const PRECISION_OPTIONS: { value: Precision; label: string; desc: string; activeBg: string; activeBorder: string }[] = [
-    { value: 4, label: '4-bit', desc: 'Smallest size, fast inference', activeBg: 'bg-green-500/10', activeBorder: 'border-green-500/30' },
-    { value: 8, label: '8-bit', desc: 'Balanced size and quality', activeBg: 'bg-blue-500/10', activeBorder: 'border-blue-500/30' },
-    { value: 0, label: 'Full', desc: 'No quantization, original quality', activeBg: 'bg-purple-500/10', activeBorder: 'border-purple-500/30' },
+const PRECISION_OPTIONS: {
+    value: Precision
+    label: string
+    name: string
+    desc: string
+    icon: typeof Sparkles
+    activeBg: string
+    activeBorder: string
+    accent: string
+}[] = [
+    {
+        value: 2,
+        label: '2-bit',
+        name: 'Aggressive',
+        desc: 'Smallest size. May degrade quality on models < 7B.',
+        icon: MinusCircle,
+        activeBg: 'bg-orange-500/10',
+        activeBorder: 'border-orange-500/30',
+        accent: 'text-orange-300',
+    },
+    {
+        value: 4,
+        label: '4-bit',
+        name: 'Recommended',
+        desc: 'Best size-vs-quality trade-off for most models.',
+        icon: Sparkles,
+        activeBg: 'bg-emerald-500/10',
+        activeBorder: 'border-emerald-500/30',
+        accent: 'text-emerald-300',
+    },
+    {
+        value: 8,
+        label: '8-bit',
+        name: 'Quality',
+        desc: 'Larger file, output much closer to original.',
+        icon: Shield,
+        activeBg: 'bg-blue-500/10',
+        activeBorder: 'border-blue-500/30',
+        accent: 'text-blue-300',
+    },
+    {
+        value: 0,
+        label: 'Full',
+        name: 'No quant',
+        desc: 'Original precision. Useful for further fine-tuning.',
+        icon: Zap,
+        activeBg: 'bg-purple-500/10',
+        activeBorder: 'border-purple-500/30',
+        accent: 'text-purple-300',
+    },
 ]
+
+function parseSizeGB(s: string | undefined): number {
+    if (!s) return 0
+    const m = s.match(/([\d.]+)\s*GB/i)
+    return m ? parseFloat(m[1]) : 0
+}
+
+function formatGB(gb: number): string {
+    if (gb < 0.1) return `${(gb * 1024).toFixed(0)} MB`
+    if (gb < 10) return `${gb.toFixed(2)} GB`
+    return `${gb.toFixed(1)} GB`
+}
 
 export function ModelExport() {
     const { t } = useTranslation()
@@ -61,7 +119,17 @@ export function ModelExport() {
         setResult(null)
         try {
             const res = await apiClient.engine.exportModel(selectedId, outputPath, qBits)
-            setResult({ type: 'success', message: `Exported to ${res.path}` })
+            // Auto-register the exported model so it shows up in My Models without
+            // requiring the user to rescan. Failure here is non-fatal: the file is
+            // on disk, the registry is just a convenience.
+            const model = adapters.find(a => a.id === selectedId)
+            if (model) {
+                try {
+                    const exportName = `${cleanModelName(model.name)} · ${qBits > 0 ? `${qBits}-bit` : 'full'}`
+                    await apiClient.engine.registerModel(exportName, res.path)
+                } catch { /* registration is best-effort */ }
+            }
+            setResult({ type: 'success', message: `Exported to ${res.path} — added to My Models.` })
         } catch (err) {
             setResult({ type: 'error', message: err instanceof Error ? err.message : 'Export failed' })
         } finally {
@@ -70,6 +138,30 @@ export function ModelExport() {
     }
 
     const selected = adapters.find(a => a.id === selectedId)
+
+    // Size estimate assumes the listed size reflects the current weight precision
+    // (typically fp16 baseline). For an MLX model already quantized further
+    // reduction may be more aggressive — this is a rough planning number, not a
+    // guarantee.
+    const sizeEstimate = useMemo(() => {
+        const originalGB = parseSizeGB(selected?.size)
+        if (originalGB === 0) return null
+        const estimatedGB = qBits === 0 ? originalGB : originalGB * (qBits / 16)
+        const savings = qBits === 0 ? 0 : Math.max(0, Math.round((1 - estimatedGB / originalGB) * 100))
+        return { originalGB, estimatedGB, savings }
+    }, [selected, qBits])
+
+    // Quality guard: 2-bit on models < 7B often falls apart. The "size" string
+    // is the best signal we have client-side — anything roughly under 5 GB is
+    // probably a smaller model where 2-bit is risky.
+    const aggressiveWarning = useMemo(() => {
+        if (qBits !== 2) return null
+        const gb = parseSizeGB(selected?.size)
+        if (gb > 0 && gb < 5.0) {
+            return 'Heads-up: 2-bit on a small base model usually degrades output noticeably. 4-bit is safer.'
+        }
+        return null
+    }, [qBits, selected])
 
     return (
         <div className="max-w-3xl mx-auto space-y-6">
@@ -117,26 +209,65 @@ export function ModelExport() {
                         </div>
                     </Card>
 
-                    {/* Precision Selection */}
+                    {/* Precision Selection — 4 presets */}
                     <Card className="p-5">
                         <label className="text-xs font-bold text-foreground-muted uppercase mb-3 block">{t('export.quantization')}</label>
-                        <div className="grid grid-cols-3 gap-3">
-                            {PRECISION_OPTIONS.map(opt => (
-                                <button
-                                    key={opt.value}
-                                    onClick={() => setQBits(opt.value)}
-                                    className={`flex flex-col items-center gap-1 px-4 py-3 rounded-lg border transition-all ${
-                                        qBits === opt.value
-                                            ? `${opt.activeBg} ${opt.activeBorder} text-white`
-                                            : 'bg-black/20 border-outline-subtle text-foreground-muted hover:bg-hover'
-                                    }`}
-                                >
-                                    <span className="text-sm font-bold">{opt.label}</span>
-                                    <span className="text-[10px] text-foreground-muted">{opt.desc}</span>
-                                </button>
-                            ))}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            {PRECISION_OPTIONS.map(opt => {
+                                const Icon = opt.icon
+                                const isActive = qBits === opt.value
+                                return (
+                                    <button
+                                        key={opt.value}
+                                        onClick={() => setQBits(opt.value)}
+                                        className={`flex flex-col gap-1 px-3 py-3 rounded-lg border text-left transition-all ${
+                                            isActive
+                                                ? `${opt.activeBg} ${opt.activeBorder}`
+                                                : 'bg-black/20 border-outline-subtle hover:bg-hover hover:border-outline'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <Icon size={12} className={isActive ? opt.accent : 'text-foreground-muted'} />
+                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? opt.accent : 'text-foreground-muted'}`}>{opt.name}</span>
+                                        </div>
+                                        <span className={`text-sm font-bold ${isActive ? 'text-foreground' : 'text-foreground-secondary'}`}>{opt.label}</span>
+                                        <span className="text-[10px] text-foreground-muted leading-snug">{opt.desc}</span>
+                                    </button>
+                                )
+                            })}
                         </div>
+                        {aggressiveWarning && (
+                            <div className="mt-3 flex items-start gap-2 px-3 py-2 rounded-lg bg-warn-muted border border-warn/30 text-[11px] text-warn">
+                                <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                                <span>{aggressiveWarning}</span>
+                            </div>
+                        )}
                     </Card>
+
+                    {/* Size estimate */}
+                    {sizeEstimate && (
+                        <Card className="p-4">
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div>
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">Original</div>
+                                    <div className="text-lg font-bold text-foreground-secondary font-mono tabular-nums mt-0.5">{formatGB(sizeEstimate.originalGB)}</div>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">After {qBits === 0 ? 'export' : `${qBits}-bit`}</div>
+                                    <div className="text-lg font-bold text-emerald-400 font-mono tabular-nums mt-0.5">~{formatGB(sizeEstimate.estimatedGB)}</div>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">Savings</div>
+                                    <div className={`text-lg font-bold font-mono tabular-nums mt-0.5 ${sizeEstimate.savings > 0 ? 'text-emerald-400' : 'text-foreground-muted'}`}>
+                                        {sizeEstimate.savings > 0 ? `−${sizeEstimate.savings}%` : '—'}
+                                    </div>
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-foreground-subtle text-center mt-2">
+                                Estimate assumes original at fp16. Actual size depends on the model's existing precision and group size.
+                            </p>
+                        </Card>
+                    )}
 
                     {/* Output Path + Export */}
                     <Card className="p-5">
