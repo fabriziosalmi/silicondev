@@ -203,9 +203,19 @@ class SupervisorAgent:
             logger.error(f"Error scheduling cleanup during stop: {e}")
 
     def resolve_diff(self, call_id: str, approved: bool, reason: str = "") -> bool:
-        """Resolve a pending diff decision. Returns False if call_id not found."""
+        """Resolve a pending diff decision. Returns False if call_id not found.
+
+        Returning False means either the session stopped before the user
+        decided, the diff was already consumed, or a stale UI sent a decision
+        for an unknown call. Caller (API layer) should map False to a 404 so
+        the user gets explicit feedback instead of silent loss.
+        """
         pending = self._pending_diffs.get(call_id)
         if not pending:
+            logger.info(
+                "resolve_diff: ignored late approval call_id=%s approved=%s "
+                "(no matching pending diff)", call_id, approved,
+            )
             return False
         pending["approved"] = approved
         pending["reason"] = reason
@@ -350,8 +360,18 @@ class SupervisorAgent:
         """Read and clean up a pending diff result.
 
         Returns (approved, reason). approved is None if stopped or timed out.
+        If a corresponding entry is missing entirely it means resolve_diff()
+        was never called for this call_id — we log a warning so the case is
+        debuggable rather than silently treated as a rejection.
         """
-        pending = self._pending_diffs.pop(call_id, {})
+        pending = self._pending_diffs.pop(call_id, None)
+        if pending is None:
+            logger.warning(
+                "Diff result requested for unknown call_id=%s — approval may "
+                "have arrived after session stop or never been issued.",
+                call_id,
+            )
+            return None, "No diff decision recorded"
         if pending.get("stopped"):
             return None, "Session stopped"
         if pending.get("timed_out"):

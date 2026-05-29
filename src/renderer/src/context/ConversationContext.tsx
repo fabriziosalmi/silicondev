@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- intentional: useConversations hook co-located with ConversationProvider (standard context pattern) */
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
 import { apiClient, type ConversationSummary } from '../api/client'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
@@ -34,25 +34,39 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
     const { toast } = useToast()
     const { confirm } = useConfirm()
 
+    // Monotonic generation counter so a slower-returning fetch can't overwrite
+    // a more recent one. Each call captures its own generation; on return it
+    // only applies its result if no newer fetch has started in the meantime.
+    // Without this, delete-then-rename in quick succession can land in the
+    // wrong order: rename mutation, rename refetch, delete refetch (with stale
+    // list that still has the renamed conversation under the old title).
+    const fetchGenRef = useRef(0)
+
     const fetchConversations = useCallback(async () => {
+        const myGen = ++fetchGenRef.current
         try {
             setListLoading(true)
             const list = await apiClient.conversations.list()
+            if (myGen !== fetchGenRef.current) return
             setConversationList(list)
         } catch {
+            if (myGen !== fetchGenRef.current) return
             toast('Failed to load conversations', 'error')
         } finally {
-            setListLoading(false)
+            if (myGen === fetchGenRef.current) setListLoading(false)
         }
     }, [toast])
 
     const handleSearch = useCallback(async (query: string) => {
         setSearchQuery(query)
         if (!query.trim()) { fetchConversations(); return }
+        const myGen = ++fetchGenRef.current
         try {
             const results = await apiClient.conversations.search(query)
+            if (myGen !== fetchGenRef.current) return
             setConversationList(results)
         } catch {
+            if (myGen !== fetchGenRef.current) return
             toast('Search failed', 'error')
         }
     }, [fetchConversations, toast])
