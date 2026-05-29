@@ -207,6 +207,10 @@ export function ChatInterface() {
     const [walkthroughModel, setWalkthroughModel] = useState<string | null>(null)
     const [walkthroughError, setWalkthroughError] = useState<string | null>(null)
     const walkthroughPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+    // Generation token so a stale setInterval (e.g. user re-clicked download
+    // before the previous poll exited) cannot push state updates for a model
+    // the user is no longer waiting on.
+    const walkthroughTokenRef = useRef<number>(0)
     const [hasDownloadedModels, setHasDownloadedModels] = useState(false)
     const [renamingTitle, setRenamingTitle] = useState<string | null>(null)
     const [flashError, setFlashError] = useState<string | null>(null)
@@ -214,6 +218,14 @@ export function ChatInterface() {
     const [loadingSuggested, setLoadingSuggested] = useState(false)
 
     const startWalkthrough = async (modelId: string) => {
+        // Stop whatever poll might already be running and stamp a fresh token.
+        // Any stale interval callback that survives will see token !== captured
+        // and bail without touching state.
+        if (walkthroughPollRef.current) {
+            clearInterval(walkthroughPollRef.current)
+            walkthroughPollRef.current = null
+        }
+        const token = ++walkthroughTokenRef.current
         setWalkthroughModel(modelId)
         setWalkthroughStep('downloading')
         setWalkthroughError(null)
@@ -222,6 +234,12 @@ export function ChatInterface() {
             // Poll models list until downloaded (timeout after 5 min)
             const pollStart = Date.now();
             walkthroughPollRef.current = setInterval(async () => {
+                if (walkthroughTokenRef.current !== token) {
+                    // A newer walkthrough invalidated us. Stop quietly.
+                    if (walkthroughPollRef.current) clearInterval(walkthroughPollRef.current)
+                    walkthroughPollRef.current = null
+                    return
+                }
                 if (Date.now() - pollStart > 5 * 60 * 1000) {
                     if (walkthroughPollRef.current) clearInterval(walkthroughPollRef.current);
                     walkthroughPollRef.current = null;
@@ -231,6 +249,7 @@ export function ChatInterface() {
                 }
                 try {
                     const models = await apiClient.engine.getModels()
+                    if (walkthroughTokenRef.current !== token) return
                     const target = models.find(m => m.id === modelId)
                     if (target?.downloaded) {
                         if (walkthroughPollRef.current) clearInterval(walkthroughPollRef.current)
@@ -238,6 +257,7 @@ export function ChatInterface() {
                         setWalkthroughStep('loading')
                         try {
                             const loadResult = await apiClient.engine.loadModel(modelId)
+                            if (walkthroughTokenRef.current !== token) return
                             setActiveModel({
                                 id: modelId,
                                 name: target.name,
@@ -249,6 +269,7 @@ export function ChatInterface() {
                             })
                             setWalkthroughStep('done')
                         } catch {
+                            if (walkthroughTokenRef.current !== token) return
                             setWalkthroughStep('error')
                             setWalkthroughError('Download succeeded but failed to load model. Try loading it from the Models tab.')
                         }
@@ -256,6 +277,7 @@ export function ChatInterface() {
                 } catch { /* poll failed, keep trying */ }
             }, 3000)
         } catch {
+            if (walkthroughTokenRef.current !== token) return
             setWalkthroughStep('error')
             setWalkthroughError('Failed to start download. Check that the backend is running.')
         }
@@ -470,18 +492,28 @@ export function ChatInterface() {
         localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         if (messages.length === 0) return;
+        // Capture the conversation id and the message snapshot at the time
+        // the user typed. If they switch to a different conversation within
+        // the 800ms debounce window, the captured targetConvId no longer
+        // matches the current ref — we abort the save instead of smearing
+        // convA's text into convB.
+        const targetConvId = activeConversationIdRef.current;
+        const messagesSnapshot = messages;
         saveTimeoutRef.current = setTimeout(async () => {
             try {
-                const convId = activeConversationIdRef.current;
-                if (convId) {
-                    await apiClient.conversations.update(convId, {
-                        messages, model_id: currentModelId || undefined,
+                if (activeConversationIdRef.current !== targetConvId) {
+                    // User changed conversations before the debounce fired.
+                    return;
+                }
+                if (targetConvId) {
+                    await apiClient.conversations.update(targetConvId, {
+                        messages: messagesSnapshot, model_id: currentModelId || undefined,
                     });
                 } else if (!creatingConvRef.current) {
                     creatingConvRef.current = true;
                     try {
                         const conv = await apiClient.conversations.create(
-                            autoTitle(messages), messages, currentModelId || undefined
+                            autoTitle(messagesSnapshot), messagesSnapshot, currentModelId || undefined
                         );
                         skipLoadRef.current = true;
                         setActiveConversationId(conv.id);

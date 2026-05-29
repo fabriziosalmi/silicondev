@@ -73,12 +73,20 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
     // to avoid unnecessary re-renders that cause visible flicker
     const lastStatsJson = useRef<string>('');
     const lastActiveModelId = useRef<string | null>(null);
+    // When the user (or any external caller) sets the active model, the
+    // background poll must NOT overwrite that decision while the backend
+    // is still catching up to the load. We pin a "manual set window" of
+    // a few seconds: poll skips its model update while the wall clock is
+    // before manualSetUntilRef.current.
+    const manualSetUntilRef = useRef<number>(0);
+    const MANUAL_SET_LOCK_MS = 10_000;
 
     // Wrap setActiveModel so external callers (TopBar) also sync the polling ref,
     // preventing the next poll from overwriting a valid model with null.
     const setActiveModel = React.useCallback((model: LoadedModel | null) => {
         const prev = lastActiveModelId.current;
         lastActiveModelId.current = model?.id ?? null;
+        manualSetUntilRef.current = Date.now() + MANUAL_SET_LOCK_MS;
         if (model && !prev) console.info('[GlobalState] Model loaded:', model.name);
         if (!model && prev) console.info('[GlobalState] Model unloaded');
         _setActiveModel(model);
@@ -103,17 +111,21 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
                         setSystemStats(stats as SystemStats);
                     }
 
-                    // Sync active model state with backend
-                    try {
-                        const { model } = await apiClient.engine.getActiveModel();
-                        if (!mounted) return;
-                        const newId = model?.id ?? null;
-                        if (newId !== lastActiveModelId.current) {
-                            lastActiveModelId.current = newId;
-                            setActiveModel(model);
+                    // Sync active model state with backend — but respect the
+                    // manual-set lock so a slow getActiveModel response doesn't
+                    // race against a fresh load triggered from TopBar.
+                    if (Date.now() >= manualSetUntilRef.current) {
+                        try {
+                            const { model } = await apiClient.engine.getActiveModel();
+                            if (!mounted) return;
+                            const newId = model?.id ?? null;
+                            if (newId !== lastActiveModelId.current) {
+                                lastActiveModelId.current = newId;
+                                _setActiveModel(model);
+                            }
+                        } catch {
+                            // ignore — endpoint may not exist on older backends
                         }
-                    } catch {
-                        // ignore — endpoint may not exist on older backends
                     }
                 }
             } catch {

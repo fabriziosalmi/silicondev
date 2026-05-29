@@ -1,15 +1,60 @@
 import asyncio
+import ipaddress
 import logging
+import socket
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
 _search_executor = ThreadPoolExecutor(max_workers=2)
 _SEARCH_TIMEOUT = 10  # seconds — abort DDG call if it hangs
 router = APIRouter()
+
+
+def _is_internal_target(url: str) -> bool:
+    """SSRF guard: reject URLs that resolve to loopback, link-local, or private
+    IP space.
+
+    DuckDuckGo returns whatever its index contains, so an attacker who can
+    influence a result could point us at http://127.0.0.1:8000 or
+    http://169.254.169.254 (cloud metadata). We refuse those before opening
+    the connection.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return True
+    if parsed.scheme not in ("http", "https"):
+        return True
+    host = parsed.hostname or ""
+    if not host:
+        return True
+    # Resolve once. If DNS lookup itself fails, treat as internal/unsafe.
+    try:
+        infos = socket.getaddrinfo(host, parsed.port or 80, proto=socket.IPPROTO_TCP)
+    except (socket.gaierror, OSError):
+        return True
+    for info in infos:
+        sockaddr = info[4]
+        ip_str = sockaddr[0]
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            return True
+        if (
+            ip.is_loopback
+            or ip.is_private
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        ):
+            return True
+    return False
 
 
 class SearchRequest(BaseModel):
@@ -38,11 +83,18 @@ async def _fetch_and_extract(url: str, timeout: float = 8.0) -> Optional[str]:
     except ImportError:
         return None
 
+    # SSRF guard: never let a search-result URL pull us into the local network
+    # or cloud metadata endpoints.
+    if _is_internal_target(url):
+        logger.warning(f"Refusing to fetch internal/private URL: {url}")
+        return None
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 url, timeout=aiohttp.ClientTimeout(total=timeout),
                 headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"},
+                allow_redirects=False,  # don't follow redirects into private space
             ) as resp:
                 if resp.status != 200:
                     return None
