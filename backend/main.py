@@ -221,14 +221,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS for local development securely
+# Configure CORS for local development securely. Defaults cover the Vite dev
+# server (5173) and the packaged Electron renderer (app://.). Extra origins
+# can be added via the SILICON_ALLOWED_ORIGINS env var (comma-separated)
+# without recompiling — useful when running a second renderer instance on
+# a non-default port or proxying through a tunnel.
+_DEFAULT_CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "app://.",
+]
+_extra_origins = [
+    o.strip() for o in os.environ.get("SILICON_ALLOWED_ORIGINS", "").split(",") if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "app://."
-    ],
+    allow_origins=_DEFAULT_CORS_ORIGINS + _extra_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

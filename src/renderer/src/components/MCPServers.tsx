@@ -287,6 +287,17 @@ export function MCPServers() {
                         <Card className="p-8 text-center bg-black/20 border-outline-subtle">
                             <Server className="w-8 h-8 text-foreground-subtle mx-auto mb-2" />
                             <p className="text-sm text-foreground-muted">{t('mcp.noServers')}</p>
+                            <p className="text-[11px] text-foreground-subtle mt-1 max-w-xs mx-auto">
+                                Pick one from the curated grid below, browse the live npm catalog, or use "+ Add Server" to register a custom command.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setShowAdd(true)}
+                                className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-accent-foreground text-xs font-semibold rounded-md transition-colors"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                {t('mcp.addServer')}
+                            </button>
                         </Card>
                     ) : (
                         <div className="space-y-2">

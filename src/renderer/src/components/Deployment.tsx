@@ -274,8 +274,9 @@ print(response.choices[0].message.content)`
                             <button
                                 type="button"
                                 onClick={() => handleCopy(`${endpoint}/v1`, 'endpoint')}
-                                className="text-foreground-subtle hover:text-foreground-muted transition-colors"
+                                className="h-7 w-7 flex items-center justify-center rounded text-foreground-subtle hover:text-foreground hover:bg-hover transition-colors"
                                 title="Copy endpoint URL"
+                                aria-label="Copy endpoint URL"
                             >
                                 {copiedId === 'endpoint' ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
                             </button>
