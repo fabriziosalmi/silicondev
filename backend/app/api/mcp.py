@@ -28,7 +28,8 @@ _MCP_PACKAGE_PREFIXES = (
     "@modelcontextprotocol/",
 )
 
-# Allowed MCP server commands (executables, not arbitrary shell commands)
+# Allowed MCP server commands (executables, not arbitrary shell commands).
+# Lowercase only — incoming command is normalized before lookup.
 _MCP_ALLOWED_COMMANDS = {
     "npx", "uvx", "node", "python", "python3", "deno", "bun",
     "docker", "podman",
@@ -43,15 +44,35 @@ _MCP_BLOCKED_PATTERNS = [
     ":(){ :|:& };:",
 ]
 
+# Shell metacharacters that have no legitimate reason to appear in an
+# individual MCP argv entry. spawn() should never interpret these, but if
+# the launcher ever flips shell=true, they become injection vectors. We
+# reject them up front instead of trusting the spawn flag.
+_MCP_FORBIDDEN_CHARS_IN_ARGS = ('|', '>', '<', '`', ';', '&', '\n', '\r', '$(')
+
 
 def _validate_mcp_command(command: str, args: list[str]) -> str | None:
     """Validate an MCP server command. Returns error string or None if safe."""
-    cmd_base = command.strip().split("/")[-1]  # basename
+    # Strip any leading path so `/usr/bin/NPX`, `Curl`, etc. still match
+    # the allow-list. The comparison is case-insensitive.
+    cmd_base = command.strip().split("/")[-1].lower()
     if cmd_base not in _MCP_ALLOWED_COMMANDS:
         return (
             f"Command '{command}' is not allowed. "
             f"Allowed commands: {', '.join(sorted(_MCP_ALLOWED_COMMANDS))}"
         )
+
+    # Per-arg metachar check. Each spawned argv entry is treated as opaque
+    # data by exec() — a `|` or `>` inside one should not start a pipeline,
+    # but defense-in-depth: reject upfront so a shell=True regression
+    # somewhere downstream can't escalate.
+    for i, arg in enumerate(args):
+        for ch in _MCP_FORBIDDEN_CHARS_IN_ARGS:
+            if ch in arg:
+                return f"Blocked: arg #{i} contains shell metacharacter '{ch}': {arg!r}"
+
+    # Whole-line pattern check. Lowercase once, then look for known-bad
+    # snippets like 'rm -rf /', '> /dev/', etc.
     full = f"{command} {' '.join(args)}".lower()
     for pat in _MCP_BLOCKED_PATTERNS:
         if pat in full:

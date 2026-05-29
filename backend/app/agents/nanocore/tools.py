@@ -114,9 +114,18 @@ class ShellSanitizer:
         "mkfs", "dd", "shutdown", "reboot", "poweroff", "alias", "unalias"
     }
     
-    # Phrases that should be blocked if they appear in any segment
+    # Phrases that should be blocked if they appear in any segment.
+    # Piping output into a shell interpreter or chaining a destructive
+    # operation after a validated command both turn safe input into
+    # arbitrary execution — block at the substring level since these have
+    # no legitimate use in agent-issued shells.
     FORBIDDEN_PHRASES = [
-        "rm -rf /", ":(){ :|:& };:", "> /dev/sda", "chmod -r 000 /"
+        "rm -rf /", ":(){ :|:& };:", "> /dev/sda", "chmod -r 000 /",
+        "| sh", "| bash", "| zsh", "|sh ", "|bash ", "|zsh ",
+        "; rm -rf", "&& rm -rf",
+        "> /etc/", "> /usr/", "> /var/", "> /system/", "> /library/",
+        "&> /etc/", "&> /usr/", "&> /var/",
+        "$(curl ", "$(wget ",  # block fetch piped into command substitution
     ]
     
     DANGEROUS_FILES = {
