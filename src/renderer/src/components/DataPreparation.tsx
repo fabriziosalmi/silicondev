@@ -40,8 +40,13 @@ export function DataPreparation() {
                 if (servers.length > 0) {
                     setMcpServer(prev => prev || servers[0].id)
                 }
-            }).catch(err => { console.error('Failed to load MCP servers:', err); setMcpServers([]) })
+            }).catch(err => {
+                console.error('Failed to load MCP servers:', err)
+                setMcpServers([])
+                toast(`Failed to load MCP servers: ${err instanceof Error ? err.message : 'unknown error'}`, 'error')
+            })
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is stable from context but adding it here would re-run on every render
     }, [dataMode])
 
     const loadFilePath = async (path: string) => {

@@ -80,6 +80,13 @@ export function IngestTab({ collections, selectedCollectionId, setSelectedCollec
                         type="button"
                         onClick={handleIngest}
                         disabled={uploading || collections.length === 0}
+                        title={
+                            uploading
+                                ? 'Ingestion in progress…'
+                                : collections.length === 0
+                                    ? 'Create a collection first (Collections tab)'
+                                    : 'Pick files to embed into this collection'
+                        }
                         className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         {uploading ? (

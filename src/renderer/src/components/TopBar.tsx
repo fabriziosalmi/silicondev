@@ -190,10 +190,12 @@ export function TopBar() {
                             onClick={toggleMenu}
                             disabled={!backendReady}
                             className="flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-dashed border-outline hover:border-outline-strong hover:bg-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={t('topbar.loadAModel')}
+                            title={backendReady ? t('topbar.loadAModel') : 'Backend is starting up…'}
                         >
                             <DatabaseZap size={11} className="text-foreground-subtle" />
-                            <span className="text-[10px] text-foreground-muted font-medium">{t('topbar.loadModel')}</span>
+                            <span className="text-[10px] text-foreground-muted font-medium">
+                                {backendReady ? t('topbar.loadModel') : 'Starting…'}
+                            </span>
                             <ChevronDown size={10} className="text-foreground-disabled" />
                         </button>
                     )}
