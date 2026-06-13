@@ -107,6 +107,7 @@ export interface FeedItem {
   ragSearchMeta?: RAGSearchMetadata
   scoutAlertMeta?: ScoutAlertMetadata
   planMeta?: PlanProposalMetadata
+  planProposalMeta?: PlanProposalMetadata
 }
 
 export interface TelemetryAction {
