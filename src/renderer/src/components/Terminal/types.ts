@@ -88,6 +88,11 @@ export interface PlanProposalMetadata {
   status: 'pending' | 'approved' | 'rejected' | 'executing' | 'done'
 }
 
+export interface PlanStepMetadata {
+  step: PlanStep
+  stepIndex: number
+}
+
 export interface FeedItem {
   id: string
   type: FeedItemType
@@ -108,6 +113,7 @@ export interface FeedItem {
   scoutAlertMeta?: ScoutAlertMetadata
   planMeta?: PlanProposalMetadata
   planProposalMeta?: PlanProposalMetadata
+  planStepMeta?: PlanStepMetadata
 }
 
 export interface TelemetryAction {
