@@ -6,6 +6,18 @@ export default defineConfig({
   base: '/silicondev/',
 
   head: [
+    // Tutto first-party. 'unsafe-inline' serve perche' VitePress emette
+    // uno script inline per il tema e stili inline.
+    [
+      'meta',
+      {
+        'http-equiv': 'Content-Security-Policy',
+        content:
+          "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
+          "style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+          "font-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'self'",
+      },
+    ],
     ['link', { rel: 'icon', href: '/silicondev/favicon.ico' }],
   ],
 
@@ -114,7 +126,7 @@ export default defineConfig({
     },
 
     footer: {
-      message: 'Released under the MIT License.',
+      message: 'Released under the MIT License.' + ' · <a href="https://fabriziosalmi.github.io/privacy">Privacy &amp; legal</a>',
       copyright: 'Based on Silicon-Studio by Riley Cleavenger.',
     },
   },
