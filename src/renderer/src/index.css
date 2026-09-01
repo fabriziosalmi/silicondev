@@ -66,8 +66,27 @@ input:not([type]) {
   outline-offset: 2px;
 }
 
+/* A range slider is keyboard-operable: arrow keys change the value, so it needs a
+   focus indicator like every other control. The generic ring above draws a long
+   thin box around the full-width track, which is presumably why it was switched
+   off here; the indicator belongs on the thumb, where the value is.
+
+   The two vendor pseudo-elements cannot share one rule. A selector list is
+   discarded whole if any selector in it is invalid, and each engine treats the
+   other's vendor pseudo-element as invalid, so a combined rule would apply in
+   neither browser. */
 input[type="range"]:focus-visible {
   outline: none;
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input[type="range"]:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* iOS-style tactile press on all interactive elements */
