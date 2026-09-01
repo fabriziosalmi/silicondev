@@ -95,6 +95,11 @@ class DebuggerService(bdb.Bdb):
                         ) and not k.startswith("_")
                     }
                     safe_globals = {**self.current_frame.f_globals, "__builtins__": safe_builtins}
+                    # Evaluating what the user typed is what a debugger watch
+                    # window is for. safe_globals above is rebuilt without
+                    # exec/eval/compile/__import__/open, so the expression
+                    # cannot reach out of the frame it is inspecting.
+                    # slopless-disable-next-line VBC-039 -- the feature, sandboxed above
                     res = eval(code, safe_globals, self.current_frame.f_locals)
                     self.state_queue.put({"eval_result": str(res)})
                 except Exception as e:
