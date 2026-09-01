@@ -72,8 +72,9 @@ input:not([type]) {
    off here; the indicator belongs on the thumb, where the value is.
 
    The two vendor pseudo-elements cannot share one rule. A selector list is
-   discarded whole if any selector in it is unknown, so Chromium would drop the
-   -moz- half and Firefox the -webkit- half, leaving no ring anywhere. */
+   discarded whole if any selector in it is invalid, and each engine treats the
+   other's vendor pseudo-element as invalid, so a combined rule would apply in
+   neither browser. */
 input[type="range"]:focus-visible {
   outline: none;
 }
