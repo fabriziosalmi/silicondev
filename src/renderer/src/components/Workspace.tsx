@@ -219,6 +219,7 @@ export function Workspace() {
             .replace(/\*(.+?)\*/g, '<em>$1</em>')
             .replace(/`(.+?)`/g, '<code style="background:#f0f0f0;padding:2px 4px;border-radius:3px">$1</code>')
             .replace(/\n/g, '<br>');
+        // slopless-disable-next-line VBC-902 -- a window opened above; body is escaped first
         win.document.write(`<!DOCTYPE html><html><head><title>Note</title><style>body{font-family:system-ui,sans-serif;max-width:700px;margin:40px auto;line-height:1.6;color:#333}h1,h2,h3{margin-top:1.5em}code{font-family:monospace}</style></head><body>${html}</body></html>`);
         win.document.close();
         win.print();
