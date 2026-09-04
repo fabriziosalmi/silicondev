@@ -82,6 +82,33 @@ jobs:
         working-directory: src/renderer
         run: npx playwright install chromium
 
+      # The E2E suite drives the real UI, and the UI talks to the backend through the Vite
+      # dev proxy (vite.config: /api and /health -> 127.0.0.1:8001). With nobody listening
+      # there, 35 of the 147 tests fail on ECONNREFUSED. The backend now boots on Linux
+      # too — MLX is Apple-Silicon-only and its three routers are simply not mounted.
+      - name: Set up Python for the backend
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -c constraints.txt -e .
+
+      - name: Start backend for E2E
+        working-directory: backend
+        env:
+          PORT: "8001"   # the port the Vite proxy targets
+        run: |
+          python main.py > /tmp/backend.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8001/health && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8001/health || { echo "backend did not come up:"; cat /tmp/backend.log; exit 1; }
+
       - name: Run E2E tests
         working-directory: src/renderer
         run: npx playwright test --reporter=html

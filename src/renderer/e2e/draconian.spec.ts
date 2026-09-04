@@ -218,7 +218,10 @@ test.describe('DRACONIAN — Terminal', () => {
     await ta.evaluate((el: HTMLTextAreaElement) => { el.style.height = '24px' })
     await ta.fill('echo draconian')
     await ta.press('Enter')
-    await expect(page.getByText('Done — 0s').first()).toBeVisible({ timeout: 6000 })
+    // The mocked SSE is consumed when its tool output shows up; the old "Done — 0s"
+    // badge is deliberately not rendered in inline terminal mode any more.
+    await expect(page.getByText('mock output').first()).toBeVisible({ timeout: 6000 })
+    await expect(page.getByText('echo draconian').first()).toBeVisible({ timeout: 6000 })
   })
 
   test('multiple commands stack in feed', async ({ page }) => {
@@ -226,9 +229,12 @@ test.describe('DRACONIAN — Terminal', () => {
     await ta.evaluate((el: HTMLTextAreaElement) => { el.style.height = '24px' })
     await ta.fill('cmd1')
     await ta.press('Enter')
-    await expect(page.getByText('Done — 0s').first()).toBeVisible({ timeout: 5000 })
+    // One tool output per command: that is what says the SSE was consumed, now that the
+    // "Done — 0s" badge is deliberately gone from inline terminal mode.
+    await expect(page.getByText('mock output')).toHaveCount(1, { timeout: 5000 })
     await ta.fill('cmd2')
     await ta.press('Enter')
+    await expect(page.getByText('mock output')).toHaveCount(2, { timeout: 5000 })
     // Both echoed in feed
     await expect(page.getByText('cmd1').first()).toBeVisible({ timeout: 5000 })
     await expect(page.getByText('cmd2').first()).toBeVisible({ timeout: 5000 })
