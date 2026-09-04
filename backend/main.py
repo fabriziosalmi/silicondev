@@ -47,10 +47,6 @@ try:
     logger.info("Imported monitor router")
     from app.api.preparation import router as preparation_router
     logger.info("Imported preparation router")
-    from app.api.engine import router as engine_router
-    logger.info("Imported engine router")
-    from app.api.deployment import router as deployment_router
-    logger.info("Imported deployment router")
     from app.api.preview import router as preview_router
     logger.info("Imported preview router")
     from app.api.rag import router as rag_router
@@ -77,14 +73,35 @@ try:
     logger.info("Imported workspace router")
     from app.api.memory import router as memory_router
     logger.info("Imported memory router")
-    from app.api.openai import router as openai_router
-    logger.info("Imported openai router")
     from app.api.coder_loop import router as coder_loop_router
     logger.info("Imported coder_loop router")
 
 except Exception as e:
     logger.critical(f"Import error: {e}", exc_info=True)
     sys.exit(1)
+
+# Three of the nineteen routers reach MLX — engine, deployment, and openai (which
+# re-exports app.api.engine) — and MLX ships wheels only for Apple Silicon (mlx-lm is
+# declared with that marker in pyproject.toml). On any other platform they are simply
+# not mounted: the other sixteen — preview, notes, terminal, workspace, search... — do
+# not touch MLX and work fine, which is what lets the browser UI and its E2E suite run
+# on Linux CI. On a Mac nothing changes: everything is imported and mounted as before.
+MLX_AVAILABLE = True
+try:
+    from app.api.engine import router as engine_router
+    logger.info("Imported engine router")
+    from app.api.deployment import router as deployment_router
+    logger.info("Imported deployment router")
+    from app.api.openai import router as openai_router   # re-exports app.api.engine
+    logger.info("Imported openai router")
+except ImportError as e:
+    MLX_AVAILABLE = False
+    engine_router = deployment_router = openai_router = None
+    logger.warning(
+        "MLX not available (%s): /api/engine, /api/deployment and the OpenAI-compatible "
+        "routes are not mounted. Local inference needs Apple Silicon; everything else works.",
+        e,
+    )
 
 def _start_parent_watchdog():
     """If launched by Electron, poll the parent PID every 5s.
@@ -266,8 +283,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 app.include_router(monitor_router, prefix="/api/monitor", tags=["monitor"])
 app.include_router(preparation_router, prefix="/api/preparation", tags=["preparation"])
-app.include_router(engine_router, prefix="/api/engine", tags=["engine"])
-app.include_router(deployment_router, prefix="/api/deployment", tags=["deployment"])
+if MLX_AVAILABLE:
+    app.include_router(engine_router, prefix="/api/engine", tags=["engine"])
+    app.include_router(deployment_router, prefix="/api/deployment", tags=["deployment"])
+    app.include_router(openai_router, tags=["openai"])
 app.include_router(preview_router, prefix="/api/preview", tags=["preview"])
 app.include_router(rag_router, prefix="/api/rag", tags=["rag"])
 app.include_router(agents_router, prefix="/api/agents", tags=["agents"])
@@ -281,7 +300,6 @@ app.include_router(terminal_router, prefix="/api/terminal", tags=["terminal"])
 app.include_router(codebase_router, prefix="/api/codebase", tags=["codebase"])
 app.include_router(workspace_router, prefix="/api/workspace", tags=["workspace"])
 app.include_router(memory_router, prefix="/api/memory", tags=["memory"])
-app.include_router(openai_router, tags=["openai"])
 app.include_router(coder_loop_router, prefix="/api/coder", tags=["coder"])
 
 
