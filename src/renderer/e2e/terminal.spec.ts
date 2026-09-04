@@ -29,7 +29,7 @@ test.describe('Terminal Page', () => {
     await expect(textarea).toHaveValue('ls -la')
   })
 
-  test('submit command shows Done info', async ({ page }) => {
+  test('submit command echoes it and shows the output', async ({ page }) => {
     const textarea = page.locator('textarea').first()
     await textarea.evaluate((el: HTMLTextAreaElement) => {
       el.style.height = '24px'
@@ -37,8 +37,11 @@ test.describe('Terminal Page', () => {
     await textarea.fill('echo hello')
     await textarea.press('Enter')
 
-    // Wait for the "Done" info item to appear (confirms SSE was consumed)
-    await expect(page.getByText('Done — 0s').first()).toBeVisible({ timeout: 5000 })
+    // The mocked SSE has been consumed when its tool output is on screen. This used to
+    // wait for a "Done — 0s" badge, but inline terminal mode deliberately stopped
+    // rendering it (AgentTerminal, case 'done') so the feed reads like a real shell —
+    // the test kept waiting for something the UI no longer draws.
+    await expect(page.getByText('mock output').first()).toBeVisible({ timeout: 5000 })
 
     // Verify the command text appears in the feed
     await expect(page.getByText('echo hello').first()).toBeVisible({ timeout: 5000 })
