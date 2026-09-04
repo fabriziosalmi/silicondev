@@ -7,10 +7,11 @@ requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.29.0",
-    # MLX only ships wheels for Apple Silicon: mlx-lm installs anywhere but importing it
-    # pulls `mlx.core`, which does not exist elsewhere. With this marker the dependency is
-    # simply absent off-Mac, and main.py leaves /api/engine and /api/deployment unmounted
-    # instead of dying at import. Nothing changes on a Mac.
+    # MLX only ships wheels for Apple Silicon: without a marker mlx-lm installs on any OS,
+    # but importing it pulls `mlx.core`, which does not exist elsewhere. With this marker
+    # the dependency is simply absent off-Mac, and main.py leaves /api/engine,
+    # /api/deployment and the OpenAI-compatible routes unmounted instead of dying at
+    # import. Nothing changes on a Mac: there a missing MLX is still a fatal error.
     "mlx-lm>=0.1.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
     "pandas>=2.2.0",
     "presidio-analyzer>=2.2.351",

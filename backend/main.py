@@ -9,6 +9,7 @@ from app.middleware.rate_limit import RateLimitMiddleware
 from app.version import __version__
 import uvicorn
 import os
+import platform
 import sys
 import logging
 from logging.handlers import RotatingFileHandler
@@ -86,6 +87,11 @@ except Exception as e:
 # not mounted: the other sixteen — preview, notes, terminal, workspace, search... — do
 # not touch MLX and work fine, which is what lets the browser UI and its E2E suite run
 # on Linux CI. On a Mac nothing changes: everything is imported and mounted as before.
+# Where MLX is supposed to exist, its absence is a broken install, not a platform fact:
+# there we still die at import, exactly as before. Degrading quietly only happens where
+# the wheels genuinely do not exist.
+_MLX_EXPECTED = sys.platform == "darwin" and platform.machine() == "arm64"
+
 MLX_AVAILABLE = True
 try:
     from app.api.engine import router as engine_router
@@ -95,12 +101,22 @@ try:
     from app.api.openai import router as openai_router   # re-exports app.api.engine
     logger.info("Imported openai router")
 except ImportError as e:
+    if _MLX_EXPECTED:
+        logger.critical(
+            "MLX import failed on Apple Silicon, where it must work: this is a broken "
+            "install, not an unsupported platform. Refusing to start without "
+            "/api/engine, /api/deployment and the OpenAI-compatible routes.",
+            exc_info=True,
+        )
+        sys.exit(1)
     MLX_AVAILABLE = False
     engine_router = deployment_router = openai_router = None
     logger.warning(
-        "MLX not available (%s): /api/engine, /api/deployment and the OpenAI-compatible "
-        "routes are not mounted. Local inference needs Apple Silicon; everything else works.",
-        e,
+        "MLX not available on %s/%s (%s): /api/engine, /api/deployment and the "
+        "OpenAI-compatible routes are not mounted. Local inference needs Apple Silicon; "
+        "everything else works.",
+        sys.platform, platform.machine(), e,
+        exc_info=True,
     )
 
 def _start_parent_watchdog():
