@@ -781,14 +781,22 @@ export async function mockBackendAPIs(page: Page) {
 
 /* ── Navigation helper ────────────────────────────────────── */
 
-/** Click a sidebar navigation item by label text. */
+/** Click a sidebar navigation item by label text.
+ *
+ * Matched on the START of the accessible name, not the whole of it: an item may carry a
+ * decorative badge that ends up inside its name — Terminal, Code and Notes render as
+ * "Terminal EXP", "Code EXP", "Notes EXP" (App.tsx renders the EXP span as plain text).
+ * An exact match silently stopped finding those three, and the tab-navigation tests then
+ * timed out waiting for a button that is on screen the whole time.
+ */
 export async function navigateTo(page: Page, label: string) {
-  const navBtn = page.locator(`nav >> role=button[name="${label}"]`)
+  const byLabel = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`)
+  const navBtn = page.locator('nav').getByRole('button', { name: byLabel })
   if (await navBtn.count() > 0) {
-    await navBtn.click()
+    await navBtn.first().click()
   } else {
     // Settings lives outside <nav>
-    await page.locator(`role=button[name="${label}"]`).first().click()
+    await page.getByRole('button', { name: byLabel }).first().click()
   }
 }
 

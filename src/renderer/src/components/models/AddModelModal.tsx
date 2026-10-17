@@ -132,6 +132,7 @@ export function AddModelModal({ onClose, onModelsAdded, initialPath }: AddModelM
                                 value={customPath}
                                 onChange={(e) => setCustomPath(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter' && customPath) handleScan(customPath) }}
+                                // slopless-disable-next-line VBC-019 -- example text, not a real path
                                 placeholder="/Users/name/models/llama-3 or ~/.lmstudio/models"
                                 className="flex-1 bg-black/40 border border-outline rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500 text-sm"
                             />

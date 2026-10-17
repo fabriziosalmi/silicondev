@@ -3,7 +3,7 @@
 
 fastapi==0.134.0
 uvicorn==0.41.0
-mlx-lm==0.30.7
+mlx-lm==0.30.7; sys_platform == 'darwin' and platform_machine == 'arm64'
 pandas==3.0.1
 presidio-analyzer==2.2.359
 presidio-anonymizer==2.2.361
@@ -22,7 +22,7 @@ aiofiles==25.1.0
 hnswlib==0.8.0
 
 # Optional "vision" extra
-mlx-vlm==0.3.12
+mlx-vlm==0.3.12; sys_platform == 'darwin' and platform_machine == 'arm64'
 
 # Dev extras
 pytest==9.0.2

@@ -154,6 +154,7 @@ export function Deployment() {
         return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
     }
 
+    // slopless-disable-next-line VBC-034 -- the local server; the ternary resolves to loopback
     const endpoint = `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}`
 
     const curlSnippet = `curl ${endpoint}/v1/chat/completions \\
