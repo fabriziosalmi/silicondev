@@ -86,7 +86,7 @@
     },
     "devDependencies": {
         "concurrently": "^9.2.1",
-        "electron": "^39.8.10",
+        "electron": "^41.10.6",
         "electron-builder": "^26.8.1",
         "typescript": "^5.3.3",
         "wait-on": "^9.0.10"
@@ -94,7 +94,7 @@
     "overrides": {
         "axios": "^1.16.0",
         "lodash": "^4.18.1",
-        "@xmldom/xmldom": "^0.8.13",
+        "@xmldom/xmldom": "^0.8.15",
         "shell-quote": "^1.9.0"
     }
 }
