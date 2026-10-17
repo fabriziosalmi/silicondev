@@ -4,6 +4,9 @@ export default defineConfig({
   title: 'SiliconDev',
   description: 'Local LLM development environment for Apple Silicon',
   base: '/silicondev/',
+  // The hostname carries the base path on purpose: VitePress joins it with each
+  // page's route, so without it every URL in the sitemap would point at a 404.
+  sitemap: { hostname: 'https://fabriziosalmi.github.io/silicondev/' },
 
   head: [
     // Everything this site loads is first-party. 'unsafe-inline' is required
