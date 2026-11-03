@@ -80,7 +80,9 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: src/renderer
-        run: npx playwright install chromium
+        # Playwright >= 1.61 is required on ubuntu-latest (Ubuntu 26.04); --with-deps
+        # installs the system libraries chromium needs on that image.
+        run: npx playwright install --with-deps chromium
 
       # The E2E suite drives the real UI, and the UI talks to the backend through the Vite
       # dev proxy (vite.config: /api and /health -> 127.0.0.1:8001). With nobody listening
