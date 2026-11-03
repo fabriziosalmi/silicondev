@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # Security updates only: open-pull-requests-limit 0 keeps version updates
+  # off, while security updates still honour the ignore rules below.
+  - package-ecosystem: "npm"
+    directory: "/src/renderer"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    ignore:
+      # Tailwind 4 drops the PostCSS plugin used in vite.config.ts and needs
+      # a planned migration of the theme and utilities.
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
