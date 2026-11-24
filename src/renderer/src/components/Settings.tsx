@@ -252,7 +252,7 @@ export function Settings() {
                                 title: '[Bug] ',
                                 body: `## Description\n\nDescribe the bug...\n\n## System Info\n\n- OS: ${sysInfo}\n- App Version: ${__APP_VERSION__}\n\n## Steps to Reproduce\n\n1. \n2. \n3. \n\n## Expected Behavior\n\n\n## Logs\n\nPaste relevant logs from Settings > Debug Logs\n`,
                             })
-                            window.open(`https://github.com/fabriziosalmi/silicondev/issues/new?${params.toString()}`, '_blank')
+                            window.open(`https://github.com/fabriziosalmi/silicondev/issues/new?${params.toString()}`, '_blank', 'noopener,noreferrer')
                         }}
                         className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded text-[11px] text-foreground-muted hover:text-foreground hover:bg-hover transition-colors"
                     >
