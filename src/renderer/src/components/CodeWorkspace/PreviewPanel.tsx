@@ -85,7 +85,7 @@ export function PreviewPanel({
                         </button>
                         {previewUrl && (
                             <button
-                                onClick={() => window.open(previewUrl, '_blank')}
+                                onClick={() => window.open(previewUrl, '_blank', 'noopener,noreferrer')}
                                 className="p-1 rounded hover:bg-hover text-foreground-muted hover:text-foreground-secondary transition-colors"
                                 title="Open in browser"
                             >
